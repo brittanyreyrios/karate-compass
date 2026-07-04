@@ -30,7 +30,7 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Iron Dojo Parent Portal" },
+      { title: "Dashboard — TIGER'S DEN Parent Portal" },
       {
         name: "description",
         content:
@@ -53,13 +53,15 @@ function Dashboard() {
   const progressPct = Math.round((beltIndex / totalBelts) * 100);
 
   const daysToTest = useMemo(() => {
-    const diff = new Date(student.next_test_date).getTime() - Date.now();
+    const now = typeof window !== 'undefined' ? Date.now() : 0;
+    const diff = new Date(student.next_test_date).getTime() - now;
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [student.next_test_date]);
   const classesToTest = Math.max(1, Math.round(daysToTest / 2)); // ~3 classes/week
 
+  const now = typeof window !== 'undefined' ? Date.now() : 0;
   const yearsTraining = (
-    (Date.now() - new Date(student.start_date).getTime()) /
+    (now - new Date(student.start_date).getTime()) /
     (1000 * 60 * 60 * 24 * 365)
   ).toFixed(1);
 

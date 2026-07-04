@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Iron Dojo — Parent Portal" },
+      { title: "TIGER'S DEN · Parent Portal" },
       { name: "description", content: "Track your child's martial arts journey: belt progression, attendance, upcoming tests, tournaments and school announcements." },
-      { name: "author", content: "Iron Dojo" },
-      { property: "og:title", content: "Iron Dojo — Parent Portal" },
+      { name: "author", content: "TIGER'S DEN" },
+      { property: "og:title", content: "TIGER'S DEN · Parent Portal" },
       { property: "og:description", content: "Track your child's martial arts journey: belt progression, attendance, upcoming tests, tournaments and school announcements." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -134,7 +134,7 @@ function RootComponent() {
               <SidebarTrigger className="text-foreground" />
               <div className="h-4 w-px bg-border" />
               <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Iron Dojo · Parent Portal
+                TIGER'S DEN · PARENT PORTAL
               </span>
             </header>
             <main className="flex-1">

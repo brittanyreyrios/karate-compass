@@ -32,7 +32,7 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <div className="font-display text-lg font-bold uppercase leading-none tracking-wider text-sidebar-foreground">
-              Iron Dojo
+              TIGER'S DEN
             </div>
             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               Parent Portal
