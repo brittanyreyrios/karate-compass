@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Play, Clock, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { BELT_PROGRESSION, CURRICULUM, MOCK_PROFILE } from "@/lib/mock-data";
+import { BELT_PROGRESSION, CURRICULUM } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/curriculum")({
+export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
     meta: [
-      { title: "Belt Curriculum — Iron Dojo" },
+      { title: "Belt Curriculum — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "Video-based technique library organized by belt rank." },
     ],
   }),
@@ -14,23 +16,27 @@ export const Route = createFileRoute("/curriculum")({
 });
 
 function Curriculum() {
-  const student = MOCK_PROFILE.students[0];
-  const currentIdx = BELT_PROGRESSION.findIndex(
-    (b) => b.name.toLowerCase() === student.current_belt.toLowerCase(),
-  );
+  const { data: students } = useQuery({
+    queryKey: ["students-mine"],
+    queryFn: async () => {
+      const { data } = await supabase.from("students").select("*").order("created_at");
+      return data ?? [];
+    },
+  });
+  const student = students?.[0];
+  const currentIdx = student
+    ? BELT_PROGRESSION.findIndex((b) => b.name.toLowerCase() === student.current_belt.toLowerCase())
+    : 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <div className="text-[10px] uppercase tracking-[0.3em] text-primary">
-          Technique library
-        </div>
+        <div className="text-[10px] uppercase tracking-[0.3em] text-primary">Technique library</div>
         <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
           Belt <span className="text-gradient-red">Curriculum</span>
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Every technique required to advance. Videos unlock as your child progresses through
-          each belt rank.
+          Every technique required to advance. Videos unlock as your child progresses through each belt rank.
         </p>
       </header>
 
@@ -39,41 +45,23 @@ function Curriculum() {
           const idx = BELT_PROGRESSION.findIndex((b) => b.name === c.belt);
           const unlocked = idx <= currentIdx + 1;
           const isCurrent = idx === currentIdx;
-
           return (
-            <section
-              key={c.belt}
-              className={`rounded-2xl border p-6 transition-all ${
-                isCurrent
-                  ? "border-primary/60 bg-gradient-hero shadow-red-glow"
-                  : "border-border bg-card"
-              }`}
-            >
+            <section key={c.belt} className={`rounded-2xl border p-6 transition-all ${isCurrent ? "border-primary/60 bg-gradient-hero shadow-red-glow" : "border-border bg-card"}`}>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
-                  <div
-                    className="h-14 w-3 shrink-0 rounded-sm"
-                    style={{ backgroundColor: BELT_PROGRESSION.find((b) => b.name === c.belt)!.color }}
-                  />
+                  <div className="h-14 w-3 shrink-0 rounded-sm" style={{ backgroundColor: BELT_PROGRESSION.find((b) => b.name === c.belt)!.color }} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="truncate font-display text-2xl font-bold uppercase">
-                        {c.belt} Belt
-                      </h2>
-                      {isCurrent && (
-                        <Badge className="bg-primary text-primary-foreground">Current</Badge>
-                      )}
+                      <h2 className="truncate font-display text-2xl font-bold uppercase">{c.belt} Belt</h2>
+                      {isCurrent && <Badge className="bg-primary text-primary-foreground">Current</Badge>}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {c.duration}
-                      </span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {c.duration}</span>
                       <span>{c.techniques.length} techniques</span>
                     </div>
                   </div>
                 </div>
               </div>
-
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {c.techniques.map((t, i) => (
                   <VideoCard key={t} title={t} idx={i + 1} unlocked={unlocked} />
@@ -87,25 +75,10 @@ function Curriculum() {
   );
 }
 
-function VideoCard({
-  title,
-  idx,
-  unlocked,
-}: {
-  title: string;
-  idx: number;
-  unlocked: boolean;
-}) {
+function VideoCard({ title, idx, unlocked }: { title: string; idx: number; unlocked: boolean }) {
   return (
-    <div
-      className={`group relative overflow-hidden rounded-xl border transition-all ${
-        unlocked
-          ? "cursor-pointer border-border bg-background hover:border-primary/50"
-          : "border-border bg-background/40"
-      }`}
-    >
+    <div className={`group relative overflow-hidden rounded-xl border transition-all ${unlocked ? "cursor-pointer border-border bg-background hover:border-primary/50" : "border-border bg-background/40"}`}>
       <div className="relative aspect-video bg-gradient-to-br from-secondary via-secondary/60 to-background">
-        {/* Placeholder poster */}
         <div className="absolute inset-0 grid place-items-center">
           {unlocked ? (
             <div className="grid h-14 w-14 place-items-center rounded-full bg-primary shadow-red-glow transition-transform group-hover:scale-110">
