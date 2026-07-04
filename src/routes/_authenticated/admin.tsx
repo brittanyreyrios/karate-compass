@@ -189,19 +189,16 @@ function AnnouncementForm() {
   const post = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      const payload: Record<string, unknown> = {
+      const payload = {
         category,
         title: title.trim(),
         body: body.trim(),
         created_by: u.user?.id ?? null,
+        tag: category === "school_news" ? (tag.trim() || "News") : null,
+        discipline: category === "tournament" ? discipline : null,
+        location: category === "tournament" ? location.trim() : null,
+        event_date: category === "tournament" && eventDate ? eventDate : null,
       };
-      if (category === "school_news") {
-        payload.tag = tag.trim() || "News";
-      } else {
-        payload.discipline = discipline;
-        payload.location = location.trim();
-        payload.event_date = eventDate || null;
-      }
       const { error } = await supabase.from("announcements").insert(payload);
       if (error) throw error;
     },
