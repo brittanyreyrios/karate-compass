@@ -131,11 +131,13 @@ export const TOURNAMENTS = [
 
 export const CURRICULUM = [
   { belt: "White", techniques: ["Basic stance", "Front kick", "Rear naked escape"], duration: "8 min" },
-  { belt: "Yellow", techniques: ["Roundhouse kick", "Hip throw", "Guard retention"], duration: "12 min" },
+  { belt: "Gold", techniques: ["Roundhouse kick", "Hip throw", "Guard retention"], duration: "12 min" },
   { belt: "Orange", techniques: ["Side kick combo", "Armbar from guard", "Scissor sweep"], duration: "15 min" },
   { belt: "Green", techniques: ["Spinning back kick", "Triangle choke", "Kimura"], duration: "18 min" },
-  { belt: "Blue", techniques: ["Flying knee", "Berimbolo", "Deep half guard"], duration: "22 min" },
-  { belt: "Purple", techniques: ["Advanced combos", "Leg lock system", "Guard passing series"], duration: "28 min" },
+  { belt: "Purple", techniques: ["Advanced combos", "Leg lock system", "Guard passing series"], duration: "22 min" },
+  { belt: "Blue", techniques: ["Flying knee", "Berimbolo", "Deep half guard"], duration: "26 min" },
+  { belt: "Brown", techniques: ["Competition drills", "Advanced sweeps", "Chain submissions"], duration: "30 min" },
+  { belt: "Black", techniques: ["Instructor curriculum", "Kata mastery", "Sparring leadership"], duration: "35 min" },
 ];
 
 export const GALLERY = Array.from({ length: 12 }).map((_, i) => ({
