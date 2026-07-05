@@ -7,15 +7,16 @@ export type Belt = {
 
 export const BELT_PROGRESSION: Belt[] = [
   { name: "White", color: "#f8fafc", order: 0 },
-  { name: "Yellow", color: "#facc15", order: 1 },
+  { name: "Gold", color: "#f5c518", order: 1 },
   { name: "Orange", color: "#fb923c", order: 2 },
   { name: "Green", color: "#22c55e", order: 3 },
-  { name: "Blue", color: "#3b82f6", order: 4 },
-  { name: "Purple", color: "#a855f7", order: 5 },
+  { name: "Purple", color: "#a855f7", order: 4 },
+  { name: "Blue", color: "#3b82f6", order: 5 },
   { name: "Brown", color: "#92400e", order: 6 },
-  { name: "Red", color: "#dc2626", order: 7 },
-  { name: "Black", color: "#0a0a0a", order: 8 },
+  { name: "Black", color: "#0a0a0a", order: 7 },
 ];
+
+export const CLASS_NAMES = ["Little Tigers", "Juniors", "Teens/Adults"] as const;
 
 export type Student = {
   id: string;
