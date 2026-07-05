@@ -7,15 +7,16 @@ export type Belt = {
 
 export const BELT_PROGRESSION: Belt[] = [
   { name: "White", color: "#f8fafc", order: 0 },
-  { name: "Yellow", color: "#facc15", order: 1 },
+  { name: "Gold", color: "#f5c518", order: 1 },
   { name: "Orange", color: "#fb923c", order: 2 },
   { name: "Green", color: "#22c55e", order: 3 },
-  { name: "Blue", color: "#3b82f6", order: 4 },
-  { name: "Purple", color: "#a855f7", order: 5 },
+  { name: "Purple", color: "#a855f7", order: 4 },
+  { name: "Blue", color: "#3b82f6", order: 5 },
   { name: "Brown", color: "#92400e", order: 6 },
-  { name: "Red", color: "#dc2626", order: 7 },
-  { name: "Black", color: "#0a0a0a", order: 8 },
+  { name: "Black", color: "#0a0a0a", order: 7 },
 ];
+
+export const CLASS_NAMES = ["Little Tigers", "Juniors", "Teens/Adults"] as const;
 
 export type Student = {
   id: string;
@@ -130,11 +131,13 @@ export const TOURNAMENTS = [
 
 export const CURRICULUM = [
   { belt: "White", techniques: ["Basic stance", "Front kick", "Rear naked escape"], duration: "8 min" },
-  { belt: "Yellow", techniques: ["Roundhouse kick", "Hip throw", "Guard retention"], duration: "12 min" },
+  { belt: "Gold", techniques: ["Roundhouse kick", "Hip throw", "Guard retention"], duration: "12 min" },
   { belt: "Orange", techniques: ["Side kick combo", "Armbar from guard", "Scissor sweep"], duration: "15 min" },
   { belt: "Green", techniques: ["Spinning back kick", "Triangle choke", "Kimura"], duration: "18 min" },
-  { belt: "Blue", techniques: ["Flying knee", "Berimbolo", "Deep half guard"], duration: "22 min" },
-  { belt: "Purple", techniques: ["Advanced combos", "Leg lock system", "Guard passing series"], duration: "28 min" },
+  { belt: "Purple", techniques: ["Advanced combos", "Leg lock system", "Guard passing series"], duration: "22 min" },
+  { belt: "Blue", techniques: ["Flying knee", "Berimbolo", "Deep half guard"], duration: "26 min" },
+  { belt: "Brown", techniques: ["Competition drills", "Advanced sweeps", "Chain submissions"], duration: "30 min" },
+  { belt: "Black", techniques: ["Instructor curriculum", "Kata mastery", "Sparring leadership"], duration: "35 min" },
 ];
 
 export const GALLERY = Array.from({ length: 12 }).map((_, i) => ({

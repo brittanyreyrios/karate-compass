@@ -81,6 +81,7 @@ export type Database = {
         Row: {
           active: boolean
           attendance_count: number
+          class_name: string
           created_at: string
           current_belt: string
           first_name: string
@@ -88,12 +89,14 @@ export type Database = {
           last_name: string
           next_test_date: string | null
           parent_id: string
+          points: number
           start_date: string
           updated_at: string
         }
         Insert: {
           active?: boolean
           attendance_count?: number
+          class_name?: string
           created_at?: string
           current_belt?: string
           first_name: string
@@ -101,12 +104,14 @@ export type Database = {
           last_name: string
           next_test_date?: string | null
           parent_id: string
+          points?: number
           start_date?: string
           updated_at?: string
         }
         Update: {
           active?: boolean
           attendance_count?: number
+          class_name?: string
           created_at?: string
           current_belt?: string
           first_name?: string
@@ -114,6 +119,7 @@ export type Database = {
           last_name?: string
           next_test_date?: string | null
           parent_id?: string
+          points?: number
           start_date?: string
           updated_at?: string
         }
