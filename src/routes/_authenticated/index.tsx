@@ -234,8 +234,10 @@ function Dashboard() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-3">
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={<Trophy className="h-5 w-5" />} label="Current Belt" value={`${student.current_belt} Belt`} sub={`Rank ${Math.max(0, beltIndex) + 1} of ${BELT_PROGRESSION.length}`} />
+        <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
+        <StatCard icon={<Sparkles className="h-5 w-5" />} label="Dojo Points" value={`${student.points}`} sub="earned on the mat" highlight />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Total Attendance" value={`${student.attendance_count}`} sub="classes attended" />
         <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={new Date(student.start_date).toLocaleDateString(undefined, { month: "short", year: "numeric" })} sub={`${yearsTraining} years on the mat`} />
       </section>
