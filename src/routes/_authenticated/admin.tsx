@@ -611,3 +611,195 @@ function AnnouncementForm() {
     </form>
   );
 }
+
+/* ---------- CLASS SCHEDULES & TESTING ---------- */
+
+const MAX_CLASSES = 11;
+
+type ClassSchedule = {
+  id: string;
+  class_name: string;
+  next_test_date: string | null;
+  updated_at: string;
+};
+
+function ClassSchedulesTab() {
+  const qc = useQueryClient();
+  const [newName, setNewName] = useState("");
+
+  const schedulesQ = useQuery({
+    queryKey: ["class-schedules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("class_schedules")
+        .select("id, class_name, next_test_date, updated_at")
+        .order("class_name");
+      if (error) throw error;
+      return (data ?? []) as ClassSchedule[];
+    },
+  });
+
+  const addClass = useMutation({
+    mutationFn: async () => {
+      const name = newName.trim();
+      if (!name) throw new Error("Enter a class name.");
+      if ((schedulesQ.data ?? []).length >= MAX_CLASSES) {
+        throw new Error(`Maximum of ${MAX_CLASSES} classes reached.`);
+      }
+      const { error } = await supabase
+        .from("class_schedules")
+        .insert({ class_name: name });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Class added");
+      setNewName("");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeClass = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("class_schedules").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Class removed");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const list = schedulesQ.data ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              <h2 className="font-display text-xl font-bold uppercase">Class Schedules &amp; Testing</h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Set a mass testing date for each class. Saving pushes that date to every enrolled student's countdown.
+            </p>
+          </div>
+          <Badge variant="outline" className="border-primary/40 text-primary">
+            {list.length} / {MAX_CLASSES} classes
+          </Badge>
+        </div>
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); addClass.mutate(); }}
+          className="mt-5 flex flex-wrap items-end gap-3"
+        >
+          <div className="min-w-[220px] flex-1">
+            <Label>New class name</Label>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Adults BJJ, Competition Team…"
+              className="mt-1"
+              disabled={list.length >= MAX_CLASSES}
+            />
+          </div>
+          <Button
+            type="submit"
+            className="bg-gradient-red"
+            disabled={addClass.isPending || list.length >= MAX_CLASSES}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Add class
+          </Button>
+        </form>
+
+        <div className="mt-6 grid gap-3">
+          {schedulesQ.isLoading && <p className="text-sm text-muted-foreground">Loading classes…</p>}
+          {!schedulesQ.isLoading && list.length === 0 && (
+            <p className="text-sm text-muted-foreground">No classes yet. Add one above to get started.</p>
+          )}
+          {list.map((c) => (
+            <ClassScheduleRow key={c.id} schedule={c} onRemove={() => removeClass.mutate(c.id)} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClassScheduleRow({
+  schedule,
+  onRemove,
+}: {
+  schedule: ClassSchedule;
+  onRemove: () => void;
+}) {
+  const qc = useQueryClient();
+  const [date, setDate] = useState(schedule.next_test_date ?? "");
+
+  useEffect(() => {
+    setDate(schedule.next_test_date ?? "");
+  }, [schedule.next_test_date]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!date) throw new Error("Pick a date first.");
+      const { error: schedErr } = await supabase
+        .from("class_schedules")
+        .update({ next_test_date: date })
+        .eq("id", schedule.id);
+      if (schedErr) throw schedErr;
+
+      const { error: stuErr, count } = await supabase
+        .from("students")
+        .update({ next_test_date: date }, { count: "exact" })
+        .eq("class_name", schedule.class_name);
+      if (stuErr) throw stuErr;
+      return count ?? 0;
+    },
+    onSuccess: (count) => {
+      toast.success(`Testing date pushed to ${count} student${count === 1 ? "" : "s"} in ${schedule.class_name}`);
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["students-mine"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const daysAway = date
+    ? Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 86400000))
+    : null;
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-4">
+      <div className="min-w-[160px] flex-1">
+        <div className="font-display text-lg font-bold uppercase">{schedule.class_name}</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {schedule.next_test_date
+            ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
+            : "No test scheduled"}
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">Next mass testing date</Label>
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="mt-1 w-[180px]"
+        />
+      </div>
+      <Button
+        className="bg-gradient-red"
+        disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
+        onClick={() => save.mutate()}
+      >
+        <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
+      </Button>
+      <Button variant="ghost" size="icon" onClick={onRemove} title="Remove class">
+        <Trash2 className="h-4 w-4 text-muted-foreground" />
+      </Button>
+    </div>
+  );
+}
