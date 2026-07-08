@@ -81,6 +81,7 @@ function AdminPage() {
         <TabsList>
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
+          <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
 
@@ -89,6 +90,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="students" className="mt-6">
           <ManageStudentsTab />
+        </TabsContent>
+        <TabsContent value="schedules" className="mt-6">
+          <ClassSchedulesTab />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
           <AnnouncementForm />
