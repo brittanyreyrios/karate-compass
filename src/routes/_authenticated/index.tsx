@@ -317,14 +317,14 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string; }) {
+function StatCard({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub: string; highlight?: boolean; }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/40">
+    <div className={`rounded-2xl border p-5 transition-all ${highlight ? "border-primary/60 bg-primary/5 shadow-red-glow" : "border-border bg-card hover:border-primary/40"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">{icon}</span>
+        <span className={`grid h-8 w-8 place-items-center rounded-lg ${highlight ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>{icon}</span>
       </div>
-      <div className="mt-4 font-display text-2xl font-bold uppercase">{value}</div>
+      <div className={`mt-4 font-display text-2xl font-bold uppercase ${highlight ? "text-gradient-red" : ""}`}>{value}</div>
       <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
     </div>
   );
