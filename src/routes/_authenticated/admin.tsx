@@ -13,6 +13,8 @@ import {
   Save,
   X,
   Minus,
+  Calendar,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
