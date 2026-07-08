@@ -11,6 +11,8 @@ import {
   Megaphone,
   MapPin,
   Swords,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import {
   Select,
