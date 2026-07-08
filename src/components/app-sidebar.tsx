@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, BookOpen, Image, Megaphone, Flame, ShieldCheck, LogOut } from "lucide-react";
+import { LayoutDashboard, BookOpen, Image, Megaphone, Flame, ShieldCheck, LogOut, Trophy } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,7 @@ import { useSession, useIsAdmin } from "@/hooks/use-auth";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },

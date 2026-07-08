@@ -53,6 +53,30 @@ export type Database = {
         }
         Relationships: []
       }
+      class_schedules: {
+        Row: {
+          class_name: string
+          created_at: string
+          id: string
+          next_test_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          id?: string
+          next_test_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          id?: string
+          next_test_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -159,6 +183,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_leaderboard: {
+        Args: never
+        Returns: {
+          class_name: string
+          current_belt: string
+          first_name: string
+          id: string
+          last_name: string
+          points: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

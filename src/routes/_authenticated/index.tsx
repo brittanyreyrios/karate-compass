@@ -11,6 +11,8 @@ import {
   Megaphone,
   MapPin,
   Swords,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import {
   Select,
@@ -42,6 +44,8 @@ type Student = {
   attendance_count: number;
   start_date: string;
   next_test_date: string | null;
+  class_name: string;
+  points: number;
 };
 
 type Announcement = {
@@ -230,8 +234,10 @@ function Dashboard() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-3">
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={<Trophy className="h-5 w-5" />} label="Current Belt" value={`${student.current_belt} Belt`} sub={`Rank ${Math.max(0, beltIndex) + 1} of ${BELT_PROGRESSION.length}`} />
+        <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
+        <StatCard icon={<Sparkles className="h-5 w-5" />} label="Dojo Points" value={`${student.points}`} sub="earned on the mat" highlight />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Total Attendance" value={`${student.attendance_count}`} sub="classes attended" />
         <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={new Date(student.start_date).toLocaleDateString(undefined, { month: "short", year: "numeric" })} sub={`${yearsTraining} years on the mat`} />
       </section>
@@ -311,14 +317,14 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string; }) {
+function StatCard({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub: string; highlight?: boolean; }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/40">
+    <div className={`rounded-2xl border p-5 transition-all ${highlight ? "border-primary/60 bg-primary/5 shadow-red-glow" : "border-border bg-card hover:border-primary/40"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">{icon}</span>
+        <span className={`grid h-8 w-8 place-items-center rounded-lg ${highlight ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>{icon}</span>
       </div>
-      <div className="mt-4 font-display text-2xl font-bold uppercase">{value}</div>
+      <div className={`mt-4 font-display text-2xl font-bold uppercase ${highlight ? "text-gradient-red" : ""}`}>{value}</div>
       <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
     </div>
   );
