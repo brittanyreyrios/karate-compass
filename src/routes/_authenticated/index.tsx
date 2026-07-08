@@ -44,6 +44,8 @@ type Student = {
   attendance_count: number;
   start_date: string;
   next_test_date: string | null;
+  class_name: string;
+  points: number;
 };
 
 type Announcement = {
