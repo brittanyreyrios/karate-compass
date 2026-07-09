@@ -471,9 +471,12 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3">
+    <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 transition-all ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-semibold">{student.first_name} {student.last_name}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="truncate font-semibold">{student.first_name} {student.last_name}</div>
+          <FollowUpBadge n={student.consecutive_absences} />
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="outline" className="border-primary/40 text-primary">{student.current_belt}</Badge>
           <Badge variant="outline">{student.class_name}</Badge>
