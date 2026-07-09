@@ -331,3 +331,69 @@ function StatCard({ icon, label, value, sub, highlight }: { icon: React.ReactNod
     </div>
   );
 }
+
+function ClassScheduleCard({ className }: { className: string }) {
+  const catalogQ = useQuery({
+    queryKey: ["class-catalog", className],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("class_schedules")
+        .select("class_name, days, time_start, time_end, location")
+        .eq("class_name", className)
+        .maybeSingle();
+      return data as { class_name: string; days: string | null; time_start: string | null; time_end: string | null; location: string | null; } | null;
+    },
+  });
+
+  const fallback = CLASS_CATALOG.find((c) => c.name === className);
+  const info = catalogQ.data ?? (fallback ? {
+    class_name: fallback.name,
+    days: fallback.days,
+    time_start: fallback.time_start,
+    time_end: fallback.time_end,
+    location: fallback.location,
+  } : null);
+
+  if (!info) return null;
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-6 shadow-elevated sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-primary">
+            <Calendar className="h-3 w-3" /> Class Schedule
+          </div>
+          <h2 className="mt-2 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
+            {info.class_name}
+          </h2>
+        </div>
+        <Badge variant="outline" className="border-primary/50 text-primary">
+          {info.location ?? "TBD"}
+        </Badge>
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/60 p-4">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <Calendar className="h-3 w-3" /> Days
+          </div>
+          <div className="mt-2 font-display text-xl font-bold uppercase">{info.days ?? "—"}</div>
+        </div>
+        <div className="rounded-xl border border-border bg-background/60 p-4">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <Clock className="h-3 w-3" /> Time
+          </div>
+          <div className="mt-2 font-display text-xl font-bold uppercase">
+            {info.time_start && info.time_end ? `${info.time_start} – ${info.time_end}` : "—"}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-background/60 p-4">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <MapPin className="h-3 w-3" /> Location
+          </div>
+          <div className="mt-2 font-display text-xl font-bold uppercase">{info.location ?? "—"}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
