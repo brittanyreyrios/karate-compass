@@ -191,7 +191,10 @@ function AttendanceTab() {
     mutationFn: async (student: Student) => {
       const { error } = await supabase
         .from("students")
-        .update({ attendance_count: student.attendance_count + 1 })
+        .update({
+          attendance_count: student.attendance_count + 1,
+          consecutive_absences: 0,
+        })
         .eq("id", student.id);
       if (error) throw error;
       return student.id;
@@ -201,6 +204,18 @@ function AttendanceTab() {
       setTimeout(() => setJustCheckedIn((s) => { const c = { ...s }; delete c[id]; return c; }), 1500);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const markAbsent = useMutation({
+    mutationFn: async (student: Student) => {
+      const { error } = await supabase
+        .from("students")
+        .update({ consecutive_absences: student.consecutive_absences + 1 })
+        .eq("id", student.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -260,24 +275,46 @@ function AttendanceTab() {
         )}
         {filtered.map((s) => {
           const flash = !!justCheckedIn[s.id];
+          const risk = riskCardClasses(s.consecutive_absences);
           return (
-            <div key={s.id} className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${flash ? "border-primary bg-primary/5 shadow-red-glow" : "border-border bg-background"}`}>
+            <div
+              key={s.id}
+              className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+                flash
+                  ? "border-primary bg-primary/5 shadow-red-glow"
+                  : risk || "border-border bg-background"
+              }`}
+            >
               <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
+                  <FollowUpBadge n={s.consecutive_absences} />
+                </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
                   <Badge variant="outline">{s.class_name}</Badge>
                   <span>{s.attendance_count} classes</span>
                 </div>
               </div>
-              <Button
-                size="lg"
-                onClick={() => checkIn.mutate(s)}
-                disabled={checkIn.isPending}
-                className="h-14 min-w-[92px] bg-gradient-red text-base font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
-              >
-                {flash ? <Check className="h-5 w-5" /> : <><Plus className="mr-1 h-5 w-5" />1 Class</>}
-              </Button>
+              <div className="flex flex-col items-stretch gap-1">
+                <Button
+                  size="lg"
+                  onClick={() => checkIn.mutate(s)}
+                  disabled={checkIn.isPending}
+                  className="h-12 min-w-[110px] bg-gradient-red text-sm font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
+                >
+                  {flash ? <Check className="h-5 w-5" /> : <><Plus className="mr-1 h-4 w-4" />Present</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markAbsent.mutate(s)}
+                  disabled={markAbsent.isPending}
+                  className="h-8 border-yellow-400/50 text-xs uppercase tracking-wider text-yellow-100 hover:bg-yellow-400/10"
+                >
+                  <UserX className="mr-1 h-3.5 w-3.5" /> Absent
+                </Button>
+              </div>
             </div>
           );
         })}
