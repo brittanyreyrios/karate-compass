@@ -881,3 +881,234 @@ function ClassScheduleRow({
     </div>
   );
 }
+
+/* ---------- CSV IMPORTER ---------- */
+
+type CsvRow = {
+  first_name: string;
+  last_name: string;
+  parent_email: string;
+  start_date?: string;
+};
+
+type ImportResult = {
+  student: string;
+  status: "ok" | "error";
+  message: string;
+};
+
+function parseCsv(text: string): CsvRow[] {
+  const lines = text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const splitLine = (line: string): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === "," && !inQ) { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim());
+  };
+  const headers = splitLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+  const idx = (name: string, alts: string[] = []): number => {
+    const candidates = [name, ...alts];
+    for (const c of candidates) {
+      const i = headers.indexOf(c);
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+  const iFirst = idx("first_name", ["first", "firstname"]);
+  const iLast = idx("last_name", ["last", "lastname", "surname"]);
+  const iEmail = idx("parent_email", ["email", "parent", "parentemail"]);
+  const iStart = idx("start_date", ["start", "startdate", "date"]);
+  const rows: CsvRow[] = [];
+  for (let r = 1; r < lines.length; r++) {
+    const cols = splitLine(lines[r]);
+    const first_name = iFirst >= 0 ? cols[iFirst] ?? "" : "";
+    const last_name = iLast >= 0 ? cols[iLast] ?? "" : "";
+    const parent_email = iEmail >= 0 ? cols[iEmail] ?? "" : "";
+    const start_date = iStart >= 0 ? cols[iStart] ?? "" : "";
+    if (!first_name && !last_name && !parent_email) continue;
+    rows.push({ first_name, last_name, parent_email, start_date });
+  }
+  return rows;
+}
+
+function CsvImporter() {
+  const qc = useQueryClient();
+  const [rows, setRows] = useState<CsvRow[]>([]);
+  const [fileName, setFileName] = useState<string>("");
+  const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
+  const [results, setResults] = useState<ImportResult[]>([]);
+  const [importing, setImporting] = useState(false);
+
+  const onFile = async (file: File) => {
+    setFileName(file.name);
+    setResults([]);
+    const text = await file.text();
+    try {
+      const parsed = parseCsv(text);
+      setRows(parsed);
+      if (parsed.length === 0) toast.error("No valid rows found in the CSV.");
+    } catch (e) {
+      toast.error((e as Error).message);
+      setRows([]);
+    }
+  };
+
+  const runImport = async () => {
+    if (rows.length === 0) return;
+    setImporting(true);
+    const out: ImportResult[] = [];
+    for (const row of rows) {
+      const name = `${row.first_name} ${row.last_name}`.trim() || row.parent_email;
+      try {
+        if (!row.first_name || !row.last_name || !row.parent_email) {
+          throw new Error("Missing First Name, Last Name or Parent Email");
+        }
+        const email = row.parent_email.trim().toLowerCase();
+        const { data: profile, error: profErr } = await supabase
+          .from("profiles").select("id").ilike("email", email).maybeSingle();
+        if (profErr) throw profErr;
+        if (!profile) throw new Error(`No parent account for ${email}`);
+        const payload: Record<string, unknown> = {
+          parent_id: profile.id,
+          first_name: row.first_name.trim(),
+          last_name: row.last_name.trim(),
+          class_name: assignedClass,
+          current_belt: "White",
+        };
+        if (row.start_date && !Number.isNaN(new Date(row.start_date).getTime())) {
+          payload.start_date = new Date(row.start_date).toISOString().slice(0, 10);
+        }
+        const { error } = await supabase.from("students").insert(payload);
+        if (error) throw error;
+        out.push({ student: name, status: "ok", message: "Imported" });
+      } catch (e) {
+        out.push({ student: name, status: "error", message: (e as Error).message });
+      }
+    }
+    setResults(out);
+    setImporting(false);
+    const okCount = out.filter((r) => r.status === "ok").length;
+    toast.success(`Imported ${okCount} / ${out.length} students`);
+    qc.invalidateQueries({ queryKey: ["admin-students"] });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <FileSpreadsheet className="h-4 w-4 text-primary" />
+        <h2 className="font-display text-lg font-bold uppercase">Import Students CSV</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Upload a roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date</code>. Every row in this batch will be enrolled in the class you pick below.
+      </p>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 hover:border-primary/60">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+              <Upload className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold">
+                {fileName ? fileName : "Choose a CSV file"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {rows.length > 0 ? `${rows.length} rows detected` : "Comma-separated, first row is headers"}
+              </div>
+            </div>
+          </div>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }}
+          />
+          <span className="rounded-md border border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wider">Browse…</span>
+        </label>
+
+        <div>
+          <Label>Assign every imported student to</Label>
+          <Select value={assignedClass} onValueChange={setAssignedClass}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {rows.length > 0 && (
+        <div className="mt-5 overflow-hidden rounded-xl border border-border">
+          <div className="max-h-56 overflow-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-secondary text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">First</th>
+                  <th className="px-3 py-2">Last</th>
+                  <th className="px-3 py-2">Parent Email</th>
+                  <th className="px-3 py-2">Start Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 50).map((r, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="px-3 py-2">{r.first_name}</td>
+                    <td className="px-3 py-2">{r.last_name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.parent_email}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.start_date ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 50 && (
+            <div className="border-t border-border bg-secondary/40 px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+              + {rows.length - 50} more rows will import
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={rows.length === 0 || importing}
+          onClick={() => { setRows([]); setResults([]); setFileName(""); }}
+        >
+          Clear
+        </Button>
+        <Button
+          type="button"
+          className="bg-gradient-red"
+          disabled={rows.length === 0 || importing}
+          onClick={runImport}
+        >
+          <Upload className="mr-1 h-4 w-4" />
+          {importing ? "Importing…" : `Import ${rows.length} student${rows.length === 1 ? "" : "s"}`}
+        </Button>
+      </div>
+
+      {results.length > 0 && (
+        <div className="mt-5 space-y-1 text-xs">
+          {results.map((r, i) => (
+            <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${r.status === "ok" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100" : "border-red-500/40 bg-red-500/10 text-red-100"}`}>
+              <span className="font-semibold">{r.student}</span>
+              <span className="text-[11px] opacity-80">{r.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
