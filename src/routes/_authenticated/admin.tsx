@@ -370,80 +370,88 @@ function ManageStudentsTab() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-      {/* Add new */}
-      <form
-        onSubmit={(e) => { e.preventDefault(); addStudent.mutate(); }}
-        className="h-fit rounded-2xl border border-border bg-card p-6"
-      >
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-lg font-bold uppercase">Add New Student</h2>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The parent must already have an account for their email to match.
-        </p>
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        {/* Add new */}
+        <form
+          onSubmit={(e) => { e.preventDefault(); addStudent.mutate(); }}
+          className="h-fit rounded-2xl border border-border bg-card p-6"
+        >
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <h2 className="font-display text-lg font-bold uppercase">Add New Student</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The parent must already have an account for their email to match.
+          </p>
 
-        <div className="mt-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>First name</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="mt-1" />
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>First name</Label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="mt-1" />
+              </div>
+              <div>
+                <Label>Last name</Label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required className="mt-1" />
+              </div>
             </div>
             <div>
-              <Label>Last name</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required className="mt-1" />
+              <Label>Parent's email</Label>
+              <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
+            </div>
+            <div>
+              <Label>Assigned class</Label>
+              <Select value={className} onValueChange={setClassName}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Starting belt</Label>
+              <Select value={belt} onValueChange={setBelt}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div>
-            <Label>Parent's email</Label>
-            <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
-          </div>
-          <div>
-            <Label>Assigned class</Label>
-            <Select value={className} onValueChange={setClassName}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Starting belt</Label>
-            <Select value={belt} onValueChange={setBelt}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
-          {addStudent.isPending ? "Adding…" : "Add Student"}
-        </Button>
-      </form>
+          <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
+            {addStudent.isPending ? "Adding…" : "Add Student"}
+          </Button>
+        </form>
 
-      {/* List */}
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <h2 className="font-display text-lg font-bold uppercase">All Students</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Edit details, promote belts or adjust Dojo Points.
-        </p>
-        <div className="mt-5 space-y-3">
-          {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
-            <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
-          )}
-          {(studentsQ.data ?? []).map((s) =>
-            editingId === s.id ? (
-              <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
-            ) : (
-              <StudentRow key={s.id} student={s} onEdit={() => setEditingId(s.id)} />
-            ),
-          )}
+        {/* List */}
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold uppercase">All Students</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Edit details, promote belts or adjust Dojo Points. Rows highlight when a student has consecutive absences.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 space-y-3">
+            {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
+            )}
+            {(studentsQ.data ?? []).map((s) =>
+              editingId === s.id ? (
+                <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
+              ) : (
+                <StudentRow key={s.id} student={s} onEdit={() => setEditingId(s.id)} />
+              ),
+            )}
+          </div>
         </div>
       </div>
+
+      <CsvImporter />
     </div>
   );
 }
