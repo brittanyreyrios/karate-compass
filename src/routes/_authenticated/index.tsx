@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BELT_PROGRESSION } from "@/lib/mock-data";
+import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -233,6 +233,8 @@ function Dashboard() {
           </div>
         </div>
       </section>
+
+      <ClassScheduleCard className={student.class_name} />
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={<Trophy className="h-5 w-5" />} label="Current Belt" value={`${student.current_belt} Belt`} sub={`Rank ${Math.max(0, beltIndex) + 1} of ${BELT_PROGRESSION.length}`} />
