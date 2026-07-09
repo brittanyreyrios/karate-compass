@@ -57,22 +57,34 @@ export type Database = {
         Row: {
           class_name: string
           created_at: string
+          days: string | null
           id: string
+          location: string | null
           next_test_date: string | null
+          time_end: string | null
+          time_start: string | null
           updated_at: string
         }
         Insert: {
           class_name: string
           created_at?: string
+          days?: string | null
           id?: string
+          location?: string | null
           next_test_date?: string | null
+          time_end?: string | null
+          time_start?: string | null
           updated_at?: string
         }
         Update: {
           class_name?: string
           created_at?: string
+          days?: string | null
           id?: string
+          location?: string | null
           next_test_date?: string | null
+          time_end?: string | null
+          time_start?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -106,6 +118,7 @@ export type Database = {
           active: boolean
           attendance_count: number
           class_name: string
+          consecutive_absences: number
           created_at: string
           current_belt: string
           first_name: string
@@ -121,6 +134,7 @@ export type Database = {
           active?: boolean
           attendance_count?: number
           class_name?: string
+          consecutive_absences?: number
           created_at?: string
           current_belt?: string
           first_name: string
@@ -136,6 +150,7 @@ export type Database = {
           active?: boolean
           attendance_count?: number
           class_name?: string
+          consecutive_absences?: number
           created_at?: string
           current_belt?: string
           first_name?: string
