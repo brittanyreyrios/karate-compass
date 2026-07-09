@@ -148,7 +148,7 @@ function useStudents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, first_name, last_name, current_belt, attendance_count, parent_id, active, class_name, points")
+        .select("id, first_name, last_name, current_belt, attendance_count, parent_id, active, class_name, points, consecutive_absences")
         .order("first_name");
       if (error) throw error;
       return (data ?? []) as Student[];
