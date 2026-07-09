@@ -15,6 +15,10 @@ import {
   Minus,
   Calendar,
   Trash2,
+  UserX,
+  AlertTriangle,
+  Upload,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,9 +63,35 @@ type Student = {
   active: boolean;
   class_name: string;
   points: number;
+  consecutive_absences: number;
 };
 
 const ALL_CLASSES = "__all__";
+
+type RiskLevel = "none" | "warn" | "alert";
+function riskLevel(n: number): RiskLevel {
+  if (n >= 3) return "alert";
+  if (n >= 2) return "warn";
+  return "none";
+}
+function riskCardClasses(n: number): string {
+  const lvl = riskLevel(n);
+  if (lvl === "alert") return "border-red-500/60 bg-red-500/15";
+  if (lvl === "warn") return "border-yellow-400/60 bg-yellow-400/15";
+  return "";
+}
+function FollowUpBadge({ n }: { n: number }) {
+  const lvl = riskLevel(n);
+  if (lvl === "none") return null;
+  const cls = lvl === "alert"
+    ? "border-red-500/60 bg-red-500/20 text-red-100"
+    : "border-yellow-400/60 bg-yellow-400/20 text-yellow-100";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${cls}`}>
+      <AlertTriangle className="h-3 w-3" /> Follow Up Needed · {n} absences
+    </span>
+  );
+}
 
 function AdminPage() {
   return (
