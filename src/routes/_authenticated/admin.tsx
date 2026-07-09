@@ -978,16 +978,16 @@ function CsvImporter() {
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;
         if (!profile) throw new Error(`No parent account for ${email}`);
-        const payload: Record<string, unknown> = {
+        const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
           current_belt: "White",
+          ...(row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
+            ? { start_date: new Date(row.start_date).toISOString().slice(0, 10) }
+            : {}),
         };
-        if (row.start_date && !Number.isNaN(new Date(row.start_date).getTime())) {
-          payload.start_date = new Date(row.start_date).toISOString().slice(0, 10);
-        }
         const { error } = await supabase.from("students").insert(payload);
         if (error) throw error;
         out.push({ student: name, status: "ok", message: "Imported" });
