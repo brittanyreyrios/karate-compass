@@ -1102,23 +1102,45 @@ function CsvImporter() {
           throw new Error("Missing First Name, Last Name or Parent Email");
         }
         const email = row.parent_email.trim().toLowerCase();
+        const belt = normalizeBelt(row.current_belt);
+        const startDate =
+          row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
+            ? new Date(row.start_date).toISOString().slice(0, 10)
+            : null;
         const { data: profile, error: profErr } = await supabase
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;
-        if (!profile) throw new Error(`No parent account for ${email}`);
+
+        if (!profile) {
+          // Stage as unlinked so admins can spot typos in the audit view.
+          const { error } = await supabase.from("pending_student_imports").insert({
+            first_name: row.first_name.trim(),
+            last_name: row.last_name.trim(),
+            parent_email: email,
+            class_name: assignedClass,
+            current_belt: belt,
+            ...(startDate ? { start_date: startDate } : {}),
+          });
+          if (error) throw error;
+          out.push({
+            student: name,
+            status: "unlinked",
+            message: `Queued in audit — no parent account for ${email}`,
+          });
+          continue;
+        }
+
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
-          current_belt: "White",
-          ...(row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
-            ? { start_date: new Date(row.start_date).toISOString().slice(0, 10) }
-            : {}),
+          current_belt: belt,
+          ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
         if (error) throw error;
-        out.push({ student: name, status: "ok", message: "Imported" });
+        out.push({ student: name, status: "ok", message: `Imported (${belt} belt)` });
       } catch (e) {
         out.push({ student: name, status: "error", message: (e as Error).message });
       }
@@ -1126,18 +1148,22 @@ function CsvImporter() {
     setResults(out);
     setImporting(false);
     const okCount = out.filter((r) => r.status === "ok").length;
-    toast.success(`Imported ${okCount} / ${out.length} students`);
+    const unlinked = out.filter((r) => r.status === "unlinked").length;
+    toast.success(
+      `Imported ${okCount} / ${out.length} students${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`,
+    );
     qc.invalidateQueries({ queryKey: ["admin-students"] });
+    qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
   };
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
         <FileSpreadsheet className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-bold uppercase">Import Students CSV</h2>
+        <h2 className="font-display text-lg font-bold uppercase">Import Kicksite CSV</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload a roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date</code>. Every row in this batch will be enrolled in the class you pick below.
+        Upload a Kicksite roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date, Current Belt</code>. Rows whose parent email has no matching account go to the Unlinked Students Audit so you can catch typos.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
