@@ -53,6 +53,33 @@ export type Database = {
         }
         Relationships: []
       }
+      class_holidays: {
+        Row: {
+          class_name: string
+          created_at: string
+          created_by: string | null
+          holiday_date: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          created_by?: string | null
+          holiday_date: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          created_by?: string | null
+          holiday_date?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       class_schedules: {
         Row: {
           class_name: string
@@ -89,12 +116,52 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_student_imports: {
+        Row: {
+          class_name: string
+          created_at: string
+          current_belt: string
+          first_name: string
+          id: string
+          last_name: string
+          parent_email: string
+          reason: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          current_belt?: string
+          first_name: string
+          id?: string
+          last_name: string
+          parent_email: string
+          reason?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          current_belt?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          parent_email?: string
+          reason?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           email: string
           family_name: string
           id: string
+          subscription_status: string
           updated_at: string
         }
         Insert: {
@@ -102,6 +169,7 @@ export type Database = {
           email: string
           family_name?: string
           id: string
+          subscription_status?: string
           updated_at?: string
         }
         Update: {
@@ -109,6 +177,7 @@ export type Database = {
           email?: string
           family_name?: string
           id?: string
+          subscription_status?: string
           updated_at?: string
         }
         Relationships: []
