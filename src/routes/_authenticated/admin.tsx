@@ -162,9 +162,27 @@ function AttendanceTab() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [classFilter, setClassFilter] = useState<string>(ALL_CLASSES);
-  const [justCheckedIn, setJustCheckedIn] = useState<Record<string, number>>({});
+  const [presentLock, setPresentLock] = useState<Record<string, number>>({});
+  const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
 
   const studentsQ = useStudents();
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const holidaysQ = useQuery({
+    queryKey: ["holidays-today", today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("class_holidays")
+        .select("class_name")
+        .eq("holiday_date", today);
+      if (error) throw error;
+      return new Set((data ?? []).map((h) => h.class_name));
+    },
+  });
+  const holidayClasses = holidaysQ.data ?? new Set<string>();
+  const currentClassIsHoliday =
+    classFilter !== ALL_CLASSES && holidayClasses.has(classFilter);
 
   const filtered = useMemo(() => {
     const list = (studentsQ.data ?? []).filter((s) => s.active);
@@ -187,6 +205,21 @@ function AttendanceTab() {
     return map;
   }, [studentsQ.data]);
 
+  const lockButton = (
+    setter: (fn: (s: Record<string, number>) => Record<string, number>) => void,
+    id: string,
+  ) => {
+    const until = Date.now() + 3000;
+    setter((s) => ({ ...s, [id]: until }));
+    setTimeout(() => {
+      setter((s) => {
+        const c = { ...s };
+        if (c[id] && c[id] <= Date.now()) delete c[id];
+        return c;
+      });
+    }, 3100);
+  };
+
   const checkIn = useMutation({
     mutationFn: async (student: Student) => {
       const { error } = await supabase
@@ -200,8 +233,23 @@ function AttendanceTab() {
       return student.id;
     },
     onSuccess: (id) => {
-      setJustCheckedIn((s) => ({ ...s, [id]: Date.now() }));
-      setTimeout(() => setJustCheckedIn((s) => { const c = { ...s }; delete c[id]; return c; }), 1500);
+      lockButton(setPresentLock, id);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addPoints = useMutation({
+    mutationFn: async (student: Student) => {
+      const { error } = await supabase
+        .from("students")
+        .update({ points: student.points + 5 })
+        .eq("id", student.id);
+      if (error) throw error;
+      return student.id;
+    },
+    onSuccess: (id) => {
+      lockButton(setPointsLock, id);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -219,6 +267,30 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const toggleHoliday = useMutation({
+    mutationFn: async () => {
+      if (classFilter === ALL_CLASSES) throw new Error("Select a specific class first.");
+      if (currentClassIsHoliday) {
+        const { error } = await supabase
+          .from("class_holidays")
+          .delete()
+          .eq("class_name", classFilter)
+          .eq("holiday_date", today);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("class_holidays")
+          .insert({ class_name: classFilter, holiday_date: today, note: "Marked in-app" });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(currentClassIsHoliday ? "Holiday cleared" : "Holiday set — absences paused");
+      qc.invalidateQueries({ queryKey: ["holidays-today", today] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const filterOptions: { key: string; label: string }[] = [
     { key: ALL_CLASSES, label: "All Classes" },
     ...CLASS_NAMES.map((c) => ({ key: c, label: c })),
@@ -230,7 +302,7 @@ function AttendanceTab() {
         <div>
           <h2 className="font-display text-xl font-bold uppercase">Master Attendance Sheet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Filter by class, then tap +1 to log a session. Parents see updates instantly.
+            Filter by class, then tap +1 to log a session. Buttons cool down for 3 seconds to prevent double taps.
           </p>
         </div>
         <div className="relative w-full sm:w-80">
@@ -248,6 +320,7 @@ function AttendanceTab() {
       <div className="mt-5 flex flex-wrap gap-2">
         {filterOptions.map((opt) => {
           const active = classFilter === opt.key;
+          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.key);
           return (
             <button
               key={opt.key}
@@ -260,6 +333,7 @@ function AttendanceTab() {
               }`}
             >
               {opt.label}
+              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[9px] text-yellow-100">Holiday</span>}
               <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
                 {counts[opt.key] ?? 0}
               </span>
@@ -268,19 +342,45 @@ function AttendanceTab() {
         })}
       </div>
 
+      {/* Holiday toggle */}
+      {classFilter !== ALL_CLASSES && (
+        <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${currentClassIsHoliday ? "border-yellow-400/50 bg-yellow-400/10" : "border-border bg-background"}`}>
+          <div className="text-xs">
+            <div className="font-bold uppercase tracking-widest text-foreground">
+              {currentClassIsHoliday ? `${classFilter} — Closed today` : `${classFilter} — Regular session`}
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+              {currentClassIsHoliday
+                ? "Absence tracking is paused. Students will not accrue consecutive absences today."
+                : "Mark today as a Holiday/Gym Closed day to pause absence tracking for this class."}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant={currentClassIsHoliday ? "outline" : "outline"}
+            onClick={() => toggleHoliday.mutate()}
+            disabled={toggleHoliday.isPending}
+            className={currentClassIsHoliday ? "border-yellow-400/60 text-yellow-100" : ""}
+          >
+            {currentClassIsHoliday ? "Clear holiday" : "Mark today as Holiday"}
+          </Button>
+        </div>
+      )}
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {!studentsQ.isLoading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground">No students in this view. Adjust the filter or add students in Manage Students.</p>
         )}
         {filtered.map((s) => {
-          const flash = !!justCheckedIn[s.id];
+          const presentActive = !!presentLock[s.id];
+          const pointsActive = !!pointsLock[s.id];
           const risk = riskCardClasses(s.consecutive_absences);
           return (
             <div
               key={s.id}
               className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
-                flash
+                presentActive
                   ? "border-primary bg-primary/5 shadow-red-glow"
                   : risk || "border-border bg-background"
               }`}
@@ -293,23 +393,37 @@ function AttendanceTab() {
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
                   <Badge variant="outline">{s.class_name}</Badge>
-                  <span>{s.attendance_count} classes</span>
+                  <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
               </div>
               <div className="flex flex-col items-stretch gap-1">
                 <Button
                   size="lg"
                   onClick={() => checkIn.mutate(s)}
-                  disabled={checkIn.isPending}
-                  className="h-12 min-w-[110px] bg-gradient-red text-sm font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
+                  disabled={checkIn.isPending || presentActive}
+                  className="h-11 min-w-[120px] bg-gradient-red text-sm font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
                 >
-                  {flash ? <Check className="h-5 w-5" /> : <><Plus className="mr-1 h-4 w-4" />Present</>}
+                  {presentActive
+                    ? <><Check className="mr-1 h-4 w-4" /> Logged</>
+                    : <><Plus className="mr-1 h-4 w-4" />+1 Class</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addPoints.mutate(s)}
+                  disabled={addPoints.isPending || pointsActive}
+                  className="h-9 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
+                >
+                  {pointsActive
+                    ? <><Check className="mr-1 h-3.5 w-3.5" /> +5</>
+                    : <><Sparkles className="mr-1 h-3.5 w-3.5" /> +5 Points</>}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => markAbsent.mutate(s)}
-                  disabled={markAbsent.isPending}
+                  disabled={markAbsent.isPending || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
+                  title={currentClassIsHoliday ? "Absence tracking paused (holiday)" : ""}
                   className="h-8 border-yellow-400/50 text-xs uppercase tracking-wider text-yellow-100 hover:bg-yellow-400/10"
                 >
                   <UserX className="mr-1 h-3.5 w-3.5" /> Absent
