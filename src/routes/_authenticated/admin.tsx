@@ -1007,13 +1007,21 @@ type CsvRow = {
   last_name: string;
   parent_email: string;
   start_date?: string;
+  current_belt?: string;
 };
 
 type ImportResult = {
   student: string;
-  status: "ok" | "error";
+  status: "ok" | "unlinked" | "error";
   message: string;
 };
+
+function normalizeBelt(input: string | undefined): string {
+  if (!input) return "White";
+  const needle = input.trim().toLowerCase();
+  const match = BELT_PROGRESSION.find((b) => b.name.toLowerCase() === needle);
+  return match?.name ?? "White";
+}
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim().length > 0);
