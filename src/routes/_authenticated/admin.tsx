@@ -1052,8 +1052,9 @@ function parseCsv(text: string): CsvRow[] {
   };
   const iFirst = idx("first_name", ["first", "firstname"]);
   const iLast = idx("last_name", ["last", "lastname", "surname"]);
-  const iEmail = idx("parent_email", ["email", "parent", "parentemail"]);
-  const iStart = idx("start_date", ["start", "startdate", "date"]);
+  const iEmail = idx("parent_email", ["email", "parent", "parentemail", "primary_email"]);
+  const iStart = idx("start_date", ["start", "startdate", "date", "join_date", "enrollment_date"]);
+  const iBelt = idx("current_belt", ["belt", "rank", "current_rank"]);
   const rows: CsvRow[] = [];
   for (let r = 1; r < lines.length; r++) {
     const cols = splitLine(lines[r]);
@@ -1061,8 +1062,9 @@ function parseCsv(text: string): CsvRow[] {
     const last_name = iLast >= 0 ? cols[iLast] ?? "" : "";
     const parent_email = iEmail >= 0 ? cols[iEmail] ?? "" : "";
     const start_date = iStart >= 0 ? cols[iStart] ?? "" : "";
+    const current_belt = iBelt >= 0 ? cols[iBelt] ?? "" : "";
     if (!first_name && !last_name && !parent_email) continue;
-    rows.push({ first_name, last_name, parent_email, start_date });
+    rows.push({ first_name, last_name, parent_email, start_date, current_belt });
   }
   return rows;
 }
