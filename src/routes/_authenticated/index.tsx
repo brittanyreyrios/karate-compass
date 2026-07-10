@@ -116,6 +116,15 @@ function Dashboard() {
   const news = (announcementsQ.data ?? []).filter((a) => a.category === "school_news").slice(0, 4);
   const tournaments = (announcementsQ.data ?? []).filter((a) => a.category === "tournament").slice(0, 4);
 
+  // Hooks must run in the same order on every render — compute derived values
+  // BEFORE any conditional early return.
+  const daysToTest = useMemo(() => {
+    if (!student?.next_test_date) return null;
+    const now = typeof window !== "undefined" ? Date.now() : 0;
+    const diff = new Date(student.next_test_date).getTime() - now;
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [student?.next_test_date]);
+
   if (studentsQ.isLoading || profileQ.isLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading dashboard…</div>;
   }
@@ -137,12 +146,6 @@ function Dashboard() {
   const totalBelts = BELT_PROGRESSION.length - 1;
   const progressPct = Math.round((Math.max(0, beltIndex) / totalBelts) * 100);
 
-  const daysToTest = useMemo(() => {
-    if (!student.next_test_date) return null;
-    const now = typeof window !== "undefined" ? Date.now() : 0;
-    const diff = new Date(student.next_test_date).getTime() - now;
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [student.next_test_date]);
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
   const now = typeof window !== "undefined" ? Date.now() : 0;

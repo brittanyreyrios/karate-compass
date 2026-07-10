@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Trophy, MapPin, Calendar, Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { PremiumGate } from "@/components/premium-gate";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({
@@ -12,7 +13,11 @@ export const Route = createFileRoute("/_authenticated/announcements")({
       { name: "description", content: "School news and upcoming tournament schedule." },
     ],
   }),
-  component: Announcements,
+  component: () => (
+    <PremiumGate feature="The Community Feed">
+      <Announcements />
+    </PremiumGate>
+  ),
 });
 
 type Announcement = {

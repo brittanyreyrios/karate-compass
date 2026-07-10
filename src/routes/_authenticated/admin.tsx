@@ -19,6 +19,10 @@ import {
   AlertTriangle,
   Upload,
   FileSpreadsheet,
+  Sparkles,
+  Mail,
+  Link2,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,6 +116,7 @@ function AdminPage() {
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
+          <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
 
@@ -123,6 +128,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="schedules" className="mt-6">
           <ClassSchedulesTab />
+        </TabsContent>
+        <TabsContent value="parents" className="mt-6">
+          <ParentsTab />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
           <AnnouncementForm />
@@ -162,9 +170,27 @@ function AttendanceTab() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [classFilter, setClassFilter] = useState<string>(ALL_CLASSES);
-  const [justCheckedIn, setJustCheckedIn] = useState<Record<string, number>>({});
+  const [presentLock, setPresentLock] = useState<Record<string, number>>({});
+  const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
 
   const studentsQ = useStudents();
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const holidaysQ = useQuery({
+    queryKey: ["holidays-today", today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("class_holidays")
+        .select("class_name")
+        .eq("holiday_date", today);
+      if (error) throw error;
+      return new Set((data ?? []).map((h) => h.class_name));
+    },
+  });
+  const holidayClasses = holidaysQ.data ?? new Set<string>();
+  const currentClassIsHoliday =
+    classFilter !== ALL_CLASSES && holidayClasses.has(classFilter);
 
   const filtered = useMemo(() => {
     const list = (studentsQ.data ?? []).filter((s) => s.active);
@@ -187,6 +213,21 @@ function AttendanceTab() {
     return map;
   }, [studentsQ.data]);
 
+  const lockButton = (
+    setter: (fn: (s: Record<string, number>) => Record<string, number>) => void,
+    id: string,
+  ) => {
+    const until = Date.now() + 3000;
+    setter((s) => ({ ...s, [id]: until }));
+    setTimeout(() => {
+      setter((s) => {
+        const c = { ...s };
+        if (c[id] && c[id] <= Date.now()) delete c[id];
+        return c;
+      });
+    }, 3100);
+  };
+
   const checkIn = useMutation({
     mutationFn: async (student: Student) => {
       const { error } = await supabase
@@ -200,8 +241,23 @@ function AttendanceTab() {
       return student.id;
     },
     onSuccess: (id) => {
-      setJustCheckedIn((s) => ({ ...s, [id]: Date.now() }));
-      setTimeout(() => setJustCheckedIn((s) => { const c = { ...s }; delete c[id]; return c; }), 1500);
+      lockButton(setPresentLock, id);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addPoints = useMutation({
+    mutationFn: async (student: Student) => {
+      const { error } = await supabase
+        .from("students")
+        .update({ points: student.points + 5 })
+        .eq("id", student.id);
+      if (error) throw error;
+      return student.id;
+    },
+    onSuccess: (id) => {
+      lockButton(setPointsLock, id);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -219,6 +275,30 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const toggleHoliday = useMutation({
+    mutationFn: async () => {
+      if (classFilter === ALL_CLASSES) throw new Error("Select a specific class first.");
+      if (currentClassIsHoliday) {
+        const { error } = await supabase
+          .from("class_holidays")
+          .delete()
+          .eq("class_name", classFilter)
+          .eq("holiday_date", today);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("class_holidays")
+          .insert({ class_name: classFilter, holiday_date: today, note: "Marked in-app" });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(currentClassIsHoliday ? "Holiday cleared" : "Holiday set — absences paused");
+      qc.invalidateQueries({ queryKey: ["holidays-today", today] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const filterOptions: { key: string; label: string }[] = [
     { key: ALL_CLASSES, label: "All Classes" },
     ...CLASS_NAMES.map((c) => ({ key: c, label: c })),
@@ -230,7 +310,7 @@ function AttendanceTab() {
         <div>
           <h2 className="font-display text-xl font-bold uppercase">Master Attendance Sheet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Filter by class, then tap +1 to log a session. Parents see updates instantly.
+            Filter by class, then tap +1 to log a session. Buttons cool down for 3 seconds to prevent double taps.
           </p>
         </div>
         <div className="relative w-full sm:w-80">
@@ -248,6 +328,7 @@ function AttendanceTab() {
       <div className="mt-5 flex flex-wrap gap-2">
         {filterOptions.map((opt) => {
           const active = classFilter === opt.key;
+          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.key);
           return (
             <button
               key={opt.key}
@@ -260,6 +341,7 @@ function AttendanceTab() {
               }`}
             >
               {opt.label}
+              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[9px] text-yellow-100">Holiday</span>}
               <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
                 {counts[opt.key] ?? 0}
               </span>
@@ -268,19 +350,45 @@ function AttendanceTab() {
         })}
       </div>
 
+      {/* Holiday toggle */}
+      {classFilter !== ALL_CLASSES && (
+        <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${currentClassIsHoliday ? "border-yellow-400/50 bg-yellow-400/10" : "border-border bg-background"}`}>
+          <div className="text-xs">
+            <div className="font-bold uppercase tracking-widest text-foreground">
+              {currentClassIsHoliday ? `${classFilter} — Closed today` : `${classFilter} — Regular session`}
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+              {currentClassIsHoliday
+                ? "Absence tracking is paused. Students will not accrue consecutive absences today."
+                : "Mark today as a Holiday/Gym Closed day to pause absence tracking for this class."}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant={currentClassIsHoliday ? "outline" : "outline"}
+            onClick={() => toggleHoliday.mutate()}
+            disabled={toggleHoliday.isPending}
+            className={currentClassIsHoliday ? "border-yellow-400/60 text-yellow-100" : ""}
+          >
+            {currentClassIsHoliday ? "Clear holiday" : "Mark today as Holiday"}
+          </Button>
+        </div>
+      )}
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {!studentsQ.isLoading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground">No students in this view. Adjust the filter or add students in Manage Students.</p>
         )}
         {filtered.map((s) => {
-          const flash = !!justCheckedIn[s.id];
+          const presentActive = !!presentLock[s.id];
+          const pointsActive = !!pointsLock[s.id];
           const risk = riskCardClasses(s.consecutive_absences);
           return (
             <div
               key={s.id}
               className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
-                flash
+                presentActive
                   ? "border-primary bg-primary/5 shadow-red-glow"
                   : risk || "border-border bg-background"
               }`}
@@ -293,23 +401,37 @@ function AttendanceTab() {
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
                   <Badge variant="outline">{s.class_name}</Badge>
-                  <span>{s.attendance_count} classes</span>
+                  <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
               </div>
               <div className="flex flex-col items-stretch gap-1">
                 <Button
                   size="lg"
                   onClick={() => checkIn.mutate(s)}
-                  disabled={checkIn.isPending}
-                  className="h-12 min-w-[110px] bg-gradient-red text-sm font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
+                  disabled={checkIn.isPending || presentActive}
+                  className="h-11 min-w-[120px] bg-gradient-red text-sm font-bold uppercase tracking-wider shadow-red-glow active:scale-95"
                 >
-                  {flash ? <Check className="h-5 w-5" /> : <><Plus className="mr-1 h-4 w-4" />Present</>}
+                  {presentActive
+                    ? <><Check className="mr-1 h-4 w-4" /> Logged</>
+                    : <><Plus className="mr-1 h-4 w-4" />+1 Class</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addPoints.mutate(s)}
+                  disabled={addPoints.isPending || pointsActive}
+                  className="h-9 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
+                >
+                  {pointsActive
+                    ? <><Check className="mr-1 h-3.5 w-3.5" /> +5</>
+                    : <><Sparkles className="mr-1 h-3.5 w-3.5" /> +5 Points</>}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => markAbsent.mutate(s)}
-                  disabled={markAbsent.isPending}
+                  disabled={markAbsent.isPending || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
+                  title={currentClassIsHoliday ? "Absence tracking paused (holiday)" : ""}
                   className="h-8 border-yellow-400/50 text-xs uppercase tracking-wider text-yellow-100 hover:bg-yellow-400/10"
                 >
                   <UserX className="mr-1 h-3.5 w-3.5" /> Absent
@@ -452,6 +574,8 @@ function ManageStudentsTab() {
       </div>
 
       <CsvImporter />
+
+      <UnlinkedAudit />
     </div>
   );
 }
@@ -889,13 +1013,21 @@ type CsvRow = {
   last_name: string;
   parent_email: string;
   start_date?: string;
+  current_belt?: string;
 };
 
 type ImportResult = {
   student: string;
-  status: "ok" | "error";
+  status: "ok" | "unlinked" | "error";
   message: string;
 };
+
+function normalizeBelt(input: string | undefined): string {
+  if (!input) return "White";
+  const needle = input.trim().toLowerCase();
+  const match = BELT_PROGRESSION.find((b) => b.name.toLowerCase() === needle);
+  return match?.name ?? "White";
+}
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim().length > 0);
@@ -926,8 +1058,9 @@ function parseCsv(text: string): CsvRow[] {
   };
   const iFirst = idx("first_name", ["first", "firstname"]);
   const iLast = idx("last_name", ["last", "lastname", "surname"]);
-  const iEmail = idx("parent_email", ["email", "parent", "parentemail"]);
-  const iStart = idx("start_date", ["start", "startdate", "date"]);
+  const iEmail = idx("parent_email", ["email", "parent", "parentemail", "primary_email"]);
+  const iStart = idx("start_date", ["start", "startdate", "date", "join_date", "enrollment_date"]);
+  const iBelt = idx("current_belt", ["belt", "rank", "current_rank"]);
   const rows: CsvRow[] = [];
   for (let r = 1; r < lines.length; r++) {
     const cols = splitLine(lines[r]);
@@ -935,8 +1068,9 @@ function parseCsv(text: string): CsvRow[] {
     const last_name = iLast >= 0 ? cols[iLast] ?? "" : "";
     const parent_email = iEmail >= 0 ? cols[iEmail] ?? "" : "";
     const start_date = iStart >= 0 ? cols[iStart] ?? "" : "";
+    const current_belt = iBelt >= 0 ? cols[iBelt] ?? "" : "";
     if (!first_name && !last_name && !parent_email) continue;
-    rows.push({ first_name, last_name, parent_email, start_date });
+    rows.push({ first_name, last_name, parent_email, start_date, current_belt });
   }
   return rows;
 }
@@ -974,23 +1108,45 @@ function CsvImporter() {
           throw new Error("Missing First Name, Last Name or Parent Email");
         }
         const email = row.parent_email.trim().toLowerCase();
+        const belt = normalizeBelt(row.current_belt);
+        const startDate =
+          row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
+            ? new Date(row.start_date).toISOString().slice(0, 10)
+            : null;
         const { data: profile, error: profErr } = await supabase
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;
-        if (!profile) throw new Error(`No parent account for ${email}`);
+
+        if (!profile) {
+          // Stage as unlinked so admins can spot typos in the audit view.
+          const { error } = await supabase.from("pending_student_imports").insert({
+            first_name: row.first_name.trim(),
+            last_name: row.last_name.trim(),
+            parent_email: email,
+            class_name: assignedClass,
+            current_belt: belt,
+            ...(startDate ? { start_date: startDate } : {}),
+          });
+          if (error) throw error;
+          out.push({
+            student: name,
+            status: "unlinked",
+            message: `Queued in audit — no parent account for ${email}`,
+          });
+          continue;
+        }
+
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
-          current_belt: "White",
-          ...(row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
-            ? { start_date: new Date(row.start_date).toISOString().slice(0, 10) }
-            : {}),
+          current_belt: belt,
+          ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
         if (error) throw error;
-        out.push({ student: name, status: "ok", message: "Imported" });
+        out.push({ student: name, status: "ok", message: `Imported (${belt} belt)` });
       } catch (e) {
         out.push({ student: name, status: "error", message: (e as Error).message });
       }
@@ -998,18 +1154,22 @@ function CsvImporter() {
     setResults(out);
     setImporting(false);
     const okCount = out.filter((r) => r.status === "ok").length;
-    toast.success(`Imported ${okCount} / ${out.length} students`);
+    const unlinked = out.filter((r) => r.status === "unlinked").length;
+    toast.success(
+      `Imported ${okCount} / ${out.length} students${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`,
+    );
     qc.invalidateQueries({ queryKey: ["admin-students"] });
+    qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
   };
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
         <FileSpreadsheet className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-bold uppercase">Import Students CSV</h2>
+        <h2 className="font-display text-lg font-bold uppercase">Import Kicksite CSV</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload a roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date</code>. Every row in this batch will be enrolled in the class you pick below.
+        Upload a Kicksite roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date, Current Belt</code>. Rows whose parent email has no matching account go to the Unlinked Students Audit so you can catch typos.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
@@ -1057,6 +1217,7 @@ function CsvImporter() {
                   <th className="px-3 py-2">Last</th>
                   <th className="px-3 py-2">Parent Email</th>
                   <th className="px-3 py-2">Start Date</th>
+                  <th className="px-3 py-2">Belt</th>
                 </tr>
               </thead>
               <tbody>
@@ -1066,6 +1227,7 @@ function CsvImporter() {
                     <td className="px-3 py-2">{r.last_name}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.parent_email}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.start_date ?? ""}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{normalizeBelt(r.current_belt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1101,14 +1263,281 @@ function CsvImporter() {
 
       {results.length > 0 && (
         <div className="mt-5 space-y-1 text-xs">
-          {results.map((r, i) => (
-            <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${r.status === "ok" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100" : "border-red-500/40 bg-red-500/10 text-red-100"}`}>
-              <span className="font-semibold">{r.student}</span>
-              <span className="text-[11px] opacity-80">{r.message}</span>
-            </div>
-          ))}
+          {results.map((r, i) => {
+            const cls =
+              r.status === "ok"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                : r.status === "unlinked"
+                ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-100"
+                : "border-red-500/40 bg-red-500/10 text-red-100";
+            return (
+              <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${cls}`}>
+                <span className="font-semibold">{r.student}</span>
+                <span className="text-[11px] opacity-80">{r.message}</span>
+              </div>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- UNLINKED STUDENTS AUDIT ---------- */
+
+type PendingImport = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  parent_email: string;
+  class_name: string;
+  current_belt: string;
+  start_date: string | null;
+  created_at: string;
+};
+
+function UnlinkedAudit() {
+  const qc = useQueryClient();
+  const pendingQ = useQuery({
+    queryKey: ["unlinked-imports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pending_student_imports")
+        .select("id, first_name, last_name, parent_email, class_name, current_belt, start_date, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PendingImport[];
+    },
+  });
+
+  const relink = useMutation({
+    mutationFn: async (row: PendingImport) => {
+      const email = row.parent_email.trim().toLowerCase();
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles").select("id").ilike("email", email).maybeSingle();
+      if (profErr) throw profErr;
+      if (!profile) throw new Error(`Still no account for ${email}. Fix the email or ask the parent to sign up.`);
+      const { error: insErr } = await supabase.from("students").insert({
+        parent_id: profile.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        class_name: row.class_name,
+        current_belt: row.current_belt,
+        ...(row.start_date ? { start_date: row.start_date } : {}),
+      });
+      if (insErr) throw insErr;
+      const { error: delErr } = await supabase.from("pending_student_imports").delete().eq("id", row.id);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      toast.success("Student linked");
+      qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pending_student_imports").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unlinked-imports"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, parent_email }: { id: string; parent_email: string }) => {
+      const { error } = await supabase
+        .from("pending_student_imports")
+        .update({ parent_email: parent_email.trim().toLowerCase() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unlinked-imports"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const list = pendingQ.data ?? [];
+
+  return (
+    <div className="rounded-2xl border border-yellow-400/40 bg-card p-6">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-yellow-300" />
+        <h2 className="font-display text-lg font-bold uppercase">Unlinked Students Audit</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Imported students whose parent email doesn't match any account yet. Fix the email or click "Retry link" once the parent signs up.
+      </p>
+
+      <div className="mt-5 space-y-2">
+        {pendingQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!pendingQ.isLoading && list.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing waiting — every imported student is linked to a parent account.</p>
+        )}
+        {list.map((row) => (
+          <UnlinkedRow
+            key={row.id}
+            row={row}
+            onRetry={() => relink.mutate(row)}
+            onRemove={() => remove.mutate(row.id)}
+            onEmailChange={(email) => update.mutate({ id: row.id, parent_email: email })}
+            busy={relink.isPending || remove.isPending}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UnlinkedRow({
+  row,
+  onRetry,
+  onRemove,
+  onEmailChange,
+  busy,
+}: {
+  row: PendingImport;
+  onRetry: () => void;
+  onRemove: () => void;
+  onEmailChange: (email: string) => void;
+  busy: boolean;
+}) {
+  const [email, setEmail] = useState(row.parent_email);
+  const dirty = email.trim().toLowerCase() !== row.parent_email.toLowerCase();
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">{row.first_name} {row.last_name}</span>
+          <Badge variant="outline" className="border-primary/40 text-primary">{row.current_belt}</Badge>
+          <Badge variant="outline">{row.class_name}</Badge>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[240px] flex-1">
+            <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => { if (dirty) onEmailChange(email); }}
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Added {new Date(row.created_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+      <Button size="sm" variant="outline" onClick={onRetry} disabled={busy} className="border-primary/50 text-primary">
+        <Link2 className="mr-1 h-3.5 w-3.5" /> Retry link
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy}>
+        <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
+      </Button>
+    </div>
+  );
+}
+
+/* ---------- PARENT USER MANAGEMENT ---------- */
+
+type ParentProfile = {
+  id: string;
+  email: string;
+  family_name: string | null;
+  subscription_status: "free" | "premium";
+  created_at: string;
+};
+
+function ParentsTab() {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+
+  const profilesQ = useQuery({
+    queryKey: ["admin-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, family_name, subscription_status, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ParentProfile[];
+    },
+  });
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "free" | "premium" }) => {
+      const { error } = await supabase.from("profiles").update({ subscription_status: status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.status === "premium" ? "Upgraded to Premium" : "Downgraded to Free");
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const list = (profilesQ.data ?? []).filter((p) => {
+    if (!q.trim()) return true;
+    const needle = q.toLowerCase();
+    return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Crown className="h-4 w-4 text-primary" />
+            <h2 className="font-display text-xl font-bold uppercase">Parent Accounts &amp; Premium</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Toggle a family between Free and Premium. Premium unlocks the Leaderboard and Community Feed.
+          </p>
+        </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by email or family…"
+            className="h-10 pl-9 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {profilesQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!profilesQ.isLoading && list.length === 0 && (
+          <p className="text-sm text-muted-foreground">No parent accounts match.</p>
+        )}
+        {list.map((p) => {
+          const premium = p.subscription_status === "premium";
+          return (
+            <div key={p.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{p.family_name ?? "—"}</span>
+                  {premium && (
+                    <Badge className="bg-gradient-red text-primary-foreground">
+                      <Crown className="mr-1 h-3 w-3" /> Premium
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.email}</div>
+              </div>
+              <Button
+                size="sm"
+                variant={premium ? "outline" : "default"}
+                className={premium ? "" : "bg-gradient-red"}
+                disabled={setStatus.isPending}
+                onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
+              >
+                {premium ? "Set to Free" : "Upgrade to Premium"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
