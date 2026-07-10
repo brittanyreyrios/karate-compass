@@ -19,6 +19,10 @@ import {
   AlertTriangle,
   Upload,
   FileSpreadsheet,
+  Sparkles,
+  Mail,
+  Link2,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
