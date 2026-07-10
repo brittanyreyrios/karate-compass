@@ -1211,6 +1211,7 @@ function CsvImporter() {
                   <th className="px-3 py-2">Last</th>
                   <th className="px-3 py-2">Parent Email</th>
                   <th className="px-3 py-2">Start Date</th>
+                  <th className="px-3 py-2">Belt</th>
                 </tr>
               </thead>
               <tbody>
@@ -1220,6 +1221,7 @@ function CsvImporter() {
                     <td className="px-3 py-2">{r.last_name}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.parent_email}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.start_date ?? ""}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{normalizeBelt(r.current_belt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1255,14 +1257,281 @@ function CsvImporter() {
 
       {results.length > 0 && (
         <div className="mt-5 space-y-1 text-xs">
-          {results.map((r, i) => (
-            <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${r.status === "ok" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100" : "border-red-500/40 bg-red-500/10 text-red-100"}`}>
-              <span className="font-semibold">{r.student}</span>
-              <span className="text-[11px] opacity-80">{r.message}</span>
-            </div>
-          ))}
+          {results.map((r, i) => {
+            const cls =
+              r.status === "ok"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                : r.status === "unlinked"
+                ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-100"
+                : "border-red-500/40 bg-red-500/10 text-red-100";
+            return (
+              <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${cls}`}>
+                <span className="font-semibold">{r.student}</span>
+                <span className="text-[11px] opacity-80">{r.message}</span>
+              </div>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- UNLINKED STUDENTS AUDIT ---------- */
+
+type PendingImport = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  parent_email: string;
+  class_name: string;
+  current_belt: string;
+  start_date: string | null;
+  created_at: string;
+};
+
+function UnlinkedAudit() {
+  const qc = useQueryClient();
+  const pendingQ = useQuery({
+    queryKey: ["unlinked-imports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pending_student_imports")
+        .select("id, first_name, last_name, parent_email, class_name, current_belt, start_date, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PendingImport[];
+    },
+  });
+
+  const relink = useMutation({
+    mutationFn: async (row: PendingImport) => {
+      const email = row.parent_email.trim().toLowerCase();
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles").select("id").ilike("email", email).maybeSingle();
+      if (profErr) throw profErr;
+      if (!profile) throw new Error(`Still no account for ${email}. Fix the email or ask the parent to sign up.`);
+      const { error: insErr } = await supabase.from("students").insert({
+        parent_id: profile.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        class_name: row.class_name,
+        current_belt: row.current_belt,
+        ...(row.start_date ? { start_date: row.start_date } : {}),
+      });
+      if (insErr) throw insErr;
+      const { error: delErr } = await supabase.from("pending_student_imports").delete().eq("id", row.id);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      toast.success("Student linked");
+      qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pending_student_imports").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unlinked-imports"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, parent_email }: { id: string; parent_email: string }) => {
+      const { error } = await supabase
+        .from("pending_student_imports")
+        .update({ parent_email: parent_email.trim().toLowerCase() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unlinked-imports"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const list = pendingQ.data ?? [];
+
+  return (
+    <div className="rounded-2xl border border-yellow-400/40 bg-card p-6">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-yellow-300" />
+        <h2 className="font-display text-lg font-bold uppercase">Unlinked Students Audit</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Imported students whose parent email doesn't match any account yet. Fix the email or click "Retry link" once the parent signs up.
+      </p>
+
+      <div className="mt-5 space-y-2">
+        {pendingQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!pendingQ.isLoading && list.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing waiting — every imported student is linked to a parent account.</p>
+        )}
+        {list.map((row) => (
+          <UnlinkedRow
+            key={row.id}
+            row={row}
+            onRetry={() => relink.mutate(row)}
+            onRemove={() => remove.mutate(row.id)}
+            onEmailChange={(email) => update.mutate({ id: row.id, parent_email: email })}
+            busy={relink.isPending || remove.isPending}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UnlinkedRow({
+  row,
+  onRetry,
+  onRemove,
+  onEmailChange,
+  busy,
+}: {
+  row: PendingImport;
+  onRetry: () => void;
+  onRemove: () => void;
+  onEmailChange: (email: string) => void;
+  busy: boolean;
+}) {
+  const [email, setEmail] = useState(row.parent_email);
+  const dirty = email.trim().toLowerCase() !== row.parent_email.toLowerCase();
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">{row.first_name} {row.last_name}</span>
+          <Badge variant="outline" className="border-primary/40 text-primary">{row.current_belt}</Badge>
+          <Badge variant="outline">{row.class_name}</Badge>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[240px] flex-1">
+            <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => { if (dirty) onEmailChange(email); }}
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Added {new Date(row.created_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+      <Button size="sm" variant="outline" onClick={onRetry} disabled={busy} className="border-primary/50 text-primary">
+        <Link2 className="mr-1 h-3.5 w-3.5" /> Retry link
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy}>
+        <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
+      </Button>
+    </div>
+  );
+}
+
+/* ---------- PARENT USER MANAGEMENT ---------- */
+
+type ParentProfile = {
+  id: string;
+  email: string;
+  family_name: string | null;
+  subscription_status: "free" | "premium";
+  created_at: string;
+};
+
+function ParentsTab() {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+
+  const profilesQ = useQuery({
+    queryKey: ["admin-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, family_name, subscription_status, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ParentProfile[];
+    },
+  });
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "free" | "premium" }) => {
+      const { error } = await supabase.from("profiles").update({ subscription_status: status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.status === "premium" ? "Upgraded to Premium" : "Downgraded to Free");
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const list = (profilesQ.data ?? []).filter((p) => {
+    if (!q.trim()) return true;
+    const needle = q.toLowerCase();
+    return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Crown className="h-4 w-4 text-primary" />
+            <h2 className="font-display text-xl font-bold uppercase">Parent Accounts &amp; Premium</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Toggle a family between Free and Premium. Premium unlocks the Leaderboard and Community Feed.
+          </p>
+        </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by email or family…"
+            className="h-10 pl-9 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {profilesQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!profilesQ.isLoading && list.length === 0 && (
+          <p className="text-sm text-muted-foreground">No parent accounts match.</p>
+        )}
+        {list.map((p) => {
+          const premium = p.subscription_status === "premium";
+          return (
+            <div key={p.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{p.family_name ?? "—"}</span>
+                  {premium && (
+                    <Badge className="bg-gradient-red text-primary-foreground">
+                      <Crown className="mr-1 h-3 w-3" /> Premium
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.email}</div>
+              </div>
+              <Button
+                size="sm"
+                variant={premium ? "outline" : "default"}
+                className={premium ? "" : "bg-gradient-red"}
+                disabled={setStatus.isPending}
+                onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
+              >
+                {premium ? "Set to Free" : "Upgrade to Premium"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
