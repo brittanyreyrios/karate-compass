@@ -632,14 +632,14 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </div>
       </div>
       <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
+        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
           <Minus className="h-4 w-4" />
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
         </div>
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
+        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -1023,7 +1023,7 @@ function ClassScheduleRow({
       >
         <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
       </Button>
-      <Button variant="ghost" size="icon" onClick={onRemove} title="Remove class">
+      <Button variant="ghost" size="icon" aria-label="Remove class" onClick={onRemove} title="Remove class">
         <Trash2 className="h-4 w-4 text-muted-foreground" />
       </Button>
     </div>
