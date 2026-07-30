@@ -112,11 +112,13 @@ function AdminPage() {
       </header>
 
       <Tabs defaultValue="attendance" className="mt-8">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
+          <TabsTrigger value="invites">Invite Codes</TabsTrigger>
+          <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
 
@@ -131,6 +133,12 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="parents" className="mt-6">
           <ParentsTab />
+        </TabsContent>
+        <TabsContent value="invites" className="mt-6">
+          <InviteCodesTab />
+        </TabsContent>
+        <TabsContent value="guidelines" className="mt-6">
+          <PointGuidelinesTab />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
           <AnnouncementForm />
