@@ -452,11 +452,13 @@ function AttendanceTab() {
                   size="sm"
                   variant="outline"
                   onClick={() => markAbsent.mutate(s)}
-                  disabled={markAbsent.isPending || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
+                  disabled={markAbsent.isPending || absentActive || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
                   title={currentClassIsHoliday ? "Absence tracking paused (holiday)" : ""}
                   className="h-8 border-yellow-400/50 text-xs uppercase tracking-wider text-yellow-100 hover:bg-yellow-400/10"
                 >
-                  <UserX className="mr-1 h-3.5 w-3.5" /> Absent
+                  {absentActive
+                    ? <><Check className="mr-1 h-3.5 w-3.5" /> Logged</>
+                    : <><UserX className="mr-1 h-3.5 w-3.5" /> Absent</>}
                 </Button>
               </div>
             </div>
