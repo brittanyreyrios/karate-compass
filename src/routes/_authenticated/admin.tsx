@@ -247,6 +247,14 @@ function AttendanceTab() {
         })
         .eq("id", student.id);
       if (error) throw error;
+      // Yearly log entry — drives the parent dashboard's per-calendar-year total.
+      const { data: u } = await supabase.auth.getUser();
+      const { error: logErr } = await supabase.from("attendance_events").insert({
+        student_id: student.id,
+        occurred_on: new Date().toISOString().slice(0, 10),
+        created_by: u.user?.id ?? null,
+      });
+      if (logErr) throw logErr;
       return student.id;
     },
     onSuccess: (id) => {
@@ -279,8 +287,12 @@ function AttendanceTab() {
         .update({ consecutive_absences: student.consecutive_absences + 1 })
         .eq("id", student.id);
       if (error) throw error;
+      return student.id;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
+    onSuccess: (id) => {
+      lockButton(setAbsentLock, id);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
