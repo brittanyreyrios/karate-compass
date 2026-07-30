@@ -75,7 +75,7 @@ function AuthPage() {
             <div className="font-display text-lg font-bold uppercase leading-none tracking-wider">
               Tiger's Den
             </div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               Martial Arts & Fitness
             </div>
           </div>
@@ -127,7 +127,7 @@ function AuthPage() {
           </TabsContent>
         </Tabs>
 
-        <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+        <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-widest text-muted-foreground">
           <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
         </div>
 

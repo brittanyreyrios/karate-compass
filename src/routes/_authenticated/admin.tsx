@@ -91,7 +91,7 @@ function FollowUpBadge({ n }: { n: number }) {
     ? "border-red-500/60 bg-red-500/20 text-red-100"
     : "border-yellow-400/60 bg-yellow-400/20 text-yellow-100";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}>
       <AlertTriangle className="h-3 w-3" /> Follow Up Needed · {n} absences
     </span>
   );
@@ -102,7 +102,7 @@ function AdminPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-primary">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-primary">
             <ShieldCheck className="h-3 w-3" /> Admin Console
           </div>
           <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
@@ -341,8 +341,8 @@ function AttendanceTab() {
               }`}
             >
               {opt.label}
-              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[9px] text-yellow-100">Holiday</span>}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
+              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-xs text-yellow-100">Holiday</span>}
+              <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
                 {counts[opt.key] ?? 0}
               </span>
             </button>
@@ -613,7 +613,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
-          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Dojo pts</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
         </div>
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
           <Plus className="h-4 w-4" />
@@ -1211,7 +1211,7 @@ function CsvImporter() {
         <div className="mt-5 overflow-hidden rounded-xl border border-border">
           <div className="max-h-56 overflow-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-secondary text-[10px] uppercase tracking-widest text-muted-foreground">
+              <thead className="bg-secondary text-xs uppercase tracking-widest text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">First</th>
                   <th className="px-3 py-2">Last</th>
@@ -1234,7 +1234,7 @@ function CsvImporter() {
             </table>
           </div>
           {rows.length > 50 && (
-            <div className="border-t border-border bg-secondary/40 px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="border-t border-border bg-secondary/40 px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground">
               + {rows.length - 50} more rows will import
             </div>
           )}
@@ -1273,7 +1273,7 @@ function CsvImporter() {
             return (
               <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${cls}`}>
                 <span className="font-semibold">{r.student}</span>
-                <span className="text-[11px] opacity-80">{r.message}</span>
+                <span className="text-xs opacity-80">{r.message}</span>
               </div>
             );
           })}
@@ -1423,7 +1423,7 @@ function UnlinkedRow({
               className="h-9 pl-8 text-xs"
             />
           </div>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
             Added {new Date(row.created_at).toLocaleDateString()}
           </span>
         </div>

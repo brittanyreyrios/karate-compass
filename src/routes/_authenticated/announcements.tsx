@@ -58,7 +58,7 @@ function Announcements() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <div className="text-[10px] uppercase tracking-[0.3em] text-primary">Stay informed</div>
+        <div className="text-xs uppercase tracking-[0.3em] text-primary">Stay informed</div>
         <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
           School <span className="text-gradient-red">Announcements</span>
         </h1>
@@ -75,14 +75,14 @@ function Announcements() {
             {news.map((n, i) => (
               <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${i === 0 ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
                 {i === 0 && (
-                  <div className="absolute right-4 top-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary">
+                  <div className="absolute right-4 top-4 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-primary">
                     <Pin className="h-3 w-3" /> Latest
                   </div>
                 )}
                 {n.tag && <Badge variant="outline" className="border-primary/40 text-primary">{n.tag}</Badge>}
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
-                <div className="mt-4 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
                   {new Date(n.created_at).toLocaleDateString()}
                 </div>
               </article>

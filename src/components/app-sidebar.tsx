@@ -49,7 +49,7 @@ export function AppSidebar() {
             <div className="font-display text-lg font-bold uppercase leading-none tracking-wider text-sidebar-foreground">
               Tiger's Den
             </div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               Martial Arts &amp; Fitness
             </div>
           </div>
@@ -58,7 +58,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -81,7 +81,7 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-primary">Staff</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-primary">Staff</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -100,12 +100,12 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-4 group-data-[collapsible=icon]:hidden">
         <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Signed in as</div>
+          <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Signed in as</div>
           <div className="mt-1 truncate text-sm font-semibold text-sidebar-foreground">
             {user?.email ?? "—"}
           </div>
           {isAdmin && (
-            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary">
+            <div className="mt-1 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-primary">
               <ShieldCheck className="h-3 w-3" /> Admin
             </div>
           )}
