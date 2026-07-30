@@ -114,11 +114,13 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
-  // Bare layout for the /auth page (no sidebar)
-  if (pathname === "/auth") {
+  // Bare layout for public pages (no sidebar)
+  if (pathname === "/auth" || pathname === "/privacy-policy") {
     return (
       <QueryClientProvider client={queryClient}>
-        <Outlet />
+        <main>
+          <Outlet />
+        </main>
         <Toaster />
       </QueryClientProvider>
     );
@@ -127,7 +129,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
+        <div className="flex min-h-dvh w-full bg-background">
           <AppSidebar />
           <div className="flex flex-1 flex-col">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md">
@@ -138,6 +140,17 @@ function RootComponent() {
               </span>
             </header>
             <main className="flex-1"><Outlet /></main>
+            <footer className="border-t border-border px-4 py-6">
+              <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>© {new Date().getFullYear()} Tiger's Den Martial Arts &amp; Fitness</span>
+                <Link
+                  to="/privacy-policy"
+                  className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  Privacy Policy
+                </Link>
+              </div>
+            </footer>
           </div>
         </div>
         <Toaster />
