@@ -180,6 +180,7 @@ function AttendanceTab() {
   const [classFilter, setClassFilter] = useState<string>(ALL_CLASSES);
   const [presentLock, setPresentLock] = useState<Record<string, number>>({});
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
+  const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
 
   const studentsQ = useStudents();
 
