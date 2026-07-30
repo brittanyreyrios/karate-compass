@@ -99,6 +99,10 @@ function Dashboard() {
       .channel("dash-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "students" }, () => {
         qc.invalidateQueries({ queryKey: ["students-mine"] });
+        qc.invalidateQueries({ queryKey: ["attendance-year"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance_events" }, () => {
+        qc.invalidateQueries({ queryKey: ["attendance-year"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
