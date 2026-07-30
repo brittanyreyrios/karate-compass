@@ -116,6 +116,63 @@ export type Database = {
         }
         Relationships: []
       }
+      dojo_point_guidelines: {
+        Row: {
+          created_at: string
+          id: string
+          rule_text: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rule_text: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rule_text?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invite_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          label: string | null
+          max_uses: number
+          used_count: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          label?: string | null
+          max_uses?: number
+          used_count?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          label?: string | null
+          max_uses?: number
+          used_count?: number
+        }
+        Relationships: []
+      }
       pending_student_imports: {
         Row: {
           class_name: string
