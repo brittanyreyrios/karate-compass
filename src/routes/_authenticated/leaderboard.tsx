@@ -5,7 +5,6 @@ import { Trophy, Medal, Award, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BELT_PROGRESSION } from "@/lib/mock-data";
-import { PremiumGate } from "@/components/premium-gate";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -14,11 +13,7 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
       { name: "description", content: "Top 10 students at Tiger's Den ranked by Dojo Points." },
     ],
   }),
-  component: () => (
-    <PremiumGate feature="The Dojo Leaderboard">
-      <LeaderboardPage />
-    </PremiumGate>
-  ),
+  component: LeaderboardPage,
 });
 
 type Row = {
