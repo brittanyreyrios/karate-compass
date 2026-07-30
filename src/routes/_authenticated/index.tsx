@@ -343,6 +343,8 @@ function Dashboard() {
           )}
         </div>
       </section>
+
+      <ClassScheduleCard className={student.class_name} />
     </div>
   );
 }
