@@ -99,6 +99,10 @@ function Dashboard() {
       .channel("dash-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "students" }, () => {
         qc.invalidateQueries({ queryKey: ["students-mine"] });
+        qc.invalidateQueries({ queryKey: ["attendance-year"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance_events" }, () => {
+        qc.invalidateQueries({ queryKey: ["attendance-year"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
@@ -115,6 +119,24 @@ function Dashboard() {
 
   const news = (announcementsQ.data ?? []).filter((a) => a.category === "school_news").slice(0, 4);
   const tournaments = (announcementsQ.data ?? []).filter((a) => a.category === "tournament").slice(0, 4);
+
+  // Yearly attendance log — counts only classes logged in the current calendar
+  // year, so the number naturally resets every January 1st.
+  const currentYear = new Date().getFullYear();
+  const yearlyAttendanceQ = useQuery({
+    queryKey: ["attendance-year", student?.id, currentYear],
+    enabled: !!student?.id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("attendance_events")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", student!.id)
+        .gte("occurred_on", `${currentYear}-01-01`)
+        .lte("occurred_on", `${currentYear}-12-31`);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
@@ -155,7 +177,7 @@ function Dashboard() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-primary">Welcome back</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-primary">Welcome back</div>
           <h1 className="mt-2 truncate font-display text-3xl font-bold uppercase leading-tight tracking-wide sm:text-4xl lg:text-5xl">
             The <span className="text-gradient-red">{profileQ.data?.family_name ?? "Family"}</span> Family Dashboard
           </h1>
@@ -182,12 +204,12 @@ function Dashboard() {
         <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Road to Black Belt</div>
+              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Road to Black Belt</div>
               <div className="mt-1 font-display text-2xl font-bold uppercase">{student.first_name}'s Journey</div>
             </div>
             <div className="text-right">
               <div className="font-display text-4xl font-black text-gradient-red">{progressPct}%</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Complete</div>
+              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Complete</div>
             </div>
           </div>
           <div className="relative mt-8">
@@ -204,7 +226,7 @@ function Dashboard() {
                       className={`h-6 w-3 rounded-sm border transition-all ${current ? "scale-125 border-primary ring-2 ring-primary/40" : reached ? "border-transparent" : "border-border opacity-40"}`}
                       style={{ backgroundColor: reached ? belt.color : "transparent" }}
                     />
-                    <span className={`hidden text-[9px] font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
+                    <span className={`hidden text-xs font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
                       {belt.name}
                     </span>
                   </div>
@@ -217,7 +239,7 @@ function Dashboard() {
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
           <div className="absolute -right-8 -top-8 opacity-10"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
           <div className="relative">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/80">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/80">
               <Flame className="h-3 w-3" /> Next Belt Test
             </div>
             <div className="mt-6 flex items-baseline gap-2">
@@ -237,13 +259,16 @@ function Dashboard() {
         </div>
       </section>
 
-      <ClassScheduleCard className={student.class_name} />
-
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={<Trophy className="h-5 w-5" />} label="Current Belt" value={`${student.current_belt} Belt`} sub={`Rank ${Math.max(0, beltIndex) + 1} of ${BELT_PROGRESSION.length}`} />
         <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
         <StatCard icon={<Sparkles className="h-5 w-5" />} label="Dojo Points" value={`${student.points}`} sub="earned on the mat" highlight />
-        <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Total Attendance" value={`${student.attendance_count}`} sub="classes attended" />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Total Attendance (Yearly Log)"
+          value={`${yearlyAttendanceQ.data ?? 0}`}
+          sub={`classes logged in ${currentYear}`}
+        />
         <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={new Date(student.start_date).toLocaleDateString(undefined, { month: "short", year: "numeric" })} sub={`${yearsTraining} years on the mat`} />
       </section>
 
@@ -266,7 +291,7 @@ function Dashboard() {
                 <li key={n.id} className="group cursor-pointer rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50 hover:bg-background">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="border-primary/40 text-primary">{n.tag ?? "News"}</Badge>
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
                       {new Date(n.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -302,7 +327,7 @@ function Dashboard() {
                           {t.discipline ?? "Event"}
                         </Badge>
                         {days !== null && (
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-primary">{days}d away</span>
+                          <span className="text-xs font-bold uppercase tracking-widest text-primary">{days}d away</span>
                         )}
                       </div>
                       <h3 className="mt-3 font-semibold">{t.title}</h3>
@@ -318,6 +343,8 @@ function Dashboard() {
           )}
         </div>
       </section>
+
+      <ClassScheduleCard className={student.class_name} />
     </div>
   );
 }
@@ -326,7 +353,7 @@ function StatCard({ icon, label, value, sub, highlight }: { icon: React.ReactNod
   return (
     <div className={`rounded-2xl border p-5 transition-all ${highlight ? "border-primary/60 bg-primary/5 shadow-red-glow" : "border-border bg-card hover:border-primary/40"}`}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+        <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
         <span className={`grid h-8 w-8 place-items-center rounded-lg ${highlight ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>{icon}</span>
       </div>
       <div className={`mt-4 font-display text-2xl font-bold uppercase ${highlight ? "text-gradient-red" : ""}`}>{value}</div>
@@ -363,7 +390,7 @@ function ClassScheduleCard({ className }: { className: string }) {
     <section className="mt-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-6 shadow-elevated sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-primary">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-primary">
             <Calendar className="h-3 w-3" /> Class Schedule
           </div>
           <h2 className="mt-2 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
@@ -377,13 +404,13 @@ function ClassScheduleCard({ className }: { className: string }) {
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-background/60 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
             <Calendar className="h-3 w-3" /> Days
           </div>
           <div className="mt-2 font-display text-xl font-bold uppercase">{info.days ?? "—"}</div>
         </div>
         <div className="rounded-xl border border-border bg-background/60 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
             <Clock className="h-3 w-3" /> Time
           </div>
           <div className="mt-2 font-display text-xl font-bold uppercase">
@@ -391,7 +418,7 @@ function ClassScheduleCard({ className }: { className: string }) {
           </div>
         </div>
         <div className="rounded-xl border border-border bg-background/60 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
             <MapPin className="h-3 w-3" /> Location
           </div>
           <div className="mt-2 font-display text-xl font-bold uppercase">{info.location ?? "—"}</div>

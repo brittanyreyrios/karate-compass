@@ -22,7 +22,7 @@ export function PremiumGate({ feature, children }: { feature: string; children: 
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-red shadow-red-glow">
             <Lock className="h-7 w-7 text-white" strokeWidth={2.5} />
           </div>
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.3em] text-primary">
             <Sparkles className="h-3 w-3" /> Premium Feature
           </div>
           <h1 className="mt-4 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
@@ -36,7 +36,7 @@ export function PremiumGate({ feature, children }: { feature: string; children: 
             <Button className="bg-gradient-red px-8 shadow-red-glow" size="lg">
               Upgrade to Premium
             </Button>
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Ask a Tiger's Den admin to enable premium on your account
             </p>
           </div>

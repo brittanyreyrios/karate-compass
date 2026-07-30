@@ -5,7 +5,6 @@ import { Trophy, Medal, Award, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BELT_PROGRESSION } from "@/lib/mock-data";
-import { PremiumGate } from "@/components/premium-gate";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -14,11 +13,7 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
       { name: "description", content: "Top 10 students at Tiger's Den ranked by Dojo Points." },
     ],
   }),
-  component: () => (
-    <PremiumGate feature="The Dojo Leaderboard">
-      <LeaderboardPage />
-    </PremiumGate>
-  ),
+  component: LeaderboardPage,
 });
 
 type Row = {
@@ -63,7 +58,7 @@ function LeaderboardPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="text-center">
-        <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-primary">
+        <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-primary">
           <Flame className="h-3 w-3" /> Tiger's Den Rankings
         </div>
         <h1 className="mt-3 font-display text-4xl font-bold uppercase tracking-wide sm:text-5xl">
@@ -111,7 +106,7 @@ function LeaderboardPage() {
                 </div>
                 <div className="text-right">
                   <div className="font-display text-2xl font-black leading-none text-primary">{r.points}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">pts</div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">pts</div>
                 </div>
               </li>
             ))}
@@ -159,7 +154,7 @@ function PodiumCard({
       <div className={`absolute left-1/2 top-0 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${accents.chip}`}>
         {accents.icon}
       </div>
-      <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">{accents.label}</div>
+      <div className="mt-4 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">{accents.label}</div>
       <div className="mt-3 font-display text-xl font-bold uppercase">
         {row.first_name} {row.last_name}
       </div>
@@ -173,7 +168,7 @@ function PodiumCard({
       </div>
       <div className="mt-5">
         <div className="font-display text-5xl font-black leading-none text-gradient-red">{row.points}</div>
-        <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">Dojo Points</div>
+        <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Dojo Points</div>
       </div>
     </div>
   );

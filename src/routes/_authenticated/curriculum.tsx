@@ -31,7 +31,7 @@ function Curriculum() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <div className="text-[10px] uppercase tracking-[0.3em] text-primary">Technique library</div>
+        <div className="text-xs uppercase tracking-[0.3em] text-primary">Technique library</div>
         <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
           Belt <span className="text-gradient-red">Curriculum</span>
         </h1>
@@ -90,13 +90,13 @@ function VideoCard({ title, idx, unlocked }: { title: string; idx: number; unloc
             </div>
           )}
         </div>
-        <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+        <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs font-bold uppercase tracking-widest">
           Ep {String(idx).padStart(2, "0")}
         </div>
       </div>
       <div className="p-3">
         <div className="truncate text-sm font-semibold">{title}</div>
-        <div className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+        <div className="mt-0.5 text-xs uppercase tracking-widest text-muted-foreground">
           {unlocked ? "Watch technique" : "Locked"}
         </div>
       </div>

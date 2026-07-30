@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
@@ -44,7 +44,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">Something went wrong. Try refreshing or go home.</p>
@@ -114,11 +114,13 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
-  // Bare layout for the /auth page (no sidebar)
-  if (pathname === "/auth") {
+  // Bare layout for public pages (no sidebar)
+  if (pathname === "/auth" || pathname === "/privacy-policy") {
     return (
       <QueryClientProvider client={queryClient}>
-        <Outlet />
+        <main>
+          <Outlet />
+        </main>
         <Toaster />
       </QueryClientProvider>
     );
@@ -127,7 +129,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
+        <div className="flex min-h-dvh w-full bg-background">
           <AppSidebar />
           <div className="flex flex-1 flex-col">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md">
@@ -138,6 +140,17 @@ function RootComponent() {
               </span>
             </header>
             <main className="flex-1"><Outlet /></main>
+            <footer className="border-t border-border px-4 py-6">
+              <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>© {new Date().getFullYear()} Tiger's Den Martial Arts &amp; Fitness</span>
+                <Link
+                  to="/privacy-policy"
+                  className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  Privacy Policy
+                </Link>
+              </div>
+            </footer>
           </div>
         </div>
         <Toaster />

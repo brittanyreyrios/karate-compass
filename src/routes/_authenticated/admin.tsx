@@ -91,7 +91,7 @@ function FollowUpBadge({ n }: { n: number }) {
     ? "border-red-500/60 bg-red-500/20 text-red-100"
     : "border-yellow-400/60 bg-yellow-400/20 text-yellow-100";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}>
       <AlertTriangle className="h-3 w-3" /> Follow Up Needed · {n} absences
     </span>
   );
@@ -102,7 +102,7 @@ function AdminPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-primary">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-primary">
             <ShieldCheck className="h-3 w-3" /> Admin Console
           </div>
           <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
@@ -112,11 +112,13 @@ function AdminPage() {
       </header>
 
       <Tabs defaultValue="attendance" className="mt-8">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
+          <TabsTrigger value="invites">Invite Codes</TabsTrigger>
+          <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
 
@@ -131,6 +133,12 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="parents" className="mt-6">
           <ParentsTab />
+        </TabsContent>
+        <TabsContent value="invites" className="mt-6">
+          <InviteCodesTab />
+        </TabsContent>
+        <TabsContent value="guidelines" className="mt-6">
+          <PointGuidelinesTab />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
           <AnnouncementForm />
@@ -172,6 +180,7 @@ function AttendanceTab() {
   const [classFilter, setClassFilter] = useState<string>(ALL_CLASSES);
   const [presentLock, setPresentLock] = useState<Record<string, number>>({});
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
+  const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
 
   const studentsQ = useStudents();
 
@@ -238,6 +247,14 @@ function AttendanceTab() {
         })
         .eq("id", student.id);
       if (error) throw error;
+      // Yearly log entry — drives the parent dashboard's per-calendar-year total.
+      const { data: u } = await supabase.auth.getUser();
+      const { error: logErr } = await supabase.from("attendance_events").insert({
+        student_id: student.id,
+        occurred_on: new Date().toISOString().slice(0, 10),
+        created_by: u.user?.id ?? null,
+      });
+      if (logErr) throw logErr;
       return student.id;
     },
     onSuccess: (id) => {
@@ -270,8 +287,12 @@ function AttendanceTab() {
         .update({ consecutive_absences: student.consecutive_absences + 1 })
         .eq("id", student.id);
       if (error) throw error;
+      return student.id;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
+    onSuccess: (id) => {
+      lockButton(setAbsentLock, id);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -341,8 +362,8 @@ function AttendanceTab() {
               }`}
             >
               {opt.label}
-              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[9px] text-yellow-100">Holiday</span>}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
+              {isHol && <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-xs text-yellow-100">Holiday</span>}
+              <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-black/25 text-white" : "bg-secondary text-foreground/70"}`}>
                 {counts[opt.key] ?? 0}
               </span>
             </button>
@@ -383,6 +404,7 @@ function AttendanceTab() {
         {filtered.map((s) => {
           const presentActive = !!presentLock[s.id];
           const pointsActive = !!pointsLock[s.id];
+          const absentActive = !!absentLock[s.id];
           const risk = riskCardClasses(s.consecutive_absences);
           return (
             <div
@@ -430,11 +452,13 @@ function AttendanceTab() {
                   size="sm"
                   variant="outline"
                   onClick={() => markAbsent.mutate(s)}
-                  disabled={markAbsent.isPending || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
+                  disabled={markAbsent.isPending || absentActive || (classFilter !== ALL_CLASSES && currentClassIsHoliday)}
                   title={currentClassIsHoliday ? "Absence tracking paused (holiday)" : ""}
                   className="h-8 border-yellow-400/50 text-xs uppercase tracking-wider text-yellow-100 hover:bg-yellow-400/10"
                 >
-                  <UserX className="mr-1 h-3.5 w-3.5" /> Absent
+                  {absentActive
+                    ? <><Check className="mr-1 h-3.5 w-3.5" /> Logged</>
+                    : <><UserX className="mr-1 h-3.5 w-3.5" /> Absent</>}
                 </Button>
               </div>
             </div>
@@ -608,14 +632,14 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </div>
       </div>
       <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
+        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
           <Minus className="h-4 w-4" />
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
-          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Dojo pts</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
         </div>
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
+        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -999,7 +1023,7 @@ function ClassScheduleRow({
       >
         <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
       </Button>
-      <Button variant="ghost" size="icon" onClick={onRemove} title="Remove class">
+      <Button variant="ghost" size="icon" aria-label="Remove class" onClick={onRemove} title="Remove class">
         <Trash2 className="h-4 w-4 text-muted-foreground" />
       </Button>
     </div>
@@ -1211,7 +1235,7 @@ function CsvImporter() {
         <div className="mt-5 overflow-hidden rounded-xl border border-border">
           <div className="max-h-56 overflow-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-secondary text-[10px] uppercase tracking-widest text-muted-foreground">
+              <thead className="bg-secondary text-xs uppercase tracking-widest text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">First</th>
                   <th className="px-3 py-2">Last</th>
@@ -1234,7 +1258,7 @@ function CsvImporter() {
             </table>
           </div>
           {rows.length > 50 && (
-            <div className="border-t border-border bg-secondary/40 px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="border-t border-border bg-secondary/40 px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground">
               + {rows.length - 50} more rows will import
             </div>
           )}
@@ -1273,7 +1297,7 @@ function CsvImporter() {
             return (
               <div key={i} className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${cls}`}>
                 <span className="font-semibold">{r.student}</span>
-                <span className="text-[11px] opacity-80">{r.message}</span>
+                <span className="text-xs opacity-80">{r.message}</span>
               </div>
             );
           })}
@@ -1423,7 +1447,7 @@ function UnlinkedRow({
               className="h-9 pl-8 text-xs"
             />
           </div>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
             Added {new Date(row.created_at).toLocaleDateString()}
           </span>
         </div>
@@ -1538,6 +1562,358 @@ function ParentsTab() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ---------- INVITE CODES ---------- */
+
+type InviteCode = {
+  code: string;
+  label: string | null;
+  active: boolean;
+  max_uses: number;
+  used_count: number;
+  expires_at: string | null;
+  created_at: string;
+};
+
+function randomCode(len = 8) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  const bytes = new Uint32Array(len);
+  crypto.getRandomValues(bytes);
+  for (let i = 0; i < len; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
+function InviteCodesTab() {
+  const qc = useQueryClient();
+  const [code, setCode] = useState(() => randomCode());
+  const [label, setLabel] = useState("");
+  const [maxUses, setMaxUses] = useState("1");
+  const [expiry, setExpiry] = useState("");
+
+  const codesQ = useQuery({
+    queryKey: ["invite-codes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invite_codes")
+        .select("code, label, active, max_uses, used_count, expires_at, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as InviteCode[];
+    },
+  });
+
+  const createCode = useMutation({
+    mutationFn: async () => {
+      const clean = code.trim().toUpperCase();
+      if (clean.length < 4) throw new Error("Code must be at least 4 characters.");
+      const uses = Math.max(1, parseInt(maxUses || "1", 10) || 1);
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("invite_codes").insert({
+        code: clean,
+        label: label.trim() || null,
+        max_uses: uses,
+        expires_at: expiry ? new Date(`${expiry}T23:59:59`).toISOString() : null,
+        created_by: u.user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invite code created");
+      setCode(randomCode());
+      setLabel("");
+      setMaxUses("1");
+      setExpiry("");
+      qc.invalidateQueries({ queryKey: ["invite-codes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActive = useMutation({
+    mutationFn: async ({ code: c, active }: { code: string; active: boolean }) => {
+      const { error } = await supabase.from("invite_codes").update({ active }).eq("code", c);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invite code updated");
+      qc.invalidateQueries({ queryKey: ["invite-codes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows = codesQ.data ?? [];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+      <form
+        onSubmit={(e) => { e.preventDefault(); createCode.mutate(); }}
+        className="h-fit rounded-2xl border border-border bg-card p-6"
+      >
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-lg font-bold uppercase">Generate Invite Code</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Families need a valid code to create a portal account.
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <Label htmlFor="invite-code">Code</Label>
+            <div className="mt-1 flex gap-2">
+              <Input
+                id="invite-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                required
+                className="font-mono uppercase tracking-widest"
+              />
+              <Button type="button" variant="outline" onClick={() => setCode(randomCode())}>
+                New
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="invite-label">Label (optional)</Label>
+            <Input
+              id="invite-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Rodriguez family"
+              className="mt-1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="invite-max">Max uses</Label>
+              <Input
+                id="invite-max"
+                type="number"
+                min={1}
+                value={maxUses}
+                onChange={(e) => setMaxUses(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="invite-exp">Expires (optional)</Label>
+              <Input
+                id="invite-exp"
+                type="date"
+                value={expiry}
+                onChange={(e) => setExpiry(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <Button type="submit" disabled={createCode.isPending} className="w-full bg-gradient-red">
+            <Plus className="mr-1 h-4 w-4" /> Create code
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="font-display text-lg font-bold uppercase">All Invite Codes</h2>
+        {codesQ.isLoading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
+        {!codesQ.isLoading && rows.length === 0 && (
+          <p className="mt-4 text-sm text-muted-foreground">No invite codes yet.</p>
+        )}
+        <ul className="mt-4 divide-y divide-border">
+          {rows.map((r) => {
+            const expired = !!r.expires_at && new Date(r.expires_at).getTime() < Date.now();
+            const used = r.used_count >= r.max_uses;
+            const usable = r.active && !expired && !used;
+            return (
+              <li key={r.code} className="flex flex-wrap items-center gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono text-base font-bold uppercase tracking-widest">{r.code}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {r.label && <span>{r.label}</span>}
+                    <span>{r.used_count} / {r.max_uses} used</span>
+                    {r.expires_at && <span>expires {new Date(r.expires_at).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={usable ? "border-primary/50 text-primary" : "border-border text-muted-foreground"}
+                >
+                  {!r.active ? "Deactivated" : expired ? "Expired" : used ? "Fully used" : "Active"}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActive.mutate({ code: r.code, active: !r.active })}
+                  disabled={setActive.isPending}
+                >
+                  {r.active ? <><X className="mr-1 h-3.5 w-3.5" /> Deactivate</> : <><Check className="mr-1 h-3.5 w-3.5" /> Reactivate</>}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- DOJO POINT GUIDELINES ---------- */
+
+type Guideline = { id: string; rule_text: string; sort_order: number };
+
+function PointGuidelinesTab() {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  const q = useQuery({
+    queryKey: ["point-guidelines"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dojo_point_guidelines")
+        .select("id, rule_text, sort_order")
+        .order("sort_order")
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []) as Guideline[];
+    },
+  });
+
+  const rows = q.data ?? [];
+
+  const addRule = useMutation({
+    mutationFn: async () => {
+      const text = draft.trim();
+      if (!text) throw new Error("Write a rule first.");
+      const nextOrder = rows.length ? Math.max(...rows.map((r) => r.sort_order)) + 1 : 1;
+      const { error } = await supabase
+        .from("dojo_point_guidelines")
+        .insert({ rule_text: text, sort_order: nextOrder });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setDraft("");
+      qc.invalidateQueries({ queryKey: ["point-guidelines"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveRule = useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const clean = text.trim();
+      if (!clean) throw new Error("Rule cannot be empty.");
+      const { error } = await supabase
+        .from("dojo_point_guidelines")
+        .update({ rule_text: clean })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditingId(null);
+      toast.success("Guideline saved");
+      qc.invalidateQueries({ queryKey: ["point-guidelines"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteRule = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("dojo_point_guidelines").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["point-guidelines"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h2 className="font-display text-lg font-bold uppercase">Dojo Point Guidelines</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        The shared coach reference for awarding Dojo Points. Keep it consistent across every mat.
+      </p>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); addRule.mutate(); }}
+        className="mt-5 flex flex-wrap items-end gap-3"
+      >
+        <div className="min-w-[240px] flex-1">
+          <Label htmlFor="new-guideline">New guideline</Label>
+          <Input
+            id="new-guideline"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="+5 for helping clean the mats"
+            className="mt-1"
+          />
+        </div>
+        <Button type="submit" disabled={addRule.isPending} className="bg-gradient-red">
+          <Plus className="mr-1 h-4 w-4" /> Add
+        </Button>
+      </form>
+
+      {q.isLoading && <p className="mt-6 text-sm text-muted-foreground">Loading…</p>}
+      {!q.isLoading && rows.length === 0 && (
+        <p className="mt-6 text-sm text-muted-foreground">No guidelines yet — add the first one above.</p>
+      )}
+
+      <ul className="mt-6 space-y-2">
+        {rows.map((r) => (
+          <li
+            key={r.id}
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3"
+          >
+            {editingId === r.id ? (
+              <>
+                <Input
+                  aria-label="Edit guideline"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="min-w-[200px] flex-1"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => saveRule.mutate({ id: r.id, text: editText })}
+                  disabled={saveRule.isPending}
+                  className="bg-gradient-red"
+                >
+                  <Save className="mr-1 h-3.5 w-3.5" /> Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                  <X className="mr-1 h-3.5 w-3.5" /> Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 flex-1 text-sm text-foreground">{r.rule_text}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label={`Edit guideline: ${r.rule_text}`}
+                  onClick={() => { setEditingId(r.id); setEditText(r.rule_text); }}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label={`Delete guideline: ${r.rule_text}`}
+                  onClick={() => deleteRule.mutate(r.id)}
+                  disabled={deleteRule.isPending}
+                  className="border-red-500/50 text-red-200 hover:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
