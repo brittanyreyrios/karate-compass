@@ -120,6 +120,24 @@ function Dashboard() {
   const news = (announcementsQ.data ?? []).filter((a) => a.category === "school_news").slice(0, 4);
   const tournaments = (announcementsQ.data ?? []).filter((a) => a.category === "tournament").slice(0, 4);
 
+  // Yearly attendance log — counts only classes logged in the current calendar
+  // year, so the number naturally resets every January 1st.
+  const currentYear = new Date().getFullYear();
+  const yearlyAttendanceQ = useQuery({
+    queryKey: ["attendance-year", student?.id, currentYear],
+    enabled: !!student?.id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("attendance_events")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", student!.id)
+        .gte("occurred_on", `${currentYear}-01-01`)
+        .lte("occurred_on", `${currentYear}-12-31`);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
   const daysToTest = useMemo(() => {
