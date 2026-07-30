@@ -404,6 +404,7 @@ function AttendanceTab() {
         {filtered.map((s) => {
           const presentActive = !!presentLock[s.id];
           const pointsActive = !!pointsLock[s.id];
+          const absentActive = !!absentLock[s.id];
           const risk = riskCardClasses(s.consecutive_absences);
           return (
             <div
