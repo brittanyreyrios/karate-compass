@@ -53,6 +53,38 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          occurred_on: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_on?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_on?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_holidays: {
         Row: {
           class_name: string
