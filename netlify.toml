@@ -1,0 +1,15 @@
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    # NOTE (allow-listed on purpose — see chat summary):
+    #  - style-src / font-src include Google Fonts: the Oswald + Inter stylesheet is
+    #    loaded via <link> in src/routes/__root.tsx.
+    #  - connect-src uses https://*.supabase.co AND wss://*.supabase.co: the original
+    #    "https://.supabase.co" matches nothing, and realtime (announcements,
+    #    attendance, leaderboard) needs the websocket origin.
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
