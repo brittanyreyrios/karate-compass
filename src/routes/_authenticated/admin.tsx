@@ -39,7 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/mock-data";
+import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
+import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
+
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -118,6 +120,9 @@ function AdminPage() {
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="invites">Invite Codes</TabsTrigger>
+          <TabsTrigger value="qr">Signup QR</TabsTrigger>
+          <TabsTrigger value="gallery">Media Gallery</TabsTrigger>
+          <TabsTrigger value="curriculum">Belt Curriculum</TabsTrigger>
           <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
@@ -137,6 +142,15 @@ function AdminPage() {
         <TabsContent value="invites" className="mt-6">
           <InviteCodesTab />
         </TabsContent>
+        <TabsContent value="qr" className="mt-6">
+          <InviteQrTab />
+        </TabsContent>
+        <TabsContent value="gallery" className="mt-6">
+          <GalleryAdminTab />
+        </TabsContent>
+        <TabsContent value="curriculum" className="mt-6">
+          <CurriculumAdminTab />
+        </TabsContent>
         <TabsContent value="guidelines" className="mt-6">
           <PointGuidelinesTab />
         </TabsContent>
@@ -144,6 +158,7 @@ function AdminPage() {
           <AnnouncementForm />
         </TabsContent>
       </Tabs>
+
     </div>
   );
 }

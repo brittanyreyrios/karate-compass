@@ -23,8 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/mock-data";
+import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/dojo-constants";
+import { plural, count } from "@/lib/plural";
 import { supabase } from "@/integrations/supabase/client";
+
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -244,11 +246,14 @@ function Dashboard() {
             </div>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
-              <span className="font-display text-lg uppercase tracking-wider">days</span>
+              <span className="font-display text-lg uppercase tracking-wider">
+                {daysToTest === null ? "days" : plural(daysToTest, "day")}
+              </span>
             </div>
             <div className="mt-2 text-sm font-medium text-white/80">
-              {classesToTest ? `≈ ${classesToTest} classes to go` : "No test scheduled"}
+              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : "No test scheduled"}
             </div>
+
             {student.next_test_date && (
               <div className="mt-6 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-xs uppercase tracking-widest">
                 <Calendar className="h-3.5 w-3.5" />

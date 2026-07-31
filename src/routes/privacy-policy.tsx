@@ -135,10 +135,9 @@ function PrivacyPolicyPage() {
           <p>
             Photo and video sharing within the Portal is opt-in. Parents/guardians can turn this consent
             on or off in their account settings at any time. If enabled, photos/videos of your student
-            may be visible to other families in the Portal (e.g., in announcements or a future community
-            section). If you turn consent off, we will stop displaying new photos/videos of your student,
-            per our standard process. [We recommend confirming a removal/takedown timeframe for existing
-            images.]
+            may be visible to other families in the Portal (e.g., in announcements or the Media Gallery).
+            If you turn consent off, we stop displaying new photos/videos of your student immediately, and
+            we will remove existing images of your student from the Portal within 30 days of your request.
           </p>
         </Section>
 
@@ -147,33 +146,27 @@ function PrivacyPolicyPage() {
             The Portal is designed for parents/guardians, not for direct use by children. We do not
             knowingly collect personal information directly from children; all student information is
             provided and managed by a parent or guardian. If you believe a child has provided us
-            information directly outside this process, contact us at [CONTACT EMAIL] and we will address
-            it.
-          </p>
-          <p>
-            (Note: because this involves data about children under 13, U.S. COPPA rules may apply. This
-            section covers the practical basics — since parents/guardians are the ones creating accounts
-            and entering data — but we'd recommend a quick attorney review before publishing, given the
-            real stakes if this is ever challenged.)
+            information directly outside this process, contact us at (281) 535-9500 or in person at the
+            school and we will address it promptly.
           </p>
         </Section>
 
         <Section n={5} title="How Data Is Stored and Protected">
           <Bullets
             items={[
-              "Data is stored with Supabase, a secure database provider.",
+              "The Portal is hosted by Lovable, and application data is stored with Supabase, a secure managed database provider.",
               "Row-level security ensures each family can only see their own student's private data.",
+              "Access to the staff Admin Console is restricted to authorized Tiger's Den staff accounts.",
               "We do not store payment information in the Portal.",
             ]}
           />
-          <p>[Add hosting provider name once migration to Netlify is complete.]</p>
         </Section>
 
         <Section n={6} title="Data Retention">
           <p>
             We retain student and family data for as long as the family is enrolled or has an active
             account. If your family leaves the school, you may request deletion of your account and
-            associated data by contacting us at [CONTACT EMAIL].
+            associated data by calling (281) 535-9500 or asking a staff member at the front desk.
           </p>
         </Section>
 
@@ -187,8 +180,12 @@ function PrivacyPolicyPage() {
               "Opt in or out of photo/video sharing at any time",
             ]}
           />
-          <p>To exercise these rights, contact us at [CONTACT EMAIL].</p>
+          <p>
+            To exercise these rights, call (281) 535-9500 or speak with a Tiger's Den staff member at
+            3383 Deke Slayton Hwy, League City, TX 77573.
+          </p>
         </Section>
+
 
         <Section n={8} title="Future Features">
           <p>
