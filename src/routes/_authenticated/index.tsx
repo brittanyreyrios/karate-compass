@@ -244,11 +244,14 @@ function Dashboard() {
             </div>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
-              <span className="font-display text-lg uppercase tracking-wider">days</span>
+              <span className="font-display text-lg uppercase tracking-wider">
+                {daysToTest === null ? "days" : plural(daysToTest, "day")}
+              </span>
             </div>
             <div className="mt-2 text-sm font-medium text-white/80">
-              {classesToTest ? `≈ ${classesToTest} classes to go` : "No test scheduled"}
+              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : "No test scheduled"}
             </div>
+
             {student.next_test_date && (
               <div className="mt-6 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-xs uppercase tracking-widest">
                 <Calendar className="h-3.5 w-3.5" />
