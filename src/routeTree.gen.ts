@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as MediaReleaseRouteImport } from './routes/media-release'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -24,6 +25,11 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/media-release': typeof MediaReleaseRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/media-release': typeof MediaReleaseRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/media-release': typeof MediaReleaseRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/media-release'
     | '/privacy-policy'
+    | '/reset-password'
     | '/terms'
     | '/admin'
     | '/announcements'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/media-release'
     | '/privacy-policy'
+    | '/reset-password'
     | '/terms'
     | '/admin'
     | '/announcements'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/media-release'
     | '/privacy-policy'
+    | '/reset-password'
     | '/terms'
     | '/_authenticated/admin'
     | '/_authenticated/announcements'
@@ -161,6 +173,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   MediaReleaseRoute: typeof MediaReleaseRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
 }
 
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -272,6 +292,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   MediaReleaseRoute: MediaReleaseRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
