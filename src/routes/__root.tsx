@@ -115,7 +115,8 @@ function RootComponent() {
   }, [router, queryClient]);
 
   // Bare layout for public pages (no sidebar)
-  if (pathname === "/auth" || pathname === "/privacy-policy") {
+  const PUBLIC_BARE_ROUTES = ["/auth", "/privacy-policy", "/terms", "/media-release", "/reset-password"];
+  if (PUBLIC_BARE_ROUTES.includes(pathname)) {
     return (
       <QueryClientProvider client={queryClient}>
         <main>
@@ -143,14 +144,36 @@ function RootComponent() {
             <footer className="border-t border-border px-4 py-6">
               <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>© {new Date().getFullYear()} Tiger's Den Martial Arts &amp; Fitness</span>
-                <Link
-                  to="/privacy-policy"
-                  className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  Privacy Policy
-                </Link>
+                <nav aria-label="Legal" className="flex flex-wrap gap-4">
+                  <Link
+                    to="/privacy-policy"
+                    className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
+                    Privacy Policy
+                  </Link>
+                  <Link
+                    to="/terms"
+                    className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
+                    Terms of Service
+                  </Link>
+                  <Link
+                    to="/media-release"
+                    className="rounded underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
+                    Media Release
+                  </Link>
+                </nav>
               </div>
             </footer>
+          </div>
+        </div>
+        <Toaster />
+      </SidebarProvider>
+    </QueryClientProvider>
+  );
+}
+
           </div>
         </div>
         <Toaster />
