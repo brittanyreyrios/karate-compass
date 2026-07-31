@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/mock-data";
+import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({

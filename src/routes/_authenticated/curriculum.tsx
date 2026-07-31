@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Lock, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { BELT_PROGRESSION } from "@/lib/mock-data";
+import { BELT_PROGRESSION } from "@/lib/dojo-constants";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 

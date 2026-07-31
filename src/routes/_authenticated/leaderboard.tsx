@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trophy, Medal, Award, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { BELT_PROGRESSION } from "@/lib/mock-data";
+import { BELT_PROGRESSION } from "@/lib/dojo-constants";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
