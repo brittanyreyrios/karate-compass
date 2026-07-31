@@ -148,6 +148,39 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_items: {
+        Row: {
+          active: boolean
+          belt: string
+          category: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          sort_order: number
+          technique: string
+        }
+        Insert: {
+          active?: boolean
+          belt: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          technique: string
+        }
+        Update: {
+          active?: boolean
+          belt?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          technique?: string
+        }
+        Relationships: []
+      }
       dojo_point_guidelines: {
         Row: {
           created_at: string
@@ -169,6 +202,42 @@ export type Database = {
           rule_text?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      gallery_albums: {
+        Row: {
+          active: boolean
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          event_date: string | null
+          external_url: string
+          id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          external_url: string
+          id?: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          active?: boolean
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          external_url?: string
+          id?: string
+          sort_order?: number
+          title?: string
         }
         Relationships: []
       }
@@ -250,6 +319,10 @@ export type Database = {
           email: string
           family_name: string
           id: string
+          media_release_accepted_at: string | null
+          media_release_version: string | null
+          photo_consent: boolean
+          photo_consent_updated_at: string | null
           subscription_status: string
           updated_at: string
         }
@@ -258,6 +331,10 @@ export type Database = {
           email: string
           family_name?: string
           id: string
+          media_release_accepted_at?: string | null
+          media_release_version?: string | null
+          photo_consent?: boolean
+          photo_consent_updated_at?: string | null
           subscription_status?: string
           updated_at?: string
         }
@@ -266,6 +343,10 @@ export type Database = {
           email?: string
           family_name?: string
           id?: string
+          media_release_accepted_at?: string | null
+          media_release_version?: string | null
+          photo_consent?: boolean
+          photo_consent_updated_at?: string | null
           subscription_status?: string
           updated_at?: string
         }
@@ -356,6 +437,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_invite_code: { Args: { _code: string }; Returns: boolean }
       get_leaderboard: {
         Args: never
         Returns: {
