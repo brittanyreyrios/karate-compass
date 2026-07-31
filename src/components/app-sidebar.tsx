@@ -1,6 +1,16 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, BookOpen, Image, Megaphone, Flame, ShieldCheck, LogOut, Trophy } from "lucide-react";
+import {
+  LayoutDashboard,
+  BookOpen,
+  Image,
+  Megaphone,
+  Flame,
+  ShieldCheck,
+  LogOut,
+  Trophy,
+  Settings,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +32,9 @@ const items = [
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
+  { title: "Account Settings", url: "/settings", icon: Settings },
 ];
+
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
