@@ -24,7 +24,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/dojo-constants";
+import { plural, count } from "@/lib/plural";
 import { supabase } from "@/integrations/supabase/client";
+
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
