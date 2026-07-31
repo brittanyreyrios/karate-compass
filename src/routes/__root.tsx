@@ -173,11 +173,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-
-          </div>
-        </div>
-        <Toaster />
-      </SidebarProvider>
-    </QueryClientProvider>
-  );
-}
