@@ -97,10 +97,12 @@ function TermsPage() {
 
         <LegalSection n={5} title="Photos, Videos and Media Release">
           <p>
-            Photo and video sharing requires your express written permission and is controlled by you in Account Settings. Media use is
-            governed by our Media Release, which forms part of these Terms. You may change your consent
-            at any time; changing it going forward does not automatically remove material already
-            published elsewhere (for example, printed materials already distributed).
+            Permission to photograph and record your student is granted through the Media Release you
+            accept when you create your account, and that Media Release forms part of these Terms. Whether
+            that media is displayed in the Portal is a separate setting on your account: it is pre-selected
+            as ON and shown to you on the signup form, and you can change it at any time in Account
+            Settings. Changing it going forward does not automatically remove material already published
+            elsewhere (for example, printed materials already distributed).
           </p>
         </LegalSection>
 
