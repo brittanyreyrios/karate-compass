@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/select";
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
+import { EventsAdminTab } from "@/components/admin-events-tab";
+
 
 
 export const Route = createFileRoute("/_authenticated/admin")({
