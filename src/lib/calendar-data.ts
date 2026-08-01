@@ -1,10 +1,13 @@
 /**
  * Calendar helpers.
  *
- * Recurring class occurrences are computed client-side from the weekly pattern
- * stored on class_schedules (days / time_start / time_end / location). We never
- * write a database row per class occurrence.
+ * The calendar is deliberately *not* the weekly timetable. Recurring classes
+ * live on the dashboard (ClassScheduleCard) and parents know them by heart —
+ * drawing forty recurring rows a month here buried the two or three things that
+ * actually need attention. Only exceptions are rendered: special events from
+ * `events`, and closures from `class_holidays`.
  */
+
 
 export type EventType =
   | "special_class"
@@ -29,13 +32,8 @@ export type DojoEvent = {
   announcement_id: string | null;
 };
 
-export type ClassScheduleRow = {
-  class_name: string;
-  days: string | null;
-  time_start: string | null;
-  time_end: string | null;
-  location: string | null;
-};
+
+
 
 export type HolidayRow = {
   id: string;
@@ -57,25 +55,6 @@ export const EVENT_TYPE_META: Record<EventType, { label: string; badge: string }
 
 export const EVENT_TYPES = Object.keys(EVENT_TYPE_META) as EventType[];
 
-const DAY_TOKENS: Record<string, number> = {
-  sun: 0, sunday: 0,
-  mon: 1, monday: 1,
-  tue: 2, tues: 2, tuesday: 2,
-  wed: 3, weds: 3, wednesday: 3,
-  thu: 4, thur: 4, thurs: 4, thursday: 4,
-  fri: 5, friday: 5,
-  sat: 6, saturday: 6,
-};
-
-/** "Mon/Wed", "Tue, Thu", "Monday & Wednesday" -> [1, 3] */
-export function parseDays(days: string | null | undefined): number[] {
-  if (!days) return [];
-  return days
-    .split(/[\/,&+]|\s+and\s+/i)
-    .map((part) => DAY_TOKENS[part.trim().toLowerCase()])
-    .filter((n): n is number => typeof n === "number");
-}
-
 export function toDateKey(date: Date): string {
   const m = `${date.getMonth() + 1}`.padStart(2, "0");
   const d = `${date.getDate()}`.padStart(2, "0");
@@ -90,7 +69,7 @@ export function dateFromKey(key: string): Date {
 export type CalendarItem = {
   key: string;
   dateKey: string;
-  kind: "class" | "event";
+  kind: "closure" | "event";
   title: string;
   timeLabel: string | null;
   sortMinutes: number;
@@ -102,61 +81,34 @@ export type CalendarItem = {
   cancelNote: string | null;
 };
 
-/** "5:15pm" -> minutes since midnight (for ordering). */
-function parseClockMinutes(value: string | null | undefined): number {
-  if (!value) return 0;
-  const match = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i.exec(value.trim());
-  if (!match) return 0;
-  let hour = Number(match[1]);
-  const minute = Number(match[2] ?? 0);
-  const suffix = match[3]?.toLowerCase();
-  if (suffix === "pm" && hour < 12) hour += 12;
-  if (suffix === "am" && hour === 12) hour = 0;
-  return hour * 60 + minute;
-}
-
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 export function buildCalendarItems(options: {
-  from: Date;
-  to: Date;
-  schedules: ClassScheduleRow[];
   holidays: HolidayRow[];
   events: DojoEvent[];
 }): CalendarItem[] {
-  const { from, to, schedules, holidays, events } = options;
+  const { holidays, events } = options;
   const items: CalendarItem[] = [];
 
-  const holidayMap = new Map<string, HolidayRow>();
-  for (const h of holidays) holidayMap.set(`${h.class_name}|${h.holiday_date}`, h);
-
-  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-
-  while (cursor <= end) {
-    const dateKey = toDateKey(cursor);
-    const weekday = cursor.getDay();
-    for (const s of schedules) {
-      if (!parseDays(s.days).includes(weekday)) continue;
-      const holiday = holidayMap.get(`${s.class_name}|${dateKey}`);
-      items.push({
-        key: `class-${s.class_name}-${dateKey}`,
-        dateKey,
-        kind: "class",
-        title: s.class_name,
-        timeLabel: s.time_start && s.time_end ? `${s.time_start} – ${s.time_end}` : s.time_start ?? null,
-        sortMinutes: parseClockMinutes(s.time_start),
-        location: s.location,
-        audienceLabel: null,
-        description: null,
-        eventType: null,
-        cancelled: !!holiday,
-        cancelNote: holiday?.note ?? null,
-      });
-    }
-    cursor.setDate(cursor.getDate() + 1);
+  // A closure is the one schedule-related thing that will make a parent drive to
+  // a locked door, so it stays on the calendar as an item in its own right.
+  for (const h of holidays) {
+    items.push({
+      key: `closure-${h.id}`,
+      dateKey: h.holiday_date,
+      kind: "closure",
+      title: `${h.class_name} — no class`,
+      timeLabel: null,
+      sortMinutes: -2,
+      location: null,
+      audienceLabel: null,
+      description: null,
+      eventType: null,
+      cancelled: true,
+      cancelNote: h.note ?? null,
+    });
   }
 
   for (const e of events) {
@@ -187,6 +139,7 @@ export function buildCalendarItems(options: {
     a.dateKey === b.dateKey ? a.sortMinutes - b.sortMinutes : a.dateKey < b.dateKey ? -1 : 1,
   );
 }
+
 
 export function groupByDate(items: CalendarItem[]): { dateKey: string; items: CalendarItem[] }[] {
   const map = new Map<string, CalendarItem[]>();

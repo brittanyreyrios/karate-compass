@@ -13,10 +13,10 @@ import {
   formatDayHeading,
   toDateKey,
   type CalendarItem,
-  type ClassScheduleRow,
   type DojoEvent,
   type HolidayRow,
 } from "@/lib/calendar-data";
+
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
@@ -43,21 +43,14 @@ function monthWindow(month: Date) {
   return { from, to };
 }
 
+/**
+ * The calendar shows exceptions only: special events and closures. The recurring
+ * weekly timetable is on the dashboard, so class_schedules is not queried here.
+ */
 export function useCalendarData(month: Date) {
   const { from, to } = monthWindow(month);
   const fromKey = toDateKey(from);
   const toKey = toDateKey(to);
-
-  const schedulesQ = useQuery({
-    queryKey: ["calendar-schedules"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("class_schedules")
-        .select("class_name, days, time_start, time_end, location")
-        .order("class_name");
-      return (data ?? []) as ClassScheduleRow[];
-    },
-  });
 
   const holidaysQ = useQuery({
     queryKey: ["calendar-holidays", fromKey, toKey],
@@ -90,17 +83,15 @@ export function useCalendarData(month: Date) {
   const items = useMemo(
     () =>
       buildCalendarItems({
-        from,
-        to,
-        schedules: schedulesQ.data ?? [],
         holidays: holidaysQ.data ?? [],
         events: eventsQ.data ?? [],
       }),
-    [from, to, schedulesQ.data, holidaysQ.data, eventsQ.data],
+    [holidaysQ.data, eventsQ.data],
   );
 
-  return { items, loading: schedulesQ.isLoading || holidaysQ.isLoading || eventsQ.isLoading };
+  return { items, loading: holidaysQ.isLoading || eventsQ.isLoading };
 }
+
 
 function CalendarPage() {
   const today = useMemo(() => new Date(), []);
@@ -118,10 +109,8 @@ function CalendarPage() {
 
   const selectedKey = toDateKey(selected);
   const selectedItems = items.filter((i) => i.dateKey === selectedKey);
-  const eventDays = useMemo(
-    () => [...new Set(items.filter((i) => i.kind === "event").map((i) => i.dateKey))],
-    [items],
-  );
+  const eventDays = useMemo(() => [...new Set(items.map((i) => i.dateKey))], [items]);
+
 
   const goToday = () => {
     setSelected(today);
@@ -137,8 +126,10 @@ function CalendarPage() {
             Dojo <span className="text-gradient-red">Calendar</span>
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Weekly classes, closures and special events in one place.
+            Everything that isn&apos;t the normal week — special classes, testing, tournaments,
+            seminars and closures. Your regular weekly class times are on the dashboard.
           </p>
+
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={goToday}>
@@ -195,8 +186,11 @@ function CalendarPage() {
         <section className="mt-6 space-y-6" aria-label="Upcoming schedule">
           {loading && <p className="text-sm text-muted-foreground">Loading calendar…</p>}
           {!loading && agenda.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nothing scheduled in this window.</p>
+            <p className="text-sm text-muted-foreground">
+              Nothing special coming up — regular classes run as normal.
+            </p>
           )}
+
           {agenda.map((day) => (
             <div key={day.dateKey}>
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
@@ -222,11 +216,6 @@ function Legend() {
   return (
     <ul className="mt-6 flex flex-wrap gap-2" aria-label="Calendar key">
       <li>
-        <Badge variant="outline" className="border-border text-muted-foreground">
-          Weekly class
-        </Badge>
-      </li>
-      <li>
         <Badge variant="outline" className="border-border text-muted-foreground line-through">
           No class
         </Badge>
@@ -247,7 +236,9 @@ function DayPanel({ dateKey, items }: { dateKey: string; items: CalendarItem[] }
     <section className="rounded-2xl border border-border bg-card p-6" aria-live="polite">
       <h2 className="font-display text-lg font-bold uppercase tracking-wide">{formatDayHeading(dateKey)}</h2>
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">Nothing scheduled.</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Nothing special scheduled — regular classes run as normal.
+        </p>
       ) : (
         <ul className="mt-4 space-y-2">
           {items.map((item) => (
@@ -271,8 +262,9 @@ function ItemCard({ item }: { item: CalendarItem }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className={meta ? meta.badge : "border-border text-muted-foreground"}>
-          {meta ? meta.label : "Weekly class"}
+          {meta ? meta.label : "Closure"}
         </Badge>
+
         {item.cancelled && (
           <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
             <Ban className="h-3 w-3" aria-hidden="true" /> No class

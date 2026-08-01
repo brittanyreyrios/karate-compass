@@ -58,17 +58,33 @@ export function useBeltRanks() {
     queryKey: ["belt-ranks"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
+      // Sorted by the *system's* sort_order first, then the rank's. Ranks in
+      // different systems share sort_order values, so ordering on the rank alone
+      // is nondeterministic and any list rendered from it can reshuffle between
+      // runs — which is exactly how a CSV import picked a different system twice.
       const { data, error } = await supabase
         .from("belt_ranks")
         .select(
-          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active",
-        )
-        .order("sort_order");
+          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active, belt_systems(sort_order)",
+        );
       if (error) throw error;
-      return (data ?? []) as BeltRank[];
+      const rows = (data ?? []) as (BeltRank & {
+        belt_systems: { sort_order: number } | null;
+      })[];
+      return rows
+        .slice()
+        .sort(
+          (a, b) =>
+            (a.belt_systems?.sort_order ?? 0) - (b.belt_systems?.sort_order ?? 0) ||
+            a.sort_order - b.sort_order ||
+            a.name.localeCompare(b.name),
+        )
+        .map(({ belt_systems: _system, ...rank }) => rank as BeltRank);
     },
+
   });
 }
+
 
 /** Ranks of one system, in order. */
 export function ranksOfSystem(ranks: BeltRank[] | undefined, systemId: string | undefined) {

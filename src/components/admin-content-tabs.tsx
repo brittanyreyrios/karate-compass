@@ -210,7 +210,12 @@ export function CurriculumAdminTab() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
-  const [target, setTarget] = useState<Target>("tier");
+  // Rank-pinned is the primary mechanism now that a rank's material stays in the
+  // student's library as they advance; tier-wide is the exception. The system and
+  // rank pickers deliberately survive a submit so adding a run of requirements
+  // for one rank is not five clicks each.
+  const [target, setTarget] = useState<Target>("rank");
+
   const [tier, setTier] = useState<CurriculumTier>("beginner");
   const [systemId, setSystemId] = useState<string | null>(null);
   const [rankId, setRankId] = useState<string | null>(null);
@@ -325,25 +330,28 @@ export function CurriculumAdminTab() {
                   type="radio"
                   name="cur-target"
                   className="accent-primary"
-                  checked={target === "tier"}
-                  onChange={() => setTarget("tier")}
+                  checked={target === "rank"}
+                  onChange={() => setTarget("rank")}
                 />
-                A whole curriculum tier
+                One specific rank
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="cur-target"
                   className="accent-primary"
-                  checked={target === "rank"}
-                  onChange={() => setTarget("rank")}
+                  checked={target === "tier"}
+                  onChange={() => setTarget("tier")}
                 />
-                One specific rank
+                A whole curriculum tier
               </label>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Pick one or the other — a requirement is either tier-wide or tied to a single rank.
+              Pinned to a rank: shows to that rank and stays in their library as they advance.
+              Tier-wide: shows to every rank in that tier at once (Green, Purple and Blue are all
+              Intermediate).
             </p>
+
           </fieldset>
 
           {target === "tier" ? (

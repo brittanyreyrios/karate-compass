@@ -1438,16 +1438,23 @@ function CsvImporter() {
   const ranksQ = useBeltRanks();
   const allRanks = ranksQ.data ?? [];
   const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
-  /** Match a CSV belt value against every rank in all three systems. */
-  const findRank = (belt: string) => {
+  /**
+   * Match a CSV belt value against every rank in all three systems, and return
+   * *all* candidates. Several camo short_names are identical to solid rank names
+   * ("Purple" is both Camo Purple and Solid Purple), so picking a winner would
+   * silently file a roster of eight-year-olds into the camo system. Ambiguity is
+   * reported, never resolved.
+   */
+  const findRanks = (belt: string) => {
     const needle = belt.trim().toLowerCase();
-    if (!needle) return undefined;
-    return allRanks.find(
+    if (!needle) return [];
+    return allRanks.filter(
       (r) =>
         r.name.trim().toLowerCase() === needle ||
         (r.short_name ?? "").trim().toLowerCase() === needle,
     );
   };
+
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
@@ -1508,9 +1515,10 @@ function CsvImporter() {
         }
 
         // CSV rows carry belt *text*, which may name a rank in any of the three
-        // systems. No match means the student imports without a rank — that is
-        // reported as a warning, never as a clean success.
-        const rank = findRank(belt);
+        // systems. No match — or more than one match — means the student imports
+        // without a rank, reported as a warning, never as a clean success.
+        const candidates = findRanks(belt);
+        const rank = candidates.length === 1 ? candidates[0] : undefined;
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
@@ -1528,6 +1536,15 @@ function CsvImporter() {
             student: name,
             status: "ok",
             message: `Imported — ${rank.name}${sysName ? ` · ${sysName}` : ""}`,
+          });
+        } else if (candidates.length > 1) {
+          const named = candidates
+            .map((r) => `${r.name}${systemsById.get(r.system_id)?.name ? ` (${systemsById.get(r.system_id)!.name})` : ""}`)
+            .join(", ");
+          out.push({
+            student: name,
+            status: "warning",
+            message: `Imported — belt "${belt}" matches more than one system (${named}); set the rank in the roster`,
           });
         } else {
           out.push({
@@ -1548,6 +1565,7 @@ function CsvImporter() {
     const summary = `Imported ${okCount + warnCount} / ${out.length} students${
       warnCount ? ` · ${warnCount} with no belt rank` : ""
     }${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`;
+
     if (warnCount > 0) toast.warning(summary);
     else toast.success(summary);
     qc.invalidateQueries({ queryKey: ["admin-students"] });
