@@ -207,6 +207,28 @@ function Curriculum() {
   );
 }
 
+function RequirementCard({ item, index }: { item: CurriculumItem; index: number }) {
+  return (
+    <li className="rounded-xl border border-border bg-background p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <div className="min-w-0">
+          <div className="font-semibold">{item.technique}</div>
+          {item.category && (
+            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+              {item.category}
+            </div>
+          )}
+          {item.notes && <p className="mt-2 text-sm text-muted-foreground">{item.notes}</p>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+
 function EmptyCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
