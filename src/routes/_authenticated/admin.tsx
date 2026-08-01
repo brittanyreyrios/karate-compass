@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/select";
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
+import { EventsAdminTab } from "@/components/admin-events-tab";
+
 
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -119,6 +121,8 @@ function AdminPage() {
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
+          <TabsTrigger value="events">Events Calendar</TabsTrigger>
+
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="invites">Invite Codes</TabsTrigger>
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
@@ -137,6 +141,10 @@ function AdminPage() {
         <TabsContent value="schedules" className="mt-6">
           <ClassSchedulesTab />
         </TabsContent>
+        <TabsContent value="events" className="mt-6">
+          <EventsAdminTab />
+        </TabsContent>
+
         <TabsContent value="parents" className="mt-6">
           <ParentsTab />
         </TabsContent>

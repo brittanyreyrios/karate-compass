@@ -1,7 +1,9 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  CalendarDays,
   LayoutDashboard,
+
   BookOpen,
   Image,
   Megaphone,
@@ -28,12 +30,14 @@ import { useSession, useIsAdmin } from "@/hooks/use-auth";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
   { title: "Account Settings", url: "/settings", icon: Settings },
 ];
+
 
 
 export function AppSidebar() {

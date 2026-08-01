@@ -23,7 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/dojo-constants";
+import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
+import { Link } from "@tanstack/react-router";
+
 import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
@@ -353,12 +356,73 @@ function Dashboard() {
         </div>
       </section>
 
+      <NextUpStrip />
+
       <ClassScheduleCard className={student.class_name} />
+
     </div>
   );
 }
 
+function NextUpStrip() {
+  const eventsQ = useQuery({
+    queryKey: ["dashboard-events"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("id, title, event_type, starts_at, all_day, location, audience_label")
+        .eq("published", true)
+        .gte("starts_at", new Date().toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(3);
+      return (data ?? []) as DojoEvent[];
+    },
+  });
+
+  const events = eventsQ.data ?? [];
+  if (events.length === 0) return null;
+
+  return (
+    <section className="mt-10 rounded-2xl border border-border bg-card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
+          <h2 className="font-display text-xl font-bold uppercase tracking-wide">Next up at the dojo</h2>
+        </div>
+        <Link
+          to="/calendar"
+          className="text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
+        >
+          Full calendar
+        </Link>
+      </div>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-3">
+        {events.map((event) => (
+          <li key={event.id} className="rounded-xl border border-border bg-background/50 p-4">
+            <Badge variant="outline" className={EVENT_TYPE_META[event.event_type].badge}>
+              {EVENT_TYPE_META[event.event_type].label}
+            </Badge>
+            <h3 className="mt-3 font-semibold text-foreground">{event.title}</h3>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {new Date(event.starts_at).toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
+              {event.all_day
+                ? " · All day"
+                : ` · ${new Date(event.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+            </div>
+            {event.location && <div className="mt-1 text-xs text-muted-foreground">{event.location}</div>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function StatCard({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub: string; highlight?: boolean; }) {
+
   return (
     <div className={`rounded-2xl border p-5 transition-all ${highlight ? "border-primary/60 bg-primary/5 shadow-red-glow" : "border-border bg-card hover:border-primary/40"}`}>
       <div className="flex items-center justify-between">
@@ -384,14 +448,8 @@ function ClassScheduleCard({ className }: { className: string }) {
     },
   });
 
-  const fallback = CLASS_CATALOG.find((c) => c.name === className);
-  const info = catalogQ.data ?? (fallback ? {
-    class_name: fallback.name,
-    days: fallback.days,
-    time_start: fallback.time_start,
-    time_end: fallback.time_end,
-    location: fallback.location,
-  } : null);
+  const info = catalogQ.data ?? null;
+
 
   if (!info) return null;
 

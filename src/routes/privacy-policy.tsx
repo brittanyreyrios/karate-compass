@@ -108,7 +108,7 @@ function PrivacyPolicyPage() {
               "Attendance records",
               "Dojo points earned (leaderboard and milestone data)",
               "Tournaments or competitions the student participates in",
-              "Photos and videos of the student, only if you opt in (see Section 3)",
+              "Photos and videos of the student, only with your express written permission (see Section 3)",
             ]}
           />
           <p>
@@ -186,7 +186,7 @@ function PrivacyPolicyPage() {
               "Access and review the information we have about your family",
               "Correct inaccurate information",
               "Request deletion of your account and data",
-              "Opt in or out of photo/video sharing at any time",
+              "Grant or withdraw permission for photo/video sharing at any time",
             ]}
           />
           <p>
