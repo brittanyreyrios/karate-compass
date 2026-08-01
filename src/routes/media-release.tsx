@@ -46,7 +46,7 @@ function MediaReleasePage() {
         <div className="mt-8 space-y-4 text-base leading-relaxed text-muted-foreground">
           <p>
             This Media Release explains how {TIGERS_DEN_CONTACT.name} uses photographs and video of
-            students. Consent is <span className="font-semibold text-foreground">opt-in</span>: nothing is
+            students. Sharing requires your <span className="font-semibold text-foreground">express written permission</span>: nothing is
             shared unless a parent or guardian turns it on, and it can be turned off at any time in
             Account Settings.
           </p>
