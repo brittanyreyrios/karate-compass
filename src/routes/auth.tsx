@@ -118,7 +118,9 @@ function AuthPage() {
       return toast.error("That invite code isn't valid. Ask a Tiger's Den staff member for a new one.");
     }
     if (!consent) {
-      return toast.error("Please accept the Terms of Service and Privacy Policy to continue.");
+      return toast.error(
+        "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
+      );
     }
     if (password.length < 8) return toast.error("Use a password of at least 8 characters.");
 
@@ -132,7 +134,9 @@ function AuthPage() {
           family_name: familyName.trim() || email.split("@")[0],
           invite_code: clean,
           photo_consent: photoConsent,
-          media_release_version: photoConsent ? MEDIA_RELEASE_VERSION : null,
+          // The Media Release is now accepted by every new account (required checkbox),
+          // independently of the display preference above.
+          media_release_version: MEDIA_RELEASE_VERSION,
         },
       },
     });
