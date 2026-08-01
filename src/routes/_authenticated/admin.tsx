@@ -1455,12 +1455,17 @@ function CsvImporter() {
           continue;
         }
 
+        // CSV rows carry belt *text*; imports are always solid-system students,
+        // so we resolve the matching solid rank and let staff move them to the
+        // camo or stripe system afterwards if needed.
+        const solidRank = solidRanks.find((r) => r.name.toLowerCase() === belt.toLowerCase());
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
           current_belt: belt,
+          ...(solidRank ? { belt_rank_id: solidRank.id } : {}),
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
