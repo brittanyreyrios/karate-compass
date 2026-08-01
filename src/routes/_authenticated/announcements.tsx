@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Trophy, MapPin, Calendar, Pin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateOnly, formatDateRange } from "@/lib/date-only";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({
@@ -117,11 +118,11 @@ function Announcements() {
                     <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                        {(t.venue || t.address || t.location) && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {[t.venue, t.address].filter(Boolean).join(" · ") || t.location}</span>}
-                       {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(t.event_date).toLocaleDateString()}{t.event_end_date ? `–${new Date(t.event_end_date).toLocaleDateString()}` : ""}</span>}
+                       {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateRange(t.event_date, t.event_end_date)}</span>}
                     </div>
                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                        {t.divisions && <p><span className="font-semibold text-foreground">Divisions:</span> {t.divisions}</p>}
-                       {t.registration_deadline && <p><span className="font-semibold text-foreground">Register by:</span> {new Date(t.registration_deadline).toLocaleDateString()}</p>}
+                       {t.registration_deadline && <p><span className="font-semibold text-foreground">Register by:</span> {formatDateOnly(t.registration_deadline)}</p>}
                        {t.spectator_info && <p>{t.spectator_info}</p>}
                      </div>
                      {t.event_url && (
