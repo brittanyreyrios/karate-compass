@@ -1739,19 +1739,31 @@ type ParentProfile = {
   email: string;
   family_name: string | null;
   subscription_status: "free" | "premium";
+  photo_consent: boolean;
+  photo_consent_updated_at: string | null;
   created_at: string;
 };
 
-function ParentsTab() {
+function ParentsTab({
+  consentOnly,
+  onConsentOnlyChange,
+}: {
+  consentOnly: boolean;
+  onConsentOnlyChange: (v: boolean) => void;
+}) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const { data: pendingConsent } = useUnacknowledgedConsentOff();
+  const acknowledge = useAcknowledgeConsentEvents();
 
   const profilesQ = useQuery({
     queryKey: ["admin-profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, family_name, subscription_status, created_at")
+        .select(
+          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ParentProfile[];
@@ -1771,10 +1783,13 @@ function ParentsTab() {
   });
 
   const list = (profilesQ.data ?? []).filter((p) => {
+    if (consentOnly && p.photo_consent) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
     return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
   });
+
+  const pendingCount = (pendingConsent ?? []).length;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -1786,6 +1801,7 @@ function ParentsTab() {
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Toggle a family between Free and Premium. Premium unlocks the Leaderboard and Community Feed.
+            Photo display preference is shown per family — check it before publishing photos.
           </p>
         </div>
         <div className="relative w-full sm:w-72">
@@ -1795,8 +1811,26 @@ function ParentsTab() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by email or family…"
             className="h-10 pl-9 text-sm"
+            aria-label="Search parent accounts"
           />
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant={consentOnly ? "default" : "outline"}
+          className={consentOnly ? "bg-gradient-red" : ""}
+          aria-pressed={consentOnly}
+          onClick={() => onConsentOnlyChange(!consentOnly)}
+        >
+          <CameraOff className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Photos off only
+        </Button>
+        {pendingCount > 0 && (
+          <Button size="sm" variant="outline" disabled={acknowledge.isPending} onClick={() => acknowledge.mutate()}>
+            Mark {pendingCount} consent change{pendingCount === 1 ? "" : "s"} as reviewed
+          </Button>
+        )}
       </div>
 
       <div className="mt-5 space-y-2">
@@ -1816,8 +1850,22 @@ function ParentsTab() {
                       <Crown className="mr-1 h-3 w-3" /> Premium
                     </Badge>
                   )}
+                  {p.photo_consent ? (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      <Camera className="mr-1 h-3 w-3" aria-hidden="true" /> Photos on
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-amber-400/60 text-amber-200">
+                      <CameraOff className="mr-1 h-3 w-3" aria-hidden="true" /> Photos off
+                    </Badge>
+                  )}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.email}</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {p.email}
+                  {p.photo_consent_updated_at
+                    ? ` · preference updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
+                    : ""}
+                </div>
               </div>
               <Button
                 size="sm"
