@@ -72,7 +72,6 @@ function MediaReleasePage() {
         </LegalSection>
 
         <LegalSection n={2} title="Where It May Appear">
-        <LegalSection n={2} title="Where It May Appear">
           <p>
             While your display preference is ON, media of your student may appear in:
           </p>
