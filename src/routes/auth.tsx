@@ -392,7 +392,7 @@ function AuthPage() {
                         className="mt-0.5"
                       />
                       <Label htmlFor="photo" id="photo-desc" className="text-xs font-normal leading-relaxed">
-                        I opt in to the{" "}
+                        I give my permission under the{" "}
                         <Link
                           to="/media-release"
                           className="font-semibold text-primary underline underline-offset-2"
