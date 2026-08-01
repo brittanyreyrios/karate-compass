@@ -32,13 +32,8 @@ export type DojoEvent = {
   announcement_id: string | null;
 };
 
-export type ClassScheduleRow = {
-  class_name: string;
-  days: string | null;
-  time_start: string | null;
-  time_end: string | null;
-  location: string | null;
-};
+
+
 
 export type HolidayRow = {
   id: string;
