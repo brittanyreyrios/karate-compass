@@ -239,7 +239,6 @@ function DayPanel({ dateKey, items }: { dateKey: string; items: CalendarItem[] }
         <p className="mt-3 text-sm text-muted-foreground">
           Nothing special scheduled — regular classes run as normal.
         </p>
-
       ) : (
         <ul className="mt-4 space-y-2">
           {items.map((item) => (
