@@ -168,8 +168,8 @@ function SettingsPage() {
               <h2 className="font-display text-lg font-bold uppercase">Photo &amp; video consent</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Grant permission to let us feature your student in the Media Gallery, announcements, our social
-              accounts and printed school materials. You can switch this off at any time: we stop
+              This setting controls whether we feature your student in the Media Gallery, announcements,
+              our social accounts and printed school materials. You can switch it off at any time: we stop
               publishing new media immediately and remove existing media of your student from the Portal
               within 14 days. Media already posted to social media or our website is removed on a
               reasonable-efforts basis within 30 days — see the{" "}
