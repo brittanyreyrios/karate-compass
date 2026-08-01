@@ -1405,8 +1405,18 @@ function CsvImporter() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
-  const solidSystemId = (systemsQ.data ?? []).find((s) => s.slug === "solid")?.id;
-  const solidRanks = (ranksQ.data ?? []).filter((r) => r.system_id === solidSystemId);
+  const allRanks = ranksQ.data ?? [];
+  const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
+  /** Match a CSV belt value against every rank in all three systems. */
+  const findRank = (belt: string) => {
+    const needle = belt.trim().toLowerCase();
+    if (!needle) return undefined;
+    return allRanks.find(
+      (r) =>
+        r.name.trim().toLowerCase() === needle ||
+        (r.short_name ?? "").trim().toLowerCase() === needle,
+    );
+  };
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
