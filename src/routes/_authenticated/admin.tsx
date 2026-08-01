@@ -43,6 +43,16 @@ import {
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
 import { EventsAdminTab } from "@/components/admin-events-tab";
+import { PollsAdminTab } from "@/components/admin-polls-tab";
+import {
+  ConsentAttentionItem,
+  PhotoConsentBanner,
+  NoPhotosMarker,
+  useConsentOffProfiles,
+  useUnacknowledgedConsentOff,
+  useAcknowledgeConsentEvents,
+} from "@/components/admin-photo-consent";
+import { awardPoints, revertPointEvent } from "@/lib/points";
 
 
 
