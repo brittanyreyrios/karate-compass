@@ -1322,7 +1322,70 @@ function CsvImporter() {
   );
 }
 
+/* ---------- STUDENTS WITH NO CLASS ASSIGNED ---------- */
+
+type UnassignedStudent = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  current_belt: string;
+  created_at: string;
+};
+
+function UnassignedClassPanel() {
+  const unassignedQ = useQuery({
+    queryKey: ["unassigned-class-students"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, first_name, last_name, current_belt, created_at")
+        .eq("class_name", "Unassigned")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as UnassignedStudent[];
+    },
+  });
+
+  const list = unassignedQ.data ?? [];
+  if (unassignedQ.isLoading || list.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-primary/50 bg-primary/5 p-6">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h2 className="font-display text-lg font-bold uppercase">Needs a class assigned</h2>
+        <Badge variant="outline" className="border-primary/50 text-primary">
+          {list.length}
+        </Badge>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        These students were linked from a roster import with no class listed, so they were parked in
+        "Unassigned". Set the real class in Manage Students — until then their schedule card and testing
+        countdown stay blank.
+      </p>
+      <ul className="mt-5 space-y-2">
+        {list.map((s) => (
+          <li
+            key={s.id}
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/40 bg-background p-3"
+          >
+            <span className="font-semibold">
+              {s.first_name} {s.last_name}
+            </span>
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              {s.current_belt}
+            </Badge>
+            <Badge variant="outline">Unassigned</Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* ---------- UNLINKED STUDENTS AUDIT ---------- */
+
 
 type PendingImport = {
   id: string;
