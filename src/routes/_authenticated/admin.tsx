@@ -1512,10 +1512,13 @@ function CsvImporter() {
     setResults(out);
     setImporting(false);
     const okCount = out.filter((r) => r.status === "ok").length;
+    const warnCount = out.filter((r) => r.status === "warning").length;
     const unlinked = out.filter((r) => r.status === "unlinked").length;
-    toast.success(
-      `Imported ${okCount} / ${out.length} students${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`,
-    );
+    const summary = `Imported ${okCount + warnCount} / ${out.length} students${
+      warnCount ? ` · ${warnCount} with no belt rank` : ""
+    }${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`;
+    if (warnCount > 0) toast.warning(summary);
+    else toast.success(summary);
     qc.invalidateQueries({ queryKey: ["admin-students"] });
     qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
   };
