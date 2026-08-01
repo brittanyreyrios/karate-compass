@@ -50,13 +50,16 @@ function isH3SwallowedErrorBody(body: string): boolean {
 // The strict set (full CSP with `frame-ancestors 'none'`, X-Frame-Options: DENY
 // and HSTS) is applied on every HTTPS host except an actual editor preview.
 // Published *.lovable.app hosts are intentionally NOT excluded. The editor's
-// current preview hosts use the distinguishing `id-preview--` prefix; legacy
-// lovableproject.com previews and local development must also remain frameable.
+// current editor hosts use `id-preview--`; stable development previews use
+// `project--…-dev.lovable.app`. Legacy lovableproject.com previews and local
+// development must also remain frameable.
 const PREVIEW_HOST_PATTERNS = [/(^|\.)lovableproject\.com$/i];
 
 function isPreviewHost(hostname: string): boolean {
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local")) return true;
-  if (hostname.toLowerCase().startsWith("id-preview--")) return true;
+  const normalized = hostname.toLowerCase();
+  if (normalized.startsWith("id-preview--")) return true;
+  if (/^project--.+-dev\.lovable\.app$/.test(normalized)) return true;
   return PREVIEW_HOST_PATTERNS.some((re) => re.test(hostname));
 }
 
