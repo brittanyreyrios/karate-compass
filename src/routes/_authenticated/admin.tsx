@@ -103,6 +103,14 @@ function FollowUpBadge({ n }: { n: number }) {
 }
 
 function AdminPage() {
+  const [tab, setTab] = useState("attendance");
+  const [consentOnly, setConsentOnly] = useState(false);
+
+  const openConsentReview = () => {
+    setConsentOnly(true);
+    setTab("parents");
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -116,13 +124,22 @@ function AdminPage() {
         </div>
       </header>
 
-      <Tabs defaultValue="attendance" className="mt-8">
+      <section className="mt-6 rounded-2xl border border-border bg-card p-4" aria-label="Needs attention">
+        <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
+          Needs attention
+        </h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <ConsentAttentionItem onOpen={openConsentReview} />
+        </div>
+      </section>
+
+      <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex-wrap">
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="events">Events Calendar</TabsTrigger>
-
+          <TabsTrigger value="polls">Polls</TabsTrigger>
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="invites">Invite Codes</TabsTrigger>
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
@@ -142,11 +159,14 @@ function AdminPage() {
           <ClassSchedulesTab />
         </TabsContent>
         <TabsContent value="events" className="mt-6">
+          <PhotoConsentBanner onViewList={openConsentReview} />
           <EventsAdminTab />
         </TabsContent>
-
+        <TabsContent value="polls" className="mt-6">
+          <PollsAdminTab />
+        </TabsContent>
         <TabsContent value="parents" className="mt-6">
-          <ParentsTab />
+          <ParentsTab consentOnly={consentOnly} onConsentOnlyChange={setConsentOnly} />
         </TabsContent>
         <TabsContent value="invites" className="mt-6">
           <InviteCodesTab />
@@ -155,6 +175,7 @@ function AdminPage() {
           <InviteQrTab />
         </TabsContent>
         <TabsContent value="gallery" className="mt-6">
+          <PhotoConsentBanner onViewList={openConsentReview} />
           <GalleryAdminTab />
         </TabsContent>
         <TabsContent value="curriculum" className="mt-6">
