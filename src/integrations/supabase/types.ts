@@ -16,40 +16,61 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
+          address: string | null
           body: string
           category: string
           created_at: string
           created_by: string | null
           discipline: string | null
+          divisions: string | null
           event_date: string | null
+          event_end_date: string | null
+          event_url: string | null
           id: string
           location: string | null
+          registration_deadline: string | null
+          spectator_info: string | null
           tag: string | null
           title: string
+          venue: string | null
         }
         Insert: {
+          address?: string | null
           body: string
           category: string
           created_at?: string
           created_by?: string | null
           discipline?: string | null
+          divisions?: string | null
           event_date?: string | null
+          event_end_date?: string | null
+          event_url?: string | null
           id?: string
           location?: string | null
+          registration_deadline?: string | null
+          spectator_info?: string | null
           tag?: string | null
           title: string
+          venue?: string | null
         }
         Update: {
+          address?: string | null
           body?: string
           category?: string
           created_at?: string
           created_by?: string | null
           discipline?: string | null
+          divisions?: string | null
           event_date?: string | null
+          event_end_date?: string | null
+          event_url?: string | null
           id?: string
           location?: string | null
+          registration_deadline?: string | null
+          spectator_info?: string | null
           tag?: string | null
           title?: string
+          venue?: string | null
         }
         Relationships: []
       }
