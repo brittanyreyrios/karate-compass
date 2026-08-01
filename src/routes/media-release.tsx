@@ -95,11 +95,12 @@ function MediaReleasePage() {
           <LegalBullets
             items={[
               "We stop publishing new media of your student immediately.",
-              "We remove existing media of your student from the Portal within 14 days of your request.",
-              "We make reasonable efforts to remove existing posts from social media and our website within 30 days.",
+              "We remove existing media of your student from the Parent Portal within 14 days of your request.",
+              "Media already posted to our social media accounts or public website is handled separately: we make reasonable efforts to remove it within 30 days, because those platforms are outside the Portal and not fully under our control.",
               "Materials already printed and distributed, or reshared by third parties, may not be recoverable.",
             ]}
           />
+
         </LegalSection>
 
         <LegalSection n={5} title="Group Photos">
