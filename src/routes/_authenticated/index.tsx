@@ -356,7 +356,10 @@ function Dashboard() {
         </div>
       </section>
 
+      <NextUpStrip />
+
       <ClassScheduleCard className={student.class_name} />
+
     </div>
   );
 }
