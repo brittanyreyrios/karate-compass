@@ -722,12 +722,39 @@ function ManageStudentsTab() {
               </p>
             </div>
           </div>
+
+          {/* A missing belt rank hides a child from every leaderboard and from
+              their own curriculum, so it has to be countable, not just visible. */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              variant={noRankOnly ? "default" : "outline"}
+              className={noRankOnly ? "bg-gradient-red" : ""}
+              aria-pressed={noRankOnly}
+              onClick={() => setNoRankOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              No belt rank set ({noRankCount})
+            </Button>
+            {noRankCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
+                leaderboard or see curriculum until a rank is set.
+              </span>
+            )}
+          </div>
+
           <div className="mt-5 space-y-3">
             {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
             {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
             )}
-            {(studentsQ.data ?? []).map((s) =>
+            {!studentsQ.isLoading && (studentsQ.data ?? []).length > 0 && visibleStudents.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Every student has a belt rank set. Nothing to fix here.
+              </p>
+            )}
+            {visibleStudents.map((s) =>
               editingId === s.id ? (
                 <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
               ) : (
