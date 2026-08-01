@@ -29,7 +29,13 @@ type CurriculumItem = {
   sort_order: number;
   belt_rank_id: string | null;
   curriculum_tier: CurriculumTier | null;
+  rank_name: string | null;
+  /** Rank name, or "All Intermediate students" for tier-wide material. */
+  group_label: string;
+  /** True for the student's exact rank, or their exact tier. */
+  is_current: boolean;
 };
+
 
 function Curriculum() {
   const systemsQ = useBeltSystems();
