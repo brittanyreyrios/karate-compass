@@ -216,12 +216,11 @@ function Legend() {
   return (
     <ul className="mt-6 flex flex-wrap gap-2" aria-label="Calendar key">
       <li>
-        <Badge variant="outline" className="border-border text-muted-foreground">
-          Weekly class
+        <Badge variant="outline" className="border-border text-muted-foreground line-through">
+          No class
         </Badge>
       </li>
-      <li>
-        <Badge variant="outline" className="border-border text-muted-foreground line-through">
+
           No class
         </Badge>
       </li>
