@@ -47,39 +47,36 @@ function Curriculum() {
     },
   });
 
-  const itemsQ = useQuery({
-    queryKey: ["curriculum-items"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("curriculum_items")
-        .select("id, technique, category, notes, sort_order, belt_rank_id, curriculum_tier")
-        .eq("active", true)
-        .order("sort_order")
-        .order("technique");
-      if (error) throw error;
-      return (data ?? []) as CurriculumItem[];
-    },
-  });
-
   const students = studentsQ.data ?? [];
   const ranks = ranksQ.data ?? [];
   const systems = systemsQ.data ?? [];
-  const items = itemsQ.data ?? [];
 
-  const loading = studentsQ.isLoading || itemsQ.isLoading || ranksQ.isLoading;
+  // Entitlement is resolved on the server: get_curriculum_for_student verifies
+  // the caller owns the student, reads the rank server-side and returns only the
+  // entitled rows — the full library never reaches the browser.
+  const itemsQ = useQuery({
+    queryKey: ["curriculum-for-students", students.map((s) => s.id).join(",")],
+    enabled: students.length > 0,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        students.map(async (s) => {
+          const { data, error } = await supabase.rpc("get_curriculum_for_student", {
+            _student_id: s.id,
+          });
+          if (error) throw error;
+          return [s.id, (data ?? []) as CurriculumItem[]] as const;
+        }),
+      );
+      return new Map(entries);
+    },
+  });
 
-  // Entitlement: items pinned to the student's exact rank, plus items written
-  // for the tier that rank belongs to. A Camo Purple student therefore never
-  // sees Solid Purple material — different systems, different curriculum.
+  const loading = studentsQ.isLoading || ranksQ.isLoading || (students.length > 0 && itemsQ.isLoading);
+
   const perChild = students.map((s) => {
     const rank = ranks.find((r) => r.id === s.belt_rank_id);
     const system = systems.find((sys) => sys.id === rank?.system_id);
-    const entitled = rank
-      ? items.filter(
-          (i) => i.belt_rank_id === rank.id || (!!i.curriculum_tier && i.curriculum_tier === rank.curriculum_tier),
-        )
-      : [];
-    return { student: s, rank, system, entitled };
+    return { student: s, rank, system, entitled: itemsQ.data?.get(s.id) ?? [] };
   });
 
   return (
