@@ -419,6 +419,10 @@ function AttendanceTab() {
           <h2 className="font-display text-xl font-bold uppercase">Master Attendance Sheet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Filter by class, then tap +1 to log a session. Buttons cool down for 3 seconds to prevent double taps.
+            Dojo Points show the new total and can be undone for 3 seconds.
+          </p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-widest text-primary" aria-live="polite">
+            Points awarded this session: {sessionPoints}
           </p>
         </div>
         <div className="relative w-full sm:w-80">
