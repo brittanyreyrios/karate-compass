@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/dojo-constants";
 import { plural, count } from "@/lib/plural";
+import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -59,6 +60,9 @@ type Announcement = {
   discipline: string | null;
   location: string | null;
   event_date: string | null;
+  event_end_date: string | null;
+  venue: string | null;
+  address: string | null;
   created_at: string;
 };
 
@@ -337,8 +341,8 @@ function Dashboard() {
                       </div>
                       <h3 className="mt-3 font-semibold">{t.title}</h3>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {t.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {t.location}</span>}
-                        {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(t.event_date).toLocaleDateString()}</span>}
+                         {(t.venue || t.address || t.location) && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {[t.venue, t.address].filter(Boolean).join(" · ") || t.location}</span>}
+                         {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateRange(t.event_date, t.event_end_date)}</span>}
                       </div>
                     </div>
                   </li>

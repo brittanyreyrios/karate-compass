@@ -23,6 +23,7 @@ import {
   Mail,
   Link2,
   Crown,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,7 +156,10 @@ function AdminPage() {
           <PointGuidelinesTab />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
-          <AnnouncementForm />
+          <div className="space-y-6">
+            <AnnouncementForm />
+            <TournamentManager />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -831,7 +835,7 @@ function AnnouncementForm() {
           <>
             <div>
               <Label>Location</Label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Diego, CA" className="mt-1" />
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="League City, TX" className="mt-1" />
             </div>
             <div>
               <Label>Event date</Label>
@@ -849,6 +853,153 @@ function AnnouncementForm() {
       <div className="mt-6 flex justify-end">
         <Button type="submit" disabled={post.isPending} className="bg-gradient-red">
           {post.isPending ? "Publishing…" : "Publish"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+type Tournament = {
+  id: string;
+  title: string;
+  body: string;
+  discipline: string | null;
+  event_date: string | null;
+  event_end_date: string | null;
+  venue: string | null;
+  address: string | null;
+  divisions: string | null;
+  registration_deadline: string | null;
+  spectator_info: string | null;
+  event_url: string | null;
+};
+
+function TournamentManager() {
+  const qc = useQueryClient();
+  const tournamentsQ = useQuery({
+    queryKey: ["admin-tournaments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("id, title, body, discipline, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url")
+        .eq("category", "tournament")
+        .order("event_date");
+      if (error) throw error;
+      return (data ?? []) as Tournament[];
+    },
+  });
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6">
+      <h2 className="font-display text-xl font-bold uppercase">Manage Tournaments</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Edit event details shown to families.</p>
+      <div className="mt-6 space-y-4">
+        {(tournamentsQ.data ?? []).map((tournament) => (
+          <TournamentEditor
+            key={tournament.id}
+            tournament={tournament}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["admin-tournaments"] });
+              qc.invalidateQueries({ queryKey: ["announcements"] });
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onSaved: () => void }) {
+  const [form, setForm] = useState(tournament);
+  const set = (key: keyof Tournament, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const optional = (value: string | null) => value?.trim() || null;
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("announcements")
+        .update({
+          title: form.title.trim(),
+          body: form.body.trim(),
+          discipline: optional(form.discipline),
+          event_date: optional(form.event_date),
+          event_end_date: optional(form.event_end_date),
+          venue: optional(form.venue),
+          address: optional(form.address),
+          divisions: optional(form.divisions),
+          registration_deadline: optional(form.registration_deadline),
+          spectator_info: optional(form.spectator_info),
+          event_url: optional(form.event_url),
+          location: [optional(form.venue), optional(form.address)].filter(Boolean).join(" · ") || null,
+        })
+        .eq("id", tournament.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Tournament updated");
+      onSaved();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <form
+      className="rounded-xl border border-border bg-background/50 p-5"
+      onSubmit={(event) => { event.preventDefault(); save.mutate(); }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Label htmlFor={`tournament-title-${tournament.id}`}>Event name</Label>
+          <Input id={`tournament-title-${tournament.id}`} value={form.title} onChange={(e) => set("title", e.target.value)} required className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-discipline-${tournament.id}`}>Discipline</Label>
+          <Input id={`tournament-discipline-${tournament.id}`} value={form.discipline ?? ""} onChange={(e) => set("discipline", e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-venue-${tournament.id}`}>Venue</Label>
+          <Input id={`tournament-venue-${tournament.id}`} value={form.venue ?? ""} onChange={(e) => set("venue", e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-start-${tournament.id}`}>Start date</Label>
+          <Input id={`tournament-start-${tournament.id}`} type="date" value={form.event_date ?? ""} onChange={(e) => set("event_date", e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-end-${tournament.id}`}>End date</Label>
+          <Input id={`tournament-end-${tournament.id}`} type="date" value={form.event_end_date ?? ""} onChange={(e) => set("event_end_date", e.target.value)} className="mt-1" />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor={`tournament-address-${tournament.id}`}>Address</Label>
+          <Input id={`tournament-address-${tournament.id}`} value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-divisions-${tournament.id}`}>Divisions</Label>
+          <Input id={`tournament-divisions-${tournament.id}`} value={form.divisions ?? ""} onChange={(e) => set("divisions", e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor={`tournament-deadline-${tournament.id}`}>Registration deadline</Label>
+          <Input id={`tournament-deadline-${tournament.id}`} type="date" value={form.registration_deadline ?? ""} onChange={(e) => set("registration_deadline", e.target.value)} className="mt-1" />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor={`tournament-spectator-${tournament.id}`}>Spectator information</Label>
+          <Input id={`tournament-spectator-${tournament.id}`} value={form.spectator_info ?? ""} onChange={(e) => set("spectator_info", e.target.value)} className="mt-1" />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor={`tournament-url-${tournament.id}`}>Official link</Label>
+          <Input id={`tournament-url-${tournament.id}`} type="url" value={form.event_url ?? ""} onChange={(e) => set("event_url", e.target.value)} className="mt-1" />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor={`tournament-note-${tournament.id}`}>Parent note</Label>
+          <Textarea id={`tournament-note-${tournament.id}`} value={form.body} onChange={(e) => set("body", e.target.value)} rows={3} className="mt-1" />
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        {form.event_url ? (
+          <Button asChild type="button" variant="ghost" size="sm">
+            <a href={form.event_url} target="_blank" rel="noreferrer">Official page <ExternalLink aria-hidden="true" /></a>
+          </Button>
+        ) : <span />}
+        <Button type="submit" disabled={save.isPending} className="bg-gradient-red">
+          <Save aria-hidden="true" /> {save.isPending ? "Saving…" : "Save event"}
         </Button>
       </div>
     </form>
