@@ -1,10 +1,13 @@
 /**
  * Calendar helpers.
  *
- * Recurring class occurrences are computed client-side from the weekly pattern
- * stored on class_schedules (days / time_start / time_end / location). We never
- * write a database row per class occurrence.
+ * The calendar is deliberately *not* the weekly timetable. Recurring classes
+ * live on the dashboard (ClassScheduleCard) and parents know them by heart —
+ * drawing forty recurring rows a month here buried the two or three things that
+ * actually need attention. Only exceptions are rendered: special events from
+ * `events`, and closures from `class_holidays`.
  */
+
 
 export type EventType =
   | "special_class"
