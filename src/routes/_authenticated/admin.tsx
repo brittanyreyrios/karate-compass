@@ -119,6 +119,8 @@ function AdminPage() {
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
+          <TabsTrigger value="events">Events Calendar</TabsTrigger>
+
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="invites">Invite Codes</TabsTrigger>
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
