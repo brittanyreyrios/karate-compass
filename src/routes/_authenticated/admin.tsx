@@ -614,7 +614,9 @@ function ManageStudentsTab() {
 
       <CsvImporter />
 
+      <UnassignedClassPanel />
       <UnlinkedAudit />
+
     </div>
   );
 }
