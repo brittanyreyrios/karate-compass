@@ -241,6 +241,12 @@ function AttendanceTab() {
   const [presentLock, setPresentLock] = useState<Record<string, number>>({});
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
   const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
+  const [sessionPoints, setSessionPoints] = useState(0);
+  const { data: consentOff } = useConsentOffProfiles();
+  const consentOffIds = useMemo(
+    () => new Set((consentOff ?? []).map((p) => p.id)),
+    [consentOff],
+  );
 
   const studentsQ = useStudents();
 
