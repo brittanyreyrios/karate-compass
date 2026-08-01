@@ -831,6 +831,18 @@ export type Database = {
     }
     Functions: {
       check_invite_code: { Args: { _code: string }; Returns: boolean }
+      get_curriculum_for_student: {
+        Args: { _student_id: string }
+        Returns: {
+          belt_rank_id: string
+          category: string
+          curriculum_tier: string
+          id: string
+          notes: string
+          sort_order: number
+          technique: string
+        }[]
+      }
       get_leaderboard: {
         Args: { _period?: string; _system_slug: string }
         Returns: {
@@ -871,6 +883,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "parent"
