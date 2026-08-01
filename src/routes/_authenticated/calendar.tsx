@@ -109,10 +109,8 @@ function CalendarPage() {
 
   const selectedKey = toDateKey(selected);
   const selectedItems = items.filter((i) => i.dateKey === selectedKey);
-  const eventDays = useMemo(
-    () => [...new Set(items.filter((i) => i.kind === "event").map((i) => i.dateKey))],
-    [items],
-  );
+  const eventDays = useMemo(() => [...new Set(items.map((i) => i.dateKey))], [items]);
+
 
   const goToday = () => {
     setSelected(today);
