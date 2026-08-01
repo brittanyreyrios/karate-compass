@@ -25,6 +25,14 @@ import {
   useBeltSystems,
   type CurriculumTier,
 } from "@/lib/belts";
+import {
+  coverSrc,
+  deleteCoverObject,
+  isExternalCover,
+  uploadCover,
+  useCoverUrls,
+  validateCoverFile,
+} from "@/lib/album-covers";
 
 /* ------------------------------------------------------------------ */
 /* Media Gallery albums                                                */
