@@ -13,10 +13,10 @@ import {
   formatDayHeading,
   toDateKey,
   type CalendarItem,
-  type ClassScheduleRow,
   type DojoEvent,
   type HolidayRow,
 } from "@/lib/calendar-data";
+
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
