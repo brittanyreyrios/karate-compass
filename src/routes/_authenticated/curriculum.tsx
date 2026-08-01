@@ -82,8 +82,19 @@ function Curriculum() {
   const perChild = students.map((s) => {
     const rank = ranks.find((r) => r.id === s.belt_rank_id);
     const system = systems.find((sys) => sys.id === rank?.system_id);
-    return { student: s, rank, system, entitled: itemsQ.data?.get(s.id) ?? [] };
+    const entitled = itemsQ.data?.get(s.id) ?? [];
+    const current = entitled.filter((i) => i.is_current);
+    // The RPC already orders earned material newest-rank-first with tier-wide
+    // groups last, so grouping in arrival order preserves that.
+    const earnedGroups: { label: string; items: CurriculumItem[] }[] = [];
+    for (const item of entitled.filter((i) => !i.is_current)) {
+      const last = earnedGroups[earnedGroups.length - 1];
+      if (last && last.label === item.group_label) last.items.push(item);
+      else earnedGroups.push({ label: item.group_label, items: [item] });
+    }
+    return { student: s, rank, system, current, earnedGroups };
   });
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
