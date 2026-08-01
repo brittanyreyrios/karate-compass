@@ -48,15 +48,15 @@ function isH3SwallowedErrorBody(body: string): boolean {
 //
 // The three baseline headers below are safe everywhere and always applied.
 // The strict set (full CSP with `frame-ancestors 'none'`, X-Frame-Options: DENY
-// and HSTS) is applied only on the real published host: the Lovable editor
-// renders the app inside an iframe, so framing controls must stay off for
-// *.lovable.app preview hosts and localhost. NODE_ENV alone is not a usable
-// signal here — preview builds are production builds too — so we gate on the
-// request hostname.
-const PREVIEW_HOST_PATTERNS = [/(^|\.)lovable\.app$/i, /(^|\.)lovableproject\.com$/i];
+// and HSTS) is applied on every HTTPS host except an actual editor preview.
+// Published *.lovable.app hosts are intentionally NOT excluded. The editor's
+// current preview hosts use the distinguishing `id-preview--` prefix; legacy
+// lovableproject.com previews and local development must also remain frameable.
+const PREVIEW_HOST_PATTERNS = [/(^|\.)lovableproject\.com$/i];
 
 function isPreviewHost(hostname: string): boolean {
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local")) return true;
+  if (hostname.toLowerCase().startsWith("id-preview--")) return true;
   return PREVIEW_HOST_PATTERNS.some((re) => re.test(hostname));
 }
 
