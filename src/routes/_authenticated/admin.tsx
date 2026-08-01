@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
+import { CLASS_NAMES } from "@/lib/dojo-constants";
 import { BeltSwatch } from "@/components/belt-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
@@ -616,6 +616,10 @@ function ManageStudentsTab() {
   const qc = useQueryClient();
   const studentsQ = useStudents();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [noRankOnly, setNoRankOnly] = useState(false);
+  const allStudents = studentsQ.data ?? [];
+  const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
+  const visibleStudents = noRankOnly ? allStudents.filter((s) => !s.belt_rank_id) : allStudents;
 
   // Add form state
   const [firstName, setFirstName] = useState("");
@@ -722,12 +726,39 @@ function ManageStudentsTab() {
               </p>
             </div>
           </div>
+
+          {/* A missing belt rank hides a child from every leaderboard and from
+              their own curriculum, so it has to be countable, not just visible. */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              variant={noRankOnly ? "default" : "outline"}
+              className={noRankOnly ? "bg-gradient-red" : ""}
+              aria-pressed={noRankOnly}
+              onClick={() => setNoRankOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              No belt rank set ({noRankCount})
+            </Button>
+            {noRankCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
+                leaderboard or see curriculum until a rank is set.
+              </span>
+            )}
+          </div>
+
           <div className="mt-5 space-y-3">
             {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
             {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
             )}
-            {(studentsQ.data ?? []).map((s) =>
+            {!studentsQ.isLoading && (studentsQ.data ?? []).length > 0 && visibleStudents.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Every student has a belt rank set. Nothing to fix here.
+              </p>
+            )}
+            {visibleStudents.map((s) =>
               editingId === s.id ? (
                 <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
               ) : (
@@ -1341,15 +1372,18 @@ type CsvRow = {
 
 type ImportResult = {
   student: string;
-  status: "ok" | "unlinked" | "error";
+  status: "ok" | "warning" | "unlinked" | "error";
   message: string;
 };
 
+/**
+ * The belt column is kept verbatim (trimmed) — coercing an unrecognised value
+ * such as "Camo Purple" to "White" would silently rewrite a child's rank.
+ * Matching against the rank tables happens separately, and a miss is reported.
+ */
 function normalizeBelt(input: string | undefined): string {
-  if (!input) return "White";
-  const needle = input.trim().toLowerCase();
-  const match = BELT_PROGRESSION.find((b) => b.name.toLowerCase() === needle);
-  return match?.name ?? "White";
+  const raw = (input ?? "").trim();
+  return raw.length > 0 ? raw : "White";
 }
 
 function parseCsv(text: string): CsvRow[] {
@@ -1402,8 +1436,18 @@ function CsvImporter() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
-  const solidSystemId = (systemsQ.data ?? []).find((s) => s.slug === "solid")?.id;
-  const solidRanks = (ranksQ.data ?? []).filter((r) => r.system_id === solidSystemId);
+  const allRanks = ranksQ.data ?? [];
+  const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
+  /** Match a CSV belt value against every rank in all three systems. */
+  const findRank = (belt: string) => {
+    const needle = belt.trim().toLowerCase();
+    if (!needle) return undefined;
+    return allRanks.find(
+      (r) =>
+        r.name.trim().toLowerCase() === needle ||
+        (r.short_name ?? "").trim().toLowerCase() === needle,
+    );
+  };
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
@@ -1463,22 +1507,35 @@ function CsvImporter() {
           continue;
         }
 
-        // CSV rows carry belt *text*; imports are always solid-system students,
-        // so we resolve the matching solid rank and let staff move them to the
-        // camo or stripe system afterwards if needed.
-        const solidRank = solidRanks.find((r) => r.name.toLowerCase() === belt.toLowerCase());
+        // CSV rows carry belt *text*, which may name a rank in any of the three
+        // systems. No match means the student imports without a rank — that is
+        // reported as a warning, never as a clean success.
+        const rank = findRank(belt);
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
           current_belt: belt,
-          ...(solidRank ? { belt_rank_id: solidRank.id } : {}),
+          ...(rank ? { belt_rank_id: rank.id } : {}),
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
         if (error) throw error;
-        out.push({ student: name, status: "ok", message: `Imported (${belt} belt)` });
+        if (rank) {
+          const sysName = systemsById.get(rank.system_id)?.name;
+          out.push({
+            student: name,
+            status: "ok",
+            message: `Imported — ${rank.name}${sysName ? ` · ${sysName}` : ""}`,
+          });
+        } else {
+          out.push({
+            student: name,
+            status: "warning",
+            message: `Imported — belt "${belt}" did not match any rank; set it in the roster`,
+          });
+        }
       } catch (e) {
         out.push({ student: name, status: "error", message: (e as Error).message });
       }
@@ -1486,10 +1543,13 @@ function CsvImporter() {
     setResults(out);
     setImporting(false);
     const okCount = out.filter((r) => r.status === "ok").length;
+    const warnCount = out.filter((r) => r.status === "warning").length;
     const unlinked = out.filter((r) => r.status === "unlinked").length;
-    toast.success(
-      `Imported ${okCount} / ${out.length} students${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`,
-    );
+    const summary = `Imported ${okCount + warnCount} / ${out.length} students${
+      warnCount ? ` · ${warnCount} with no belt rank` : ""
+    }${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`;
+    if (warnCount > 0) toast.warning(summary);
+    else toast.success(summary);
     qc.invalidateQueries({ queryKey: ["admin-students"] });
     qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
   };
@@ -1599,7 +1659,7 @@ function CsvImporter() {
             const cls =
               r.status === "ok"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                : r.status === "unlinked"
+                : r.status === "warning" || r.status === "unlinked"
                 ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-100"
                 : "border-red-500/40 bg-red-500/10 text-red-100";
             return (

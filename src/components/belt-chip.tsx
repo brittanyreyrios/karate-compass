@@ -24,7 +24,7 @@ export type BeltChipProps = {
 const PATTERN_WORD: Record<string, string> = {
   solid: "solid belt",
   stripe: "white belt with a colored stripe",
-  camo: "camo belt",
+  camo: "camo belt with a colored stripe",
 };
 
 export function BeltSwatch({
@@ -36,7 +36,8 @@ export function BeltSwatch({
   size = "md",
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const dims = size === "sm" ? "h-6 w-3.5" : "h-8 w-4";
-  const label = `${name}${systemName ? ` (${systemName})` : ""} — ${PATTERN_WORD[pattern] ?? "belt"}`;
+  const patternWord = PATTERN_WORD[pattern] ?? "belt";
+  const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
 
   return (
@@ -56,11 +57,13 @@ export function BeltSwatch({
       )}
       {pattern === "camo" && (
         <>
+          {/* Camo tones are derived from the editable base color, so the pattern
+              reads as real multi-tone camo rather than colored blobs. */}
           <span
             aria-hidden="true"
-            className="absolute inset-0 opacity-90"
+            className="absolute inset-0"
             style={{
-              backgroundImage: `radial-gradient(circle at 30% 25%, ${accent} 0 28%, transparent 30%), radial-gradient(circle at 70% 60%, ${accent} 0 24%, transparent 26%), radial-gradient(circle at 35% 85%, ${accent} 0 20%, transparent 22%)`,
+              backgroundImage: `radial-gradient(circle at 30% 25%, color-mix(in srgb, ${colorPrimary} 70%, black) 0 28%, transparent 30%), radial-gradient(circle at 70% 60%, color-mix(in srgb, ${colorPrimary} 70%, #c2b280) 0 24%, transparent 26%), radial-gradient(circle at 35% 85%, color-mix(in srgb, ${colorPrimary} 55%, black) 0 20%, transparent 22%)`,
             }}
           />
           <span
@@ -70,6 +73,13 @@ export function BeltSwatch({
               backgroundImage:
                 "repeating-linear-gradient(135deg, rgba(0,0,0,0.28) 0 2px, transparent 2px 5px)",
             }}
+          />
+          {/* The rank color is the stripe, not the camo — kept slightly taller
+              with a dark outline so it stays legible over the busy base. */}
+          <span
+            aria-hidden="true"
+            className="absolute left-0 right-0 top-1/2 h-[38%] -translate-y-1/2 border-y border-black/50"
+            style={{ backgroundColor: accent }}
           />
         </>
       )}
