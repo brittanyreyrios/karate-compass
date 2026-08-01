@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LogOut,
   Trophy,
+  BarChart3,
   Settings,
 } from "lucide-react";
 import {
