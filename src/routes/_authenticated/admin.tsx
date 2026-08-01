@@ -708,13 +708,13 @@ function ManageStudentsTab() {
 function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void }) {
   const qc = useQueryClient();
   const adjustPoints = useMutation({
-    mutationFn: async (delta: number) => {
-      const { error } = await supabase
-        .from("students")
-        .update({ points: Math.max(0, student.points + delta) })
-        .eq("id", student.id);
-      if (error) throw error;
-    },
+    mutationFn: async (delta: number) =>
+      awardPoints({
+        studentId: student.id,
+        currentPoints: student.points,
+        delta,
+        reason: "Manual adjustment (roster)",
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
     onError: (e: Error) => toast.error(e.message),
   });
