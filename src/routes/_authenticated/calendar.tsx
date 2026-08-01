@@ -220,10 +220,6 @@ function Legend() {
           No class
         </Badge>
       </li>
-
-          No class
-        </Badge>
-      </li>
       {Object.entries(EVENT_TYPE_META).map(([type, meta]) => (
         <li key={type}>
           <Badge variant="outline" className={meta.badge}>
