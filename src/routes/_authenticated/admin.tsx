@@ -43,7 +43,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
-import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
+import { BeltSwatch } from "@/components/belt-chip";
+import { BeltPicker } from "@/components/belt-picker";
+import { useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import {
@@ -85,6 +88,41 @@ type Student = {
   class_name: string;
   points: number;
   consecutive_absences: number;
+  belt_rank_id: string | null;
+};
+
+/**
+ * Belt badge for staff screens: renders the real pattern (solid / stripe / camo)
+ * and names the system so nobody confuses Camo Purple with Solid Purple.
+ */
+function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback: string }) {
+  const ranksQ = useBeltRanks();
+  const systemsQ = useBeltSystems();
+  const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
+  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
+  if (!rank) {
+    return (
+      <Badge variant="outline" className="border-border text-muted-foreground">
+        {fallback || "No rank set"}
+      </Badge>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <BeltSwatch
+        name={rank.name}
+        pattern={rank.pattern}
+        colorPrimary={rank.color_primary}
+        colorAccent={rank.color_accent}
+        systemName={system?.name ?? null}
+        size="sm"
+      />
+      <Badge variant="outline" className="border-primary/40 text-primary">
+        {rank.name}
+        {system ? ` · ${system.name}` : ""}
+      </Badge>
+    </span>
+  );
 };
 
 const ALL_CLASSES = "__all__";
@@ -157,6 +195,7 @@ function AdminPage() {
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
           <TabsTrigger value="gallery">Media Gallery</TabsTrigger>
           <TabsTrigger value="curriculum">Belt Curriculum</TabsTrigger>
+          <TabsTrigger value="belts">Belt Systems</TabsTrigger>
           <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
@@ -193,6 +232,9 @@ function AdminPage() {
         <TabsContent value="curriculum" className="mt-6">
           <CurriculumAdminTab />
         </TabsContent>
+        <TabsContent value="belts" className="mt-6">
+          <BeltSystemsAdminTab />
+        </TabsContent>
         <TabsContent value="guidelines" className="mt-6">
           <PointGuidelinesTab />
         </TabsContent>
@@ -224,7 +266,7 @@ function useStudents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, first_name, last_name, current_belt, attendance_count, parent_id, active, class_name, points, consecutive_absences")
+        .select("id, first_name, last_name, current_belt, belt_rank_id, attendance_count, parent_id, active, class_name, points, consecutive_absences")
         .order("first_name");
       if (error) throw error;
       return (data ?? []) as Student[];
@@ -513,7 +555,7 @@ function AttendanceTab() {
                   {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} />
                   <Badge variant="outline">{s.class_name}</Badge>
                   <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
@@ -580,13 +622,15 @@ function ManageStudentsTab() {
   const [lastName, setLastName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [className, setClassName] = useState<string>(CLASS_NAMES[0]);
-  const [belt, setBelt] = useState<string>("White");
+  const [systemId, setSystemId] = useState<string | null>(null);
+  const [rankId, setRankId] = useState<string | null>(null);
 
   const addStudent = useMutation({
     mutationFn: async () => {
       if (!firstName.trim() || !lastName.trim() || !parentEmail.trim()) {
         throw new Error("Please fill in all fields.");
       }
+      if (!rankId) throw new Error("Choose a belt system and rank for this student.");
       const emailNorm = parentEmail.trim().toLowerCase();
       const { data: profile, error: profErr } = await supabase
         .from("profiles")
@@ -600,7 +644,7 @@ function ManageStudentsTab() {
         parent_id: profile.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        current_belt: belt,
+        belt_rank_id: rankId,
         class_name: className,
       });
       if (error) throw error;
@@ -608,7 +652,7 @@ function ManageStudentsTab() {
     onSuccess: () => {
       toast.success("Student added");
       setFirstName(""); setLastName(""); setParentEmail("");
-      setClassName(CLASS_NAMES[0]); setBelt("White");
+      setClassName(CLASS_NAMES[0]); setSystemId(null); setRankId(null);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -654,15 +698,13 @@ function ManageStudentsTab() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Starting belt</Label>
-              <Select value={belt} onValueChange={setBelt}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <BeltPicker
+              idPrefix="add-student"
+              systemId={systemId}
+              rankId={rankId}
+              onChange={(next) => { setSystemId(next.systemId); setRankId(next.rankId); }}
+            />
+
           </div>
 
           <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
@@ -727,7 +769,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className="border-primary/40 text-primary">{student.current_belt}</Badge>
+          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
@@ -755,10 +797,18 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const qc = useQueryClient();
   const [firstName, setFirstName] = useState(student.first_name);
   const [lastName, setLastName] = useState(student.last_name);
-  const [belt, setBelt] = useState(student.current_belt);
+  const ranksQ = useBeltRanks();
+  const currentRank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
+  const [systemId, setSystemId] = useState<string | null>(currentRank?.system_id ?? null);
+  const [rankId, setRankId] = useState<string | null>(student.belt_rank_id ?? null);
   const [className, setClassName] = useState(student.class_name);
   const [points, setPoints] = useState(String(student.points));
   const [attendance, setAttendance] = useState(String(student.attendance_count));
+
+  // Keep the belt system in sync once the ranks list resolves.
+  useEffect(() => {
+    if (!systemId && currentRank) setSystemId(currentRank.system_id);
+  }, [currentRank, systemId]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -767,7 +817,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          current_belt: belt,
+          belt_rank_id: rankId,
           class_name: className,
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
@@ -775,6 +825,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         .eq("id", student.id);
       if (error) throw error;
     },
+
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["admin-students"] });
@@ -803,15 +854,15 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-xs">Belt tier</Label>
-          <Select value={belt} onValueChange={setBelt}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="sm:col-span-2 lg:col-span-3">
+          <BeltPicker
+            idPrefix={`edit-${student.id}`}
+            systemId={systemId}
+            rankId={rankId}
+            onChange={(next) => { setSystemId(next.systemId); setRankId(next.rankId); }}
+          />
         </div>
+
         <div>
           <Label className="text-xs">Dojo points</Label>
           <Input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} className="mt-1" />
@@ -1349,6 +1400,10 @@ function parseCsv(text: string): CsvRow[] {
 
 function CsvImporter() {
   const qc = useQueryClient();
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+  const solidSystemId = (systemsQ.data ?? []).find((s) => s.slug === "solid")?.id;
+  const solidRanks = (ranksQ.data ?? []).filter((r) => r.system_id === solidSystemId);
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
@@ -1408,12 +1463,17 @@ function CsvImporter() {
           continue;
         }
 
+        // CSV rows carry belt *text*; imports are always solid-system students,
+        // so we resolve the matching solid rank and let staff move them to the
+        // camo or stripe system afterwards if needed.
+        const solidRank = solidRanks.find((r) => r.name.toLowerCase() === belt.toLowerCase());
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
           current_belt: belt,
+          ...(solidRank ? { belt_rank_id: solidRank.id } : {}),
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);

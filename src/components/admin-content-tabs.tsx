@@ -16,7 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { BeltSwatch } from "@/components/belt-chip";
+import { BeltPicker } from "@/components/belt-picker";
+import {
+  CURRICULUM_TIERS,
+  TIER_LABELS,
+  useBeltRanks,
+  useBeltSystems,
+  type CurriculumTier,
+} from "@/lib/belts";
 
 /* ------------------------------------------------------------------ */
 /* Media Gallery albums                                                */
@@ -186,7 +194,9 @@ export function GalleryAdminTab() {
 
 type CurriculumItem = {
   id: string;
-  belt: string;
+  belt: string | null;
+  belt_rank_id: string | null;
+  curriculum_tier: CurriculumTier | null;
   technique: string;
   category: string | null;
   notes: string | null;
@@ -194,9 +204,16 @@ type CurriculumItem = {
   active: boolean;
 };
 
+type Target = "rank" | "tier";
+
 export function CurriculumAdminTab() {
   const qc = useQueryClient();
-  const [belt, setBelt] = useState(BELT_PROGRESSION[0]?.name ?? "White");
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+  const [target, setTarget] = useState<Target>("tier");
+  const [tier, setTier] = useState<CurriculumTier>("beginner");
+  const [systemId, setSystemId] = useState<string | null>(null);
+  const [rankId, setRankId] = useState<string | null>(null);
   const [technique, setTechnique] = useState("");
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
@@ -213,23 +230,38 @@ export function CurriculumAdminTab() {
     },
   });
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, CurriculumItem[]>();
-    for (const b of BELT_PROGRESSION) map.set(b.name, []);
-    for (const item of itemsQ.data ?? []) {
-      map.set(item.belt, [...(map.get(item.belt) ?? []), item]);
-    }
-    return map;
-  }, [itemsQ.data]);
+  const ranks = ranksQ.data ?? [];
+  const systems = systemsQ.data ?? [];
+  const items = itemsQ.data ?? [];
+
+  const byTier = useMemo(
+    () =>
+      CURRICULUM_TIERS.map((t) => ({
+        tier: t,
+        items: items.filter((i) => i.curriculum_tier === t),
+      })),
+    [items],
+  );
+
+  const byRank = useMemo(
+    () =>
+      ranks
+        .map((r) => ({ rank: r, items: items.filter((i) => i.belt_rank_id === r.id) }))
+        .filter((g) => g.items.length > 0),
+    [ranks, items],
+  );
 
   const addItem = useMutation({
     mutationFn: async () => {
       if (!technique.trim()) throw new Error("Technique name is required.");
+      // Exactly one of the two targets is set — the database enforces this too.
+      if (target === "rank" && !rankId) throw new Error("Choose the specific rank this belongs to.");
       const { error } = await supabase.from("curriculum_items").insert({
-        belt,
         technique: technique.trim(),
         category: category.trim() || null,
         notes: notes.trim() || null,
+        belt_rank_id: target === "rank" ? rankId : null,
+        curriculum_tier: target === "tier" ? tier : null,
       });
       if (error) throw error;
     },
@@ -254,6 +286,25 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const legacy = items.filter((i) => !i.belt_rank_id && !i.curriculum_tier);
+
+  const ItemRow = ({ it }: { it: CurriculumItem }) => (
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2">
+      <div className="min-w-0">
+        <span className="text-sm font-medium">{it.technique}</span>
+        {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`Delete requirement ${it.technique}`}
+        onClick={() => removeItem.mutate(it.id)}
+      >
+        <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+      </Button>
+    </li>
+  );
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
@@ -264,17 +315,58 @@ export function CurriculumAdminTab() {
           <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" /> Add Requirement
         </h2>
         <div className="mt-4 space-y-3">
-          <div>
-            <Label htmlFor="cur-belt">Belt</Label>
-            <Select value={belt} onValueChange={setBelt}>
-              <SelectTrigger id="cur-belt"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {BELT_PROGRESSION.map((b) => (
-                  <SelectItem key={b.name} value={b.name}>{b.name} Belt</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <fieldset className="rounded-xl border border-border p-3">
+            <legend className="px-1 text-xs uppercase tracking-widest text-muted-foreground">
+              Who sees this
+            </legend>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="cur-target"
+                  className="accent-primary"
+                  checked={target === "tier"}
+                  onChange={() => setTarget("tier")}
+                />
+                A whole curriculum tier
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="cur-target"
+                  className="accent-primary"
+                  checked={target === "rank"}
+                  onChange={() => setTarget("rank")}
+                />
+                One specific rank
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Pick one or the other — a requirement is either tier-wide or tied to a single rank.
+            </p>
+          </fieldset>
+
+          {target === "tier" ? (
+            <div>
+              <Label htmlFor="cur-tier">Curriculum tier</Label>
+              <Select value={tier} onValueChange={(v) => setTier(v as CurriculumTier)}>
+                <SelectTrigger id="cur-tier"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CURRICULUM_TIERS.map((t) => (
+                    <SelectItem key={t} value={t}>{TIER_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <BeltPicker
+              idPrefix="cur"
+              systemId={systemId}
+              rankId={rankId}
+              onChange={(next) => { setSystemId(next.systemId); setRankId(next.rankId); }}
+            />
+          )}
+
           <div>
             <Label htmlFor="cur-tech">Technique</Label>
             <Input id="cur-tech" required value={technique} onChange={(e) => setTechnique(e.target.value)} placeholder="Front kick (Ap Chagi)" />
@@ -294,42 +386,177 @@ export function CurriculumAdminTab() {
       </form>
 
       <div className="space-y-4">
-        {BELT_PROGRESSION.map((b) => {
-          const items = grouped.get(b.name) ?? [];
+        {byTier.map(({ tier: t, items: list }) => (
+          <div key={t} className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-3">
+              <h3 className="font-display text-lg font-bold uppercase tracking-wide">
+                {TIER_LABELS[t]} tier
+              </h3>
+              <span className="text-xs text-muted-foreground">{list.length} requirements</span>
+            </div>
+            {list.length > 0 && <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} />)}</ul>}
+          </div>
+        ))}
+
+        {byRank.map(({ rank, items: list }) => {
+          const system = systems.find((s) => s.id === rank.system_id);
           return (
-            <div key={b.name} className="rounded-2xl border border-border bg-card p-5">
+            <div key={rank.id} className="rounded-2xl border border-border bg-card p-5">
               <div className="flex items-center gap-3">
-                <span className="h-5 w-3 rounded-sm border border-border" style={{ backgroundColor: b.color }} aria-hidden="true" />
-                <h3 className="font-display text-lg font-bold uppercase tracking-wide">{b.name} Belt</h3>
-                <span className="text-xs text-muted-foreground">{items.length} requirements</span>
+                <BeltSwatch
+                  name={rank.name}
+                  pattern={rank.pattern}
+                  colorPrimary={rank.color_primary}
+                  colorAccent={rank.color_accent}
+                  systemName={system?.name ?? null}
+                  size="sm"
+                />
+                <h3 className="font-display text-lg font-bold uppercase tracking-wide">
+                  {rank.name}
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  {system?.name} · {list.length} requirements
+                </span>
               </div>
-              {items.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {items.map((it) => (
-                    <li key={it.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2">
-                      <div className="min-w-0">
-                        <span className="text-sm font-medium">{it.technique}</span>
-                        {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete requirement ${it.technique}`}
-                        onClick={() => removeItem.mutate(it.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} />)}</ul>
             </div>
           );
         })}
+
+        {legacy.length > 0 && (
+          <div className="rounded-2xl border border-dashed border-border bg-card p-5">
+            <h3 className="font-display text-lg font-bold uppercase tracking-wide">Untargeted (legacy)</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              These rows predate the three belt systems and are not shown to any family. Delete and
+              re-add them against a tier or a rank.
+            </p>
+            <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} />)}</ul>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Belt systems & ranks editor                                         */
+/* ------------------------------------------------------------------ */
+
+export function BeltSystemsAdminTab() {
+  const qc = useQueryClient();
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+
+  const saveRank = useMutation({
+    mutationFn: async (patch: {
+      id: string;
+      color_primary?: string;
+      color_accent?: string | null;
+      curriculum_tier?: CurriculumTier;
+    }) => {
+      const { id, ...fields } = patch;
+      const { error } = await supabase.from("belt_ranks").update(fields).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Belt updated.");
+      qc.invalidateQueries({ queryKey: ["belt-ranks"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const systems = systemsQ.data ?? [];
+  const ranks = ranksQ.data ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-primary/40 bg-card p-5">
+        <h2 className="font-display text-xl font-bold uppercase tracking-wide">Belt Systems &amp; Colors</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Colors and curriculum tiers are editable here — no code change needed. Camo colors were
+          seeded as a best guess; correct them to match your actual belts.
+        </p>
+      </div>
+
+      {systems.map((sys) => (
+        <section key={sys.id} className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="font-display text-lg font-bold uppercase tracking-wide">{sys.name}</h3>
+            {sys.age_guidance && (
+              <span className="text-xs text-muted-foreground">{sys.age_guidance} (guidance only)</span>
+            )}
+          </div>
+          <ul className="mt-4 space-y-3">
+            {ranks
+              .filter((r) => r.system_id === sys.id)
+              .map((r) => (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-end gap-4 rounded-xl border border-border bg-background/50 p-3"
+                >
+                  <div className="flex min-w-[180px] items-center gap-2">
+                    <BeltSwatch
+                      name={r.name}
+                      pattern={r.pattern}
+                      colorPrimary={r.color_primary}
+                      colorAccent={r.color_accent}
+                      systemName={sys.name}
+                      size="sm"
+                    />
+                    <span className="text-sm font-semibold">{r.name}</span>
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`primary-${r.id}`} className="text-xs">Main color</Label>
+                    <Input
+                      id={`primary-${r.id}`}
+                      type="color"
+                      className="mt-1 h-9 w-20 p-1"
+                      defaultValue={r.color_primary}
+                      onBlur={(e) =>
+                        e.target.value !== r.color_primary &&
+                        saveRank.mutate({ id: r.id, color_primary: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`accent-${r.id}`} className="text-xs">Accent color</Label>
+                    <Input
+                      id={`accent-${r.id}`}
+                      type="color"
+                      className="mt-1 h-9 w-20 p-1"
+                      defaultValue={r.color_accent ?? r.color_primary}
+                      onBlur={(e) =>
+                        e.target.value !== (r.color_accent ?? r.color_primary) &&
+                        saveRank.mutate({ id: r.id, color_accent: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`tier-${r.id}`} className="text-xs">Curriculum tier</Label>
+                    <Select
+                      value={r.curriculum_tier}
+                      onValueChange={(v) => saveRank.mutate({ id: r.id, curriculum_tier: v as CurriculumTier })}
+                    >
+                      <SelectTrigger id={`tier-${r.id}`} className="mt-1 w-[160px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {CURRICULUM_TIERS.map((t) => (
+                          <SelectItem key={t} value={t}>{TIER_LABELS[t]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Invite QR generator                                                 */

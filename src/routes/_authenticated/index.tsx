@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { BeltChip, BeltSwatch } from "@/components/belt-chip";
+import { computeBeltProgress, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
 import { Link } from "@tanstack/react-router";
 
@@ -47,6 +48,7 @@ type Student = {
   first_name: string;
   last_name: string;
   current_belt: string;
+  belt_rank_id: string | null;
   attendance_count: number;
   start_date: string;
   next_test_date: string | null;
@@ -147,6 +149,29 @@ function Dashboard() {
     },
   });
 
+  // Monthly Dojo Points are derived from the point_events log — students.points
+  // stays the lifetime figure and is never reset.
+  const monthStart = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  })();
+  const monthlyPointsQ = useQuery({
+    queryKey: ["points-month", student?.id, monthStart],
+    enabled: !!student?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("point_events")
+        .select("delta")
+        .eq("student_id", student!.id)
+        .gte("occurred_on", monthStart);
+      if (error) throw error;
+      return (data ?? []).reduce((sum, row) => sum + (row.delta ?? 0), 0);
+    },
+  });
+
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
   const daysToTest = useMemo(() => {
@@ -171,11 +196,10 @@ function Dashboard() {
     );
   }
 
-  const beltIndex = BELT_PROGRESSION.findIndex(
-    (b) => b.name.toLowerCase() === student.current_belt.toLowerCase(),
-  );
-  const totalBelts = BELT_PROGRESSION.length - 1;
-  const progressPct = Math.round((Math.max(0, beltIndex) / totalBelts) * 100);
+  const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
+  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
+  const progress = computeBeltProgress(system, ranksQ.data, student.belt_rank_id);
+
 
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
@@ -200,7 +224,7 @@ function Dashboard() {
               <SelectContent>
                 {students.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.first_name} — {s.current_belt} Belt
+                    {s.first_name} — {s.current_belt}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -213,37 +237,62 @@ function Dashboard() {
         <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Road to Black Belt</div>
+              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                {progress?.label ?? "Belt progress"}
+              </div>
               <div className="mt-1 font-display text-2xl font-bold uppercase">{student.first_name}'s Journey</div>
+              <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+                {progress ? `Step ${progress.step} of ${progress.total}` : "Awaiting belt rank"}
+              </div>
             </div>
             <div className="text-right">
-              <div className="font-display text-4xl font-black text-gradient-red">{progressPct}%</div>
+              <div className="font-display text-4xl font-black text-gradient-red">{progress?.pct ?? 0}%</div>
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Complete</div>
             </div>
           </div>
           <div className="relative mt-8">
             <div className="h-3 w-full overflow-hidden rounded-full bg-secondary/60">
-              <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progressPct}%` }} />
+              <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progress?.pct ?? 0}%` }} />
             </div>
             <div className="mt-4 flex justify-between">
-              {BELT_PROGRESSION.map((belt, i) => {
-                const reached = i <= beltIndex;
-                const current = i === beltIndex;
+              {(progress?.ladder ?? []).map((belt, i) => {
+                const reached = i <= (progress?.currentIndex ?? -1);
+                const current = i === progress?.currentIndex;
                 return (
-                  <div key={belt.name} className="flex flex-col items-center gap-2">
-                    <div
-                      className={`h-6 w-3 rounded-sm border transition-all ${current ? "scale-125 border-primary ring-2 ring-primary/40" : reached ? "border-transparent" : "border-border opacity-40"}`}
-                      style={{ backgroundColor: reached ? belt.color : "transparent" }}
-                    />
+                  <div key={belt.id} className="flex flex-col items-center gap-2">
+                    <span
+                      className={`inline-block transition-all ${current ? "scale-125" : reached ? "" : "opacity-40"}`}
+                    >
+                      <BeltSwatch
+                        name={belt.name}
+                        pattern={belt.pattern}
+                        colorPrimary={belt.color_primary}
+                        colorAccent={belt.color_accent}
+                        systemName={system?.name ?? null}
+                        size="sm"
+                      />
+                    </span>
                     <span className={`hidden text-xs font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
-                      {belt.name}
+                      {belt.short_name ?? belt.name}
                     </span>
                   </div>
                 );
               })}
             </div>
+            {rank && (
+              <div className="mt-6">
+                <BeltChip
+                  name={rank.name}
+                  pattern={rank.pattern}
+                  colorPrimary={rank.color_primary}
+                  colorAccent={rank.color_accent}
+                  systemName={system?.name ?? null}
+                />
+              </div>
+            )}
           </div>
         </div>
+
 
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
           <div className="absolute -right-8 -top-8 opacity-10"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
@@ -272,9 +321,24 @@ function Dashboard() {
       </section>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard icon={<Trophy className="h-5 w-5" />} label="Current Belt" value={`${student.current_belt} Belt`} sub={`Rank ${Math.max(0, beltIndex) + 1} of ${BELT_PROGRESSION.length}`} />
+        <StatCard
+          icon={<Trophy className="h-5 w-5" />}
+          label="Current Belt"
+          value={rank?.name ?? student.current_belt}
+          sub={
+            progress
+              ? `${system?.name ?? "Belt system"} · step ${progress.step} of ${progress.total}`
+              : "No belt rank assigned yet"
+          }
+        />
         <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
-        <StatCard icon={<Sparkles className="h-5 w-5" />} label="Dojo Points" value={`${student.points}`} sub="earned on the mat" highlight />
+        <StatCard
+          icon={<Sparkles className="h-5 w-5" />}
+          label="Dojo Points"
+          value={`all time: ${student.points}`}
+          sub={`this month: ${monthlyPointsQ.data ?? 0} · all-time points never reset`}
+          highlight
+        />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="Total Attendance (Yearly Log)"
