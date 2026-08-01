@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Trophy, MapPin, Calendar, Pin } from "lucide-react";
+import { Megaphone, Trophy, MapPin, Calendar, Pin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,6 +24,13 @@ type Announcement = {
   discipline: string | null;
   location: string | null;
   event_date: string | null;
+  event_end_date: string | null;
+  venue: string | null;
+  address: string | null;
+  divisions: string | null;
+  registration_deadline: string | null;
+  spectator_info: string | null;
+  event_url: string | null;
   created_at: string;
 };
 
@@ -109,9 +116,19 @@ function Announcements() {
                     <h3 className="mt-3 font-display text-lg font-bold uppercase leading-tight">{t.title}</h3>
                     <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {t.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {t.location}</span>}
-                      {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(t.event_date).toLocaleDateString()}</span>}
+                       {(t.venue || t.address || t.location) && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {[t.venue, t.address].filter(Boolean).join(" · ") || t.location}</span>}
+                       {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(t.event_date).toLocaleDateString()}{t.event_end_date ? `–${new Date(t.event_end_date).toLocaleDateString()}` : ""}</span>}
                     </div>
+                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                       {t.divisions && <p><span className="font-semibold text-foreground">Divisions:</span> {t.divisions}</p>}
+                       {t.registration_deadline && <p><span className="font-semibold text-foreground">Register by:</span> {new Date(t.registration_deadline).toLocaleDateString()}</p>}
+                       {t.spectator_info && <p>{t.spectator_info}</p>}
+                     </div>
+                     {t.event_url && (
+                       <a href={t.event_url} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+                         Official event page <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                       </a>
+                     )}
                   </article>
                 </li>
               );
