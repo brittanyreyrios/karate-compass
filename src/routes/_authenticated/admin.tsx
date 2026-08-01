@@ -139,6 +139,10 @@ function AdminPage() {
         <TabsContent value="schedules" className="mt-6">
           <ClassSchedulesTab />
         </TabsContent>
+        <TabsContent value="events" className="mt-6">
+          <EventsAdminTab />
+        </TabsContent>
+
         <TabsContent value="parents" className="mt-6">
           <ParentsTab />
         </TabsContent>
