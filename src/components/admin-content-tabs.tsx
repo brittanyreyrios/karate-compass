@@ -507,7 +507,9 @@ export function BeltSystemsAdminTab() {
                   </div>
 
                   <div>
-                    <Label htmlFor={`primary-${r.id}`} className="text-xs">Main color</Label>
+                    <Label htmlFor={`primary-${r.id}`} className="text-xs">
+                      {r.pattern === "camo" ? "Camo base" : "Belt color"}
+                    </Label>
                     <Input
                       id={`primary-${r.id}`}
                       type="color"
@@ -520,19 +522,22 @@ export function BeltSystemsAdminTab() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor={`accent-${r.id}`} className="text-xs">Accent color</Label>
-                    <Input
-                      id={`accent-${r.id}`}
-                      type="color"
-                      className="mt-1 h-9 w-20 p-1"
-                      defaultValue={r.color_accent ?? r.color_primary}
-                      onBlur={(e) =>
-                        e.target.value !== (r.color_accent ?? r.color_primary) &&
-                        saveRank.mutate({ id: r.id, color_accent: e.target.value })
-                      }
-                    />
-                  </div>
+                  {/* Solid ranks have no second colour — the field is unused there. */}
+                  {r.pattern !== "solid" && (
+                    <div>
+                      <Label htmlFor={`accent-${r.id}`} className="text-xs">Stripe color</Label>
+                      <Input
+                        id={`accent-${r.id}`}
+                        type="color"
+                        className="mt-1 h-9 w-20 p-1"
+                        defaultValue={r.color_accent ?? r.color_primary}
+                        onBlur={(e) =>
+                          e.target.value !== (r.color_accent ?? r.color_primary) &&
+                          saveRank.mutate({ id: r.id, color_accent: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor={`tier-${r.id}`} className="text-xs">Curriculum tier</Label>
