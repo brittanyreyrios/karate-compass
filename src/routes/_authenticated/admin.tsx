@@ -1396,6 +1396,10 @@ function parseCsv(text: string): CsvRow[] {
 
 function CsvImporter() {
   const qc = useQueryClient();
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+  const solidSystemId = (systemsQ.data ?? []).find((s) => s.slug === "solid")?.id;
+  const solidRanks = (ranksQ.data ?? []).filter((r) => r.system_id === solidSystemId);
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
