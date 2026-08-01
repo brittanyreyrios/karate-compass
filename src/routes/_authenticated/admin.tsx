@@ -1515,9 +1515,10 @@ function CsvImporter() {
         }
 
         // CSV rows carry belt *text*, which may name a rank in any of the three
-        // systems. No match means the student imports without a rank — that is
-        // reported as a warning, never as a clean success.
-        const rank = findRank(belt);
+        // systems. No match — or more than one match — means the student imports
+        // without a rank, reported as a warning, never as a clean success.
+        const candidates = findRanks(belt);
+        const rank = candidates.length === 1 ? candidates[0] : undefined;
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
@@ -1535,6 +1536,15 @@ function CsvImporter() {
             student: name,
             status: "ok",
             message: `Imported — ${rank.name}${sysName ? ` · ${sysName}` : ""}`,
+          });
+        } else if (candidates.length > 1) {
+          const named = candidates
+            .map((r) => `${r.name}${systemsById.get(r.system_id)?.name ? ` (${systemsById.get(r.system_id)!.name})` : ""}`)
+            .join(", ");
+          out.push({
+            student: name,
+            status: "warning",
+            message: `Imported — belt "${belt}" matches more than one system (${named}); set the rank in the roster`,
           });
         } else {
           out.push({
@@ -1555,6 +1565,7 @@ function CsvImporter() {
     const summary = `Imported ${okCount + warnCount} / ${out.length} students${
       warnCount ? ` · ${warnCount} with no belt rank` : ""
     }${unlinked ? ` · ${unlinked} queued in the Unlinked Audit` : ""}`;
+
     if (warnCount > 0) toast.warning(summary);
     else toast.success(summary);
     qc.invalidateQueries({ queryKey: ["admin-students"] });
