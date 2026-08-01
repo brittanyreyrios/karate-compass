@@ -236,7 +236,10 @@ function DayPanel({ dateKey, items }: { dateKey: string; items: CalendarItem[] }
     <section className="rounded-2xl border border-border bg-card p-6" aria-live="polite">
       <h2 className="font-display text-lg font-bold uppercase tracking-wide">{formatDayHeading(dateKey)}</h2>
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">Nothing scheduled.</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Nothing special scheduled — regular classes run as normal.
+        </p>
+
       ) : (
         <ul className="mt-4 space-y-2">
           {items.map((item) => (
