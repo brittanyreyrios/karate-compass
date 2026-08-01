@@ -324,18 +324,39 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Dojo Points: award +1/+5/+10, confirm with the new running total and offer a
+   * 3-second Undo that removes the audit row again. A per-session tally keeps
+   * instructors honest about how much they've handed out on this device.
+   */
   const addPoints = useMutation({
-    mutationFn: async (student: Student) => {
-      const { error } = await supabase
-        .from("students")
-        .update({ points: student.points + 5 })
-        .eq("id", student.id);
-      if (error) throw error;
-      return student.id;
-    },
-    onSuccess: (id) => {
-      lockButton(setPointsLock, id);
+    mutationFn: async ({ student, delta }: { student: Student; delta: number }) =>
+      awardPoints({ studentId: student.id, currentPoints: student.points, delta }),
+    onSuccess: (award) => {
+      lockButton(setPointsLock, award.studentId);
+      setSessionPoints((t) => t + award.delta);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      toast.success(`+${award.delta} · now ${award.newTotal}`, {
+        duration: 3000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await revertPointEvent({
+                studentId: award.studentId,
+                currentPoints: award.newTotal,
+                delta: award.delta,
+                eventId: award.eventId,
+              });
+              setSessionPoints((t) => t - award.delta);
+              qc.invalidateQueries({ queryKey: ["admin-students"] });
+              toast.success("Points reverted");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          },
+        },
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
