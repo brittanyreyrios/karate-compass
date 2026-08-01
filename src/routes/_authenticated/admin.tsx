@@ -616,6 +616,10 @@ function ManageStudentsTab() {
   const qc = useQueryClient();
   const studentsQ = useStudents();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [noRankOnly, setNoRankOnly] = useState(false);
+  const allStudents = studentsQ.data ?? [];
+  const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
+  const visibleStudents = noRankOnly ? allStudents.filter((s) => !s.belt_rank_id) : allStudents;
 
   // Add form state
   const [firstName, setFirstName] = useState("");
