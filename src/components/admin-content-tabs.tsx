@@ -16,7 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { BeltSwatch } from "@/components/belt-chip";
+import { BeltPicker } from "@/components/belt-picker";
+import {
+  CURRICULUM_TIERS,
+  TIER_LABELS,
+  useBeltRanks,
+  useBeltSystems,
+  type CurriculumTier,
+} from "@/lib/belts";
 
 /* ------------------------------------------------------------------ */
 /* Media Gallery albums                                                */
