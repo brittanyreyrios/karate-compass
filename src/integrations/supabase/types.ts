@@ -393,6 +393,79 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_consent_events: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          changed_at: string
+          id: string
+          new_value: boolean
+          profile_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          changed_at?: string
+          id?: string
+          new_value: boolean
+          profile_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          changed_at?: string
+          id?: string
+          new_value?: boolean
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_consent_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      point_events: {
+        Row: {
+          awarded_by: string | null
+          created_at: string
+          delta: number
+          id: string
+          occurred_on: string
+          reason: string | null
+          student_id: string
+        }
+        Insert: {
+          awarded_by?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          occurred_on?: string
+          reason?: string | null
+          student_id: string
+        }
+        Update: {
+          awarded_by?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          occurred_on?: string
+          reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poll_options: {
         Row: {
           created_at: string
