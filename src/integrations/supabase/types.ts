@@ -837,8 +837,11 @@ export type Database = {
           belt_rank_id: string
           category: string
           curriculum_tier: string
+          group_label: string
           id: string
+          is_current: boolean
           notes: string
+          rank_name: string
           sort_order: number
           technique: string
         }[]
