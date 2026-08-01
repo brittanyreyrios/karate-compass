@@ -1827,9 +1827,9 @@ function ParentsTab({
           <CameraOff className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Photos off only
         </Button>
         {pendingCount > 0 && (
-          <Button size="sm" variant="outline" disabled={acknowledge.isPending} onClick={() => acknowledge.mutate()}>
-            Mark {pendingCount} consent change{pendingCount === 1 ? "" : "s"} as reviewed
-          </Button>
+          <span className="text-xs text-muted-foreground">
+            {pendingCount} recent consent change{pendingCount === 1 ? "" : "s"} still need a staff review.
+          </span>
         )}
       </div>
 
