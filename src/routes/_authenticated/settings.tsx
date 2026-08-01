@@ -169,12 +169,16 @@ function SettingsPage() {
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Opt in to let us feature your student in the Media Gallery, announcements, our social
-              accounts and printed school materials. You can switch this off at any time — see the{" "}
+              accounts and printed school materials. You can switch this off at any time: we stop
+              publishing new media immediately and remove existing media of your student from the Portal
+              within 14 days. Media already posted to social media or our website is removed on a
+              reasonable-efforts basis within 30 days — see the{" "}
               <Link to="/media-release" className="font-semibold text-primary underline underline-offset-2">
                 Media Release
               </Link>{" "}
-              for exactly what changes when you do.
+              for the full detail.
             </p>
+
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-background p-4">
               <div className="min-w-0">
