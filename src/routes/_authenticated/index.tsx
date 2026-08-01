@@ -387,14 +387,8 @@ function ClassScheduleCard({ className }: { className: string }) {
     },
   });
 
-  const fallback = CLASS_CATALOG.find((c) => c.name === className);
-  const info = catalogQ.data ?? (fallback ? {
-    class_name: fallback.name,
-    days: fallback.days,
-    time_start: fallback.time_start,
-    time_end: fallback.time_end,
-    location: fallback.location,
-  } : null);
+  const info = catalogQ.data ?? null;
+
 
   if (!info) return null;
 
