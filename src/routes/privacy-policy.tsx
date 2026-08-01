@@ -108,7 +108,7 @@ function PrivacyPolicyPage() {
               "Attendance records",
               "Dojo points earned (leaderboard and milestone data)",
               "Tournaments or competitions the student participates in",
-              "Photos and videos of the student, only with your express written permission (see Section 3)",
+              "Photos and videos of the student, subject to your consent setting (see Section 3)",
             ]}
           />
           <p>
