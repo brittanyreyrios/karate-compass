@@ -372,18 +372,25 @@ function AuthPage() {
                         I am a parent or legal guardian and I agree to the{" "}
                         <Link to="/terms" className="font-semibold text-primary underline underline-offset-2">
                           Terms of Service
-                        </Link>{" "}
-                        and{" "}
+                        </Link>
+                        ,{" "}
                         <Link
                           to="/privacy-policy"
                           className="font-semibold text-primary underline underline-offset-2"
                         >
                           Privacy Policy
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                          to="/media-release"
+                          className="font-semibold text-primary underline underline-offset-2"
+                        >
+                          Photo &amp; Video Media Release
                         </Link>
                         . <span className="text-primary">Required</span>
                       </Label>
                     </div>
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
                       <Checkbox
                         id="photo"
                         checked={photoConsent}
@@ -391,15 +398,17 @@ function AuthPage() {
                         aria-describedby="photo-desc"
                         className="mt-0.5"
                       />
-                      <Label htmlFor="photo" id="photo-desc" className="text-xs font-normal leading-relaxed">
-                        I give my permission under the{" "}
-                        <Link
-                          to="/media-release"
-                          className="font-semibold text-primary underline underline-offset-2"
-                        >
-                          Photo &amp; Video Media Release
-                        </Link>{" "}
-                        for my student. Optional — you can change this any time in Account Settings.
+                      <Label
+                        htmlFor="photo"
+                        id="photo-desc"
+                        className="text-sm font-normal leading-relaxed text-foreground"
+                      >
+                        <span className="font-semibold">
+                          Yes — my student may appear in photos and videos in the Portal.
+                        </span>{" "}
+                        This includes group photos, class and sparring clips, and event albums shared with
+                        enrolled Tiger&apos;s Den families. Uncheck this box if you&apos;d rather we
+                        didn&apos;t. You can change it any time in Account Settings.
                       </Label>
                     </div>
                   </div>
