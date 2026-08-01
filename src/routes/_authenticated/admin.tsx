@@ -1341,15 +1341,18 @@ type CsvRow = {
 
 type ImportResult = {
   student: string;
-  status: "ok" | "unlinked" | "error";
+  status: "ok" | "warning" | "unlinked" | "error";
   message: string;
 };
 
+/**
+ * The belt column is kept verbatim (trimmed) — coercing an unrecognised value
+ * such as "Camo Purple" to "White" would silently rewrite a child's rank.
+ * Matching against the rank tables happens separately, and a miss is reported.
+ */
 function normalizeBelt(input: string | undefined): string {
-  if (!input) return "White";
-  const needle = input.trim().toLowerCase();
-  const match = BELT_PROGRESSION.find((b) => b.name.toLowerCase() === needle);
-  return match?.name ?? "White";
+  const raw = (input ?? "").trim();
+  return raw.length > 0 ? raw : "White";
 }
 
 function parseCsv(text: string): CsvRow[] {
