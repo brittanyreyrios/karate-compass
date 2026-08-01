@@ -580,13 +580,15 @@ function ManageStudentsTab() {
   const [lastName, setLastName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [className, setClassName] = useState<string>(CLASS_NAMES[0]);
-  const [belt, setBelt] = useState<string>("White");
+  const [systemId, setSystemId] = useState<string | null>(null);
+  const [rankId, setRankId] = useState<string | null>(null);
 
   const addStudent = useMutation({
     mutationFn: async () => {
       if (!firstName.trim() || !lastName.trim() || !parentEmail.trim()) {
         throw new Error("Please fill in all fields.");
       }
+      if (!rankId) throw new Error("Choose a belt system and rank for this student.");
       const emailNorm = parentEmail.trim().toLowerCase();
       const { data: profile, error: profErr } = await supabase
         .from("profiles")
@@ -600,7 +602,7 @@ function ManageStudentsTab() {
         parent_id: profile.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        current_belt: belt,
+        belt_rank_id: rankId,
         class_name: className,
       });
       if (error) throw error;
@@ -608,7 +610,7 @@ function ManageStudentsTab() {
     onSuccess: () => {
       toast.success("Student added");
       setFirstName(""); setLastName(""); setParentEmail("");
-      setClassName(CLASS_NAMES[0]); setBelt("White");
+      setClassName(CLASS_NAMES[0]); setSystemId(null); setRankId(null);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
     },
     onError: (e: Error) => toast.error(e.message),
