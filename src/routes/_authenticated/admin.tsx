@@ -24,6 +24,8 @@ import {
   Link2,
   Crown,
   ExternalLink,
+  Camera,
+  CameraOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
