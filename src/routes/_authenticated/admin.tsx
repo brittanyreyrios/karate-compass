@@ -1476,22 +1476,35 @@ function CsvImporter() {
           continue;
         }
 
-        // CSV rows carry belt *text*; imports are always solid-system students,
-        // so we resolve the matching solid rank and let staff move them to the
-        // camo or stripe system afterwards if needed.
-        const solidRank = solidRanks.find((r) => r.name.toLowerCase() === belt.toLowerCase());
+        // CSV rows carry belt *text*, which may name a rank in any of the three
+        // systems. No match means the student imports without a rank — that is
+        // reported as a warning, never as a clean success.
+        const rank = findRank(belt);
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
           class_name: assignedClass,
           current_belt: belt,
-          ...(solidRank ? { belt_rank_id: solidRank.id } : {}),
+          ...(rank ? { belt_rank_id: rank.id } : {}),
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
         if (error) throw error;
-        out.push({ student: name, status: "ok", message: `Imported (${belt} belt)` });
+        if (rank) {
+          const sysName = systemsById.get(rank.system_id)?.name;
+          out.push({
+            student: name,
+            status: "ok",
+            message: `Imported — ${rank.name}${sysName ? ` · ${sysName}` : ""}`,
+          });
+        } else {
+          out.push({
+            student: name,
+            status: "warning",
+            message: `Imported — belt "${belt}" did not match any rank; set it in the roster`,
+          });
+        }
       } catch (e) {
         out.push({ student: name, status: "error", message: (e as Error).message });
       }
