@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Lock, ScrollText } from "lucide-react";
+import { BookOpen, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { BeltChip } from "@/components/belt-chip";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
+import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
@@ -12,7 +13,8 @@ export const Route = createFileRoute("/_authenticated/curriculum")({
       { title: "Belt Curriculum — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",
-        content: "The technique requirements for every belt rank at Tiger's Den Martial Arts & Fitness.",
+        content:
+          "The technique requirements for your child's exact belt rank at Tiger's Den Martial Arts & Fitness.",
       },
     ],
   }),
@@ -21,20 +23,24 @@ export const Route = createFileRoute("/_authenticated/curriculum")({
 
 type CurriculumItem = {
   id: string;
-  belt: string;
   technique: string;
   category: string | null;
   notes: string | null;
   sort_order: number;
+  belt_rank_id: string | null;
+  curriculum_tier: CurriculumTier | null;
 };
 
 function Curriculum() {
-  const { data: students } = useQuery({
+  const systemsQ = useBeltSystems();
+  const ranksQ = useBeltRanks();
+
+  const studentsQ = useQuery({
     queryKey: ["students-mine"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, current_belt")
+        .select("id, first_name, current_belt, belt_rank_id")
         .order("created_at");
       if (error) throw error;
       return data ?? [];
@@ -46,7 +52,7 @@ function Curriculum() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("curriculum_items")
-        .select("id, belt, technique, category, notes, sort_order")
+        .select("id, technique, category, notes, sort_order, belt_rank_id, curriculum_tier")
         .eq("active", true)
         .order("sort_order")
         .order("technique");
@@ -55,16 +61,26 @@ function Curriculum() {
     },
   });
 
-  const student = students?.[0];
-  const currentIdx = student
-    ? BELT_PROGRESSION.findIndex((b) => b.name.toLowerCase() === student.current_belt.toLowerCase())
-    : -1;
-
+  const students = studentsQ.data ?? [];
+  const ranks = ranksQ.data ?? [];
+  const systems = systemsQ.data ?? [];
   const items = itemsQ.data ?? [];
-  const byBelt = BELT_PROGRESSION.map((b) => ({
-    belt: b,
-    items: items.filter((i) => i.belt.toLowerCase() === b.name.toLowerCase()),
-  })).filter((g) => g.items.length > 0);
+
+  const loading = studentsQ.isLoading || itemsQ.isLoading || ranksQ.isLoading;
+
+  // Entitlement: items pinned to the student's exact rank, plus items written
+  // for the tier that rank belongs to. A Camo Purple student therefore never
+  // sees Solid Purple material — different systems, different curriculum.
+  const perChild = students.map((s) => {
+    const rank = ranks.find((r) => r.id === s.belt_rank_id);
+    const system = systems.find((sys) => sys.id === rank?.system_id);
+    const entitled = rank
+      ? items.filter(
+          (i) => i.belt_rank_id === rank.id || (!!i.curriculum_tier && i.curriculum_tier === rank.curriculum_tier),
+        )
+      : [];
+    return { student: s, rank, system, entitled };
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -74,67 +90,65 @@ function Curriculum() {
           Belt <span className="text-gradient-red">Curriculum</span>
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Every technique required to advance, published by Tiger's Den instructors. Ranks above your
-          student's current belt are shown greyed out until they get there.
+          Requirements for your child's exact rank, published by Tiger's Den instructors. Each of our
+          three belt systems has its own material, so what you see below is only what your child is
+          currently working on.
         </p>
       </header>
 
-      {itemsQ.isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading curriculum…</p>}
+      {loading && <p className="mt-8 text-sm text-muted-foreground">Loading curriculum…</p>}
 
-      {!itemsQ.isLoading && byBelt.length === 0 && (
-        <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-          <ScrollText className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
-          <h2 className="mt-4 font-display text-lg font-bold uppercase">Curriculum coming soon</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Your instructors are still building out the technique requirements. Ask at the front desk for
-            the printed requirement sheet in the meantime.
-          </p>
-        </div>
+      {!loading && students.length === 0 && (
+        <EmptyCard
+          title="No students linked yet"
+          body="Ask a Tiger's Den admin to link your child to your account and their curriculum will appear here."
+        />
       )}
 
-      {byBelt.length > 0 && (
-        <div className="mt-10 space-y-8">
-          {byBelt.map(({ belt, items: list }) => {
-            const idx = BELT_PROGRESSION.findIndex((b) => b.name === belt.name);
-            const unlocked = currentIdx < 0 || idx <= currentIdx + 1;
-            const isCurrent = idx === currentIdx;
-            return (
-              <section
-                key={belt.name}
-                className={`rounded-2xl border p-6 transition-all ${
-                  isCurrent ? "border-primary/60 bg-gradient-hero shadow-red-glow" : "border-border bg-card"
-                }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div
-                      className="h-14 w-3 shrink-0 rounded-sm"
-                      style={{ backgroundColor: belt.color }}
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-display text-2xl font-bold uppercase">{belt.name} Belt</h2>
-                        {isCurrent && <Badge className="bg-primary text-primary-foreground">Current rank</Badge>}
-                        {!unlocked && (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            <Lock className="mr-1 h-3 w-3" aria-hidden="true" /> Upcoming
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                        {count(list.length, "requirement")}
-                      </div>
-                    </div>
+      {!loading && perChild.length > 0 && (
+        <div className="mt-10 space-y-10">
+          {perChild.map(({ student, rank, system, entitled }) => (
+            <section key={student.id} className="rounded-2xl border border-border bg-card p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="font-display text-2xl font-bold uppercase">{student.first_name}</h2>
+                  <div className="mt-2">
+                    {rank ? (
+                      <BeltChip
+                        name={rank.name}
+                        pattern={rank.pattern}
+                        colorPrimary={rank.color_primary}
+                        colorAccent={rank.color_accent}
+                        systemName={system?.name ?? null}
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        No belt rank assigned yet — ask an instructor to set it.
+                      </span>
+                    )}
                   </div>
                 </div>
+                <div className="text-right">
+                  {rank && (
+                    <Badge variant="outline" className="border-primary/40 text-primary">
+                      {TIER_LABELS[rank.curriculum_tier]} curriculum
+                    </Badge>
+                  )}
+                  <div className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">
+                    {count(entitled.length, "requirement")}
+                  </div>
+                </div>
+              </div>
 
-                <ul className={`mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${unlocked ? "" : "opacity-60"}`}>
-                  {list.map((t, i) => (
-                    <li
-                      key={t.id}
-                      className="rounded-xl border border-border bg-background p-4"
-                    >
+              {entitled.length === 0 ? (
+                <p className="mt-6 text-sm text-muted-foreground">
+                  Nothing published for this rank yet. Ask at the front desk for the printed requirement
+                  sheet in the meantime.
+                </p>
+              ) : (
+                <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {entitled.map((t, i) => (
+                    <li key={t.id} className="rounded-xl border border-border bg-background p-4">
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
                           {String(i + 1).padStart(2, "0")}
@@ -152,9 +166,9 @@ function Curriculum() {
                     </li>
                   ))}
                 </ul>
-              </section>
-            );
-          })}
+              )}
+            </section>
+          ))}
         </div>
       )}
 
@@ -163,6 +177,16 @@ function Curriculum() {
         Requirements are set by Tiger's Den instructors and can change — your instructor's word on the mat
         is always final.
       </p>
+    </div>
+  );
+}
+
+function EmptyCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+      <ScrollText className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
+      <h2 className="mt-4 font-display text-lg font-bold uppercase">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{body}</p>
     </div>
   );
 }

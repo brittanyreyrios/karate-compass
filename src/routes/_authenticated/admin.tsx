@@ -654,15 +654,13 @@ function ManageStudentsTab() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Starting belt</Label>
-              <Select value={belt} onValueChange={setBelt}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <BeltPicker
+              idPrefix="add-student"
+              systemId={systemId}
+              rankId={rankId}
+              onChange={(next) => { setSystemId(next.systemId); setRankId(next.rankId); }}
+            />
+
           </div>
 
           <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
@@ -727,7 +725,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className="border-primary/40 text-primary">{student.current_belt}</Badge>
+          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
@@ -755,10 +753,18 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const qc = useQueryClient();
   const [firstName, setFirstName] = useState(student.first_name);
   const [lastName, setLastName] = useState(student.last_name);
-  const [belt, setBelt] = useState(student.current_belt);
+  const ranksQ = useBeltRanks();
+  const currentRank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
+  const [systemId, setSystemId] = useState<string | null>(currentRank?.system_id ?? null);
+  const [rankId, setRankId] = useState<string | null>(student.belt_rank_id ?? null);
   const [className, setClassName] = useState(student.class_name);
   const [points, setPoints] = useState(String(student.points));
   const [attendance, setAttendance] = useState(String(student.attendance_count));
+
+  // Keep the belt system in sync once the ranks list resolves.
+  useEffect(() => {
+    if (!systemId && currentRank) setSystemId(currentRank.system_id);
+  }, [currentRank, systemId]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -767,7 +773,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          current_belt: belt,
+          belt_rank_id: rankId,
           class_name: className,
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
@@ -775,6 +781,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         .eq("id", student.id);
       if (error) throw error;
     },
+
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["admin-students"] });
@@ -803,15 +810,15 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-xs">Belt tier</Label>
-          <Select value={belt} onValueChange={setBelt}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {BELT_PROGRESSION.map((b) => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="sm:col-span-2 lg:col-span-3">
+          <BeltPicker
+            idPrefix={`edit-${student.id}`}
+            systemId={systemId}
+            rankId={rankId}
+            onChange={(next) => { setSystemId(next.systemId); setRankId(next.rankId); }}
+          />
         </div>
+
         <div>
           <Label className="text-xs">Dojo points</Label>
           <Input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} className="mt-1" />

@@ -106,6 +106,89 @@ export type Database = {
           },
         ]
       }
+      belt_ranks: {
+        Row: {
+          active: boolean
+          color_accent: string | null
+          color_primary: string
+          created_at: string
+          curriculum_tier: string
+          id: string
+          name: string
+          pattern: string
+          short_name: string | null
+          sort_order: number
+          system_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color_accent?: string | null
+          color_primary: string
+          created_at?: string
+          curriculum_tier?: string
+          id?: string
+          name: string
+          pattern?: string
+          short_name?: string | null
+          sort_order?: number
+          system_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color_accent?: string | null
+          color_primary?: string
+          created_at?: string
+          curriculum_tier?: string
+          id?: string
+          name?: string
+          pattern?: string
+          short_name?: string | null
+          sort_order?: number
+          system_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "belt_ranks_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "belt_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      belt_systems: {
+        Row: {
+          age_guidance: string | null
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          age_guidance?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          age_guidance?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       class_holidays: {
         Row: {
           class_name: string
@@ -172,9 +255,11 @@ export type Database = {
       curriculum_items: {
         Row: {
           active: boolean
-          belt: string
+          belt: string | null
+          belt_rank_id: string | null
           category: string | null
           created_at: string
+          curriculum_tier: string | null
           id: string
           notes: string | null
           sort_order: number
@@ -182,9 +267,11 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          belt: string
+          belt?: string | null
+          belt_rank_id?: string | null
           category?: string | null
           created_at?: string
+          curriculum_tier?: string | null
           id?: string
           notes?: string | null
           sort_order?: number
@@ -192,15 +279,25 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          belt?: string
+          belt?: string | null
+          belt_rank_id?: string | null
           category?: string | null
           created_at?: string
+          curriculum_tier?: string | null
           id?: string
           notes?: string | null
           sort_order?: number
           technique?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_items_belt_rank_id_fkey"
+            columns: ["belt_rank_id"]
+            isOneToOne: false
+            referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dojo_point_guidelines: {
         Row: {
@@ -642,6 +739,7 @@ export type Database = {
         Row: {
           active: boolean
           attendance_count: number
+          belt_rank_id: string | null
           class_name: string
           consecutive_absences: number
           created_at: string
@@ -658,6 +756,7 @@ export type Database = {
         Insert: {
           active?: boolean
           attendance_count?: number
+          belt_rank_id?: string | null
           class_name?: string
           consecutive_absences?: number
           created_at?: string
@@ -674,6 +773,7 @@ export type Database = {
         Update: {
           active?: boolean
           attendance_count?: number
+          belt_rank_id?: string | null
           class_name?: string
           consecutive_absences?: number
           created_at?: string
@@ -688,6 +788,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "students_belt_rank_id_fkey"
+            columns: ["belt_rank_id"]
+            isOneToOne: false
+            referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "students_parent_id_fkey"
             columns: ["parent_id"]
@@ -725,14 +832,18 @@ export type Database = {
     Functions: {
       check_invite_code: { Args: { _code: string }; Returns: boolean }
       get_leaderboard: {
-        Args: never
+        Args: { _period?: string; _system_slug: string }
         Returns: {
           class_name: string
-          current_belt: string
+          color_accent: string
+          color_primary: string
           first_name: string
           id: string
-          last_name: string
-          points: number
+          last_initial: string
+          pattern: string
+          period_points: number
+          rank_name: string
+          rank_short_name: string
         }[]
       }
       get_poll_breakdown: {
