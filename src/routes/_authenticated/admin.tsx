@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
+import { CLASS_NAMES } from "@/lib/dojo-constants";
 import { BeltSwatch } from "@/components/belt-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
