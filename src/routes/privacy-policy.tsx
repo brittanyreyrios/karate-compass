@@ -186,7 +186,7 @@ function PrivacyPolicyPage() {
               "Access and review the information we have about your family",
               "Correct inaccurate information",
               "Request deletion of your account and data",
-              "Opt in or out of photo/video sharing at any time",
+              "Grant or withdraw permission for photo/video sharing at any time",
             ]}
           />
           <p>
