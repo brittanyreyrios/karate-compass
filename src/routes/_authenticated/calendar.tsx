@@ -43,21 +43,14 @@ function monthWindow(month: Date) {
   return { from, to };
 }
 
+/**
+ * The calendar shows exceptions only: special events and closures. The recurring
+ * weekly timetable is on the dashboard, so class_schedules is not queried here.
+ */
 export function useCalendarData(month: Date) {
   const { from, to } = monthWindow(month);
   const fromKey = toDateKey(from);
   const toKey = toDateKey(to);
-
-  const schedulesQ = useQuery({
-    queryKey: ["calendar-schedules"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("class_schedules")
-        .select("class_name, days, time_start, time_end, location")
-        .order("class_name");
-      return (data ?? []) as ClassScheduleRow[];
-    },
-  });
 
   const holidaysQ = useQuery({
     queryKey: ["calendar-holidays", fromKey, toKey],
@@ -90,17 +83,15 @@ export function useCalendarData(month: Date) {
   const items = useMemo(
     () =>
       buildCalendarItems({
-        from,
-        to,
-        schedules: schedulesQ.data ?? [],
         holidays: holidaysQ.data ?? [],
         events: eventsQ.data ?? [],
       }),
-    [from, to, schedulesQ.data, holidaysQ.data, eventsQ.data],
+    [holidaysQ.data, eventsQ.data],
   );
 
-  return { items, loading: schedulesQ.isLoading || holidaysQ.isLoading || eventsQ.isLoading };
+  return { items, loading: holidaysQ.isLoading || eventsQ.isLoading };
 }
+
 
 function CalendarPage() {
   const today = useMemo(() => new Date(), []);
