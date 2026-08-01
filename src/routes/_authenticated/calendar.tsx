@@ -126,8 +126,10 @@ function CalendarPage() {
             Dojo <span className="text-gradient-red">Calendar</span>
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Weekly classes, closures and special events in one place.
+            Everything that isn&apos;t the normal week — special classes, testing, tournaments,
+            seminars and closures. Your regular weekly class times are on the dashboard.
           </p>
+
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={goToday}>
