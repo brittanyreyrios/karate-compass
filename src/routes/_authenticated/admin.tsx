@@ -1869,6 +1869,16 @@ function ParentsTab({
                     : ""}
                 </div>
               </div>
+              {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acknowledge.isPending}
+                  onClick={() => acknowledge.mutate(p.id)}
+                >
+                  Mark reviewed
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant={premium ? "outline" : "default"}
