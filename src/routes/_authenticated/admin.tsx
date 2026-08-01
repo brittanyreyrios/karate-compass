@@ -43,6 +43,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
+import { BeltSwatch } from "@/components/belt-chip";
+import { BeltPicker } from "@/components/belt-picker";
+import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
