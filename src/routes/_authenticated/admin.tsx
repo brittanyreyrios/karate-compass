@@ -551,7 +551,7 @@ function AttendanceTab() {
                   {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} />
                   <Badge variant="outline">{s.class_name}</Badge>
                   <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
