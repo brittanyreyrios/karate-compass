@@ -133,13 +133,22 @@ function PrivacyPolicyPage() {
 
         <Section n={3} title="Photos and Videos">
           <p>
-            Photo and video sharing within the Portal is opt-in. Parents/guardians can turn this consent
+            Photo and video sharing within the Portal is optional. Parents/guardians can turn this consent
             on or off in their account settings at any time. If enabled, photos/videos of your student
             may be visible to other families in the Portal (e.g., in announcements or the Media Gallery).
-            If you turn consent off, we stop displaying new photos/videos of your student immediately, and
-            we will remove existing images of your student from the Portal within 30 days of your request.
+          </p>
+          <p>
+            If you turn consent off, we stop publishing new photos and video of your student immediately,
+            and we remove existing media of your student from the Parent Portal within 14 days of your
+            request.
+          </p>
+          <p>
+            Media that has already been posted to our social media accounts or public website is handled
+            separately: we make reasonable efforts to remove it within 30 days. Materials already printed
+            and distributed, or reshared by third parties, may not be recoverable.
           </p>
         </Section>
+
 
         <Section n={4} title="Children's Privacy">
           <p>
