@@ -191,6 +191,10 @@ function SettingsPage() {
                     ? ` · updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
                     : ""}
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This was set when you created your account. Change it any time — it takes effect
+                  immediately for new photos.
+                </p>
               </div>
               <Switch
                 id="photo-consent"
