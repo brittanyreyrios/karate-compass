@@ -108,7 +108,7 @@ function PrivacyPolicyPage() {
               "Attendance records",
               "Dojo points earned (leaderboard and milestone data)",
               "Tournaments or competitions the student participates in",
-              "Photos and videos of the student, only with your express written permission (see Section 3)",
+              "Photos and videos of the student, subject to your consent setting (see Section 3)",
             ]}
           />
           <p>
@@ -133,9 +133,12 @@ function PrivacyPolicyPage() {
 
         <Section n={3} title="Photos and Videos">
           <p>
-            Photo and video sharing within the Portal is optional. Parents/guardians can turn this consent
-            on or off in their account settings at any time. If enabled, photos/videos of your student
-            may be visible to other families in the Portal (e.g., in announcements or the Media Gallery).
+            Photo and video sharing within the Portal is controlled by a setting in your account. It is
+            pre-selected as ON when you sign up, shown to you on the signup form, and you can change it at
+            any time in Account Settings. Permission to photograph and record your student is granted
+            separately through the Media Release you accept when creating your account. While the setting
+            is on, photos/videos of your student may be visible to other families in the Portal (e.g., in
+            announcements or the Media Gallery).
           </p>
           <p>
             If you turn consent off, we stop publishing new photos and video of your student immediately,

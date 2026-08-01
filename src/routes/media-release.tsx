@@ -46,9 +46,17 @@ function MediaReleasePage() {
         <div className="mt-8 space-y-4 text-base leading-relaxed text-muted-foreground">
           <p>
             This Media Release explains how {TIGERS_DEN_CONTACT.name} uses photographs and video of
-            students. Sharing requires your <span className="font-semibold text-foreground">express written permission</span>: nothing is
-            shared unless a parent or guardian turns it on, and it can be turned off at any time in
-            Account Settings.
+            students. Accepting this Media Release when you create your account is your{" "}
+            <span className="font-semibold text-foreground">express written permission</span> for
+            Tiger&apos;s Den to photograph and record your student. That checkbox is required to open an
+            account.
+          </p>
+          <p>
+            Whether that media is <span className="font-semibold text-foreground">displayed</span> in the
+            Portal is a separate, changeable preference. It is pre-selected as ON and shown to you on the
+            signup form, so you can uncheck it before your account is created. You can also turn it off at
+            any time in Account Settings. Turning it off stops new photos and videos of your student from
+            being displayed.
           </p>
         </div>
 
@@ -64,7 +72,9 @@ function MediaReleasePage() {
         </LegalSection>
 
         <LegalSection n={2} title="Where It May Appear">
-          <p>If you grant permission, media of your student may appear in:</p>
+          <p>
+            While your display preference is ON, media of your student may appear in:
+          </p>
           <LegalBullets
             items={[
               "The Media Gallery inside the Parent Portal, visible to other enrolled families",

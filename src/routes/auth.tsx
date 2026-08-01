@@ -49,7 +49,8 @@ function AuthPage() {
   const [inviteCode, setInviteCode] = useState(invitedCode?.toUpperCase() ?? "");
   const [inviteState, setInviteState] = useState<InviteState>("idle");
   const [consent, setConsent] = useState(false);
-  const [photoConsent, setPhotoConsent] = useState(false);
+  // Pre-selected ON, shown to the parent on the form (Section F2). Optional.
+  const [photoConsent, setPhotoConsent] = useState(true);
   const [loading, setLoading] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState<string | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
@@ -117,7 +118,9 @@ function AuthPage() {
       return toast.error("That invite code isn't valid. Ask a Tiger's Den staff member for a new one.");
     }
     if (!consent) {
-      return toast.error("Please accept the Terms of Service and Privacy Policy to continue.");
+      return toast.error(
+        "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
+      );
     }
     if (password.length < 8) return toast.error("Use a password of at least 8 characters.");
 
@@ -131,7 +134,9 @@ function AuthPage() {
           family_name: familyName.trim() || email.split("@")[0],
           invite_code: clean,
           photo_consent: photoConsent,
-          media_release_version: photoConsent ? MEDIA_RELEASE_VERSION : null,
+          // The Media Release is now accepted by every new account (required checkbox),
+          // independently of the display preference above.
+          media_release_version: MEDIA_RELEASE_VERSION,
         },
       },
     });
@@ -372,18 +377,25 @@ function AuthPage() {
                         I am a parent or legal guardian and I agree to the{" "}
                         <Link to="/terms" className="font-semibold text-primary underline underline-offset-2">
                           Terms of Service
-                        </Link>{" "}
-                        and{" "}
+                        </Link>
+                        ,{" "}
                         <Link
                           to="/privacy-policy"
                           className="font-semibold text-primary underline underline-offset-2"
                         >
                           Privacy Policy
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                          to="/media-release"
+                          className="font-semibold text-primary underline underline-offset-2"
+                        >
+                          Photo &amp; Video Media Release
                         </Link>
                         . <span className="text-primary">Required</span>
                       </Label>
                     </div>
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
                       <Checkbox
                         id="photo"
                         checked={photoConsent}
@@ -391,15 +403,17 @@ function AuthPage() {
                         aria-describedby="photo-desc"
                         className="mt-0.5"
                       />
-                      <Label htmlFor="photo" id="photo-desc" className="text-xs font-normal leading-relaxed">
-                        I give my permission under the{" "}
-                        <Link
-                          to="/media-release"
-                          className="font-semibold text-primary underline underline-offset-2"
-                        >
-                          Photo &amp; Video Media Release
-                        </Link>{" "}
-                        for my student. Optional — you can change this any time in Account Settings.
+                      <Label
+                        htmlFor="photo"
+                        id="photo-desc"
+                        className="text-sm font-normal leading-relaxed text-foreground"
+                      >
+                        <span className="font-semibold">
+                          Yes — my student may appear in photos and videos in the Portal.
+                        </span>{" "}
+                        This includes group photos, class and sparring clips, and event albums shared with
+                        enrolled Tiger&apos;s Den families. Uncheck this box if you&apos;d rather we
+                        didn&apos;t. You can change it any time in Account Settings.
                       </Label>
                     </div>
                   </div>

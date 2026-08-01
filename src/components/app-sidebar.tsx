@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LogOut,
   Trophy,
+  BarChart3,
   Settings,
 } from "lucide-react";
 import {
@@ -35,6 +36,7 @@ const items = [
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
+  { title: "Polls & RSVPs", url: "/polls", icon: BarChart3 },
   { title: "Account Settings", url: "/settings", icon: Settings },
 ];
 

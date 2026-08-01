@@ -393,6 +393,212 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_consent_events: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          changed_at: string
+          id: string
+          new_value: boolean
+          profile_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          changed_at?: string
+          id?: string
+          new_value: boolean
+          profile_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          changed_at?: string
+          id?: string
+          new_value?: boolean
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_consent_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      point_events: {
+        Row: {
+          awarded_by: string | null
+          created_at: string
+          delta: number
+          id: string
+          occurred_on: string
+          reason: string | null
+          student_id: string
+        }
+        Insert: {
+          awarded_by?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          occurred_on?: string
+          reason?: string | null
+          student_id: string
+        }
+        Update: {
+          awarded_by?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          occurred_on?: string
+          reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_options: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          poll_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          poll_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          poll_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_options_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_votes: {
+        Row: {
+          created_at: string
+          id: string
+          option_id: string
+          poll_id: string
+          profile_id: string
+          student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_id: string
+          poll_id: string
+          profile_id: string
+          student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_id?: string
+          poll_id?: string
+          profile_id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          anonymous: boolean
+          closes_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          multi_select: boolean
+          published: boolean
+          question: string
+          respond_per: string
+          results_visible: string
+          updated_at: string
+        }
+        Insert: {
+          anonymous?: boolean
+          closes_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          multi_select?: boolean
+          published?: boolean
+          question: string
+          respond_per?: string
+          results_visible?: string
+          updated_at?: string
+        }
+        Update: {
+          anonymous?: boolean
+          closes_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          multi_select?: boolean
+          published?: boolean
+          question?: string
+          respond_per?: string
+          results_visible?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -527,6 +733,24 @@ export type Database = {
           id: string
           last_name: string
           points: number
+        }[]
+      }
+      get_poll_breakdown: {
+        Args: { _poll_id: string }
+        Returns: {
+          email: string
+          family_name: string
+          option_label: string
+          student_name: string
+          voted_at: string
+        }[]
+      }
+      get_poll_results: {
+        Args: { _poll_id: string }
+        Returns: {
+          label: string
+          option_id: string
+          vote_count: number
         }[]
       }
       has_role: {

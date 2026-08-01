@@ -24,6 +24,8 @@ import {
   Link2,
   Crown,
   ExternalLink,
+  Camera,
+  CameraOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +45,16 @@ import {
 import { BELT_PROGRESSION, CLASS_NAMES } from "@/lib/dojo-constants";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab } from "@/components/admin-content-tabs";
 import { EventsAdminTab } from "@/components/admin-events-tab";
+import { PollsAdminTab } from "@/components/admin-polls-tab";
+import {
+  ConsentAttentionItem,
+  PhotoConsentBanner,
+  NoPhotosMarker,
+  useConsentOffProfiles,
+  useUnacknowledgedConsentOff,
+  useAcknowledgeConsentEvents,
+} from "@/components/admin-photo-consent";
+import { awardPoints, revertPointEvent } from "@/lib/points";
 
 
 
@@ -103,6 +115,14 @@ function FollowUpBadge({ n }: { n: number }) {
 }
 
 function AdminPage() {
+  const [tab, setTab] = useState("attendance");
+  const [consentOnly, setConsentOnly] = useState(false);
+
+  const openConsentReview = () => {
+    setConsentOnly(true);
+    setTab("parents");
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -116,13 +136,22 @@ function AdminPage() {
         </div>
       </header>
 
-      <Tabs defaultValue="attendance" className="mt-8">
+      <section className="mt-6 rounded-2xl border border-border bg-card p-4" aria-label="Needs attention">
+        <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
+          Needs attention
+        </h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <ConsentAttentionItem onOpen={openConsentReview} />
+        </div>
+      </section>
+
+      <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex-wrap">
           <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
           <TabsTrigger value="students">Manage Students</TabsTrigger>
           <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
           <TabsTrigger value="events">Events Calendar</TabsTrigger>
-
+          <TabsTrigger value="polls">Polls</TabsTrigger>
           <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
           <TabsTrigger value="invites">Invite Codes</TabsTrigger>
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
@@ -142,11 +171,14 @@ function AdminPage() {
           <ClassSchedulesTab />
         </TabsContent>
         <TabsContent value="events" className="mt-6">
+          <PhotoConsentBanner onViewList={openConsentReview} />
           <EventsAdminTab />
         </TabsContent>
-
+        <TabsContent value="polls" className="mt-6">
+          <PollsAdminTab />
+        </TabsContent>
         <TabsContent value="parents" className="mt-6">
-          <ParentsTab />
+          <ParentsTab consentOnly={consentOnly} onConsentOnlyChange={setConsentOnly} />
         </TabsContent>
         <TabsContent value="invites" className="mt-6">
           <InviteCodesTab />
@@ -155,6 +187,7 @@ function AdminPage() {
           <InviteQrTab />
         </TabsContent>
         <TabsContent value="gallery" className="mt-6">
+          <PhotoConsentBanner onViewList={openConsentReview} />
           <GalleryAdminTab />
         </TabsContent>
         <TabsContent value="curriculum" className="mt-6">
@@ -208,6 +241,12 @@ function AttendanceTab() {
   const [presentLock, setPresentLock] = useState<Record<string, number>>({});
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
   const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
+  const [sessionPoints, setSessionPoints] = useState(0);
+  const { data: consentOff } = useConsentOffProfiles();
+  const consentOffIds = useMemo(
+    () => new Set((consentOff ?? []).map((p) => p.id)),
+    [consentOff],
+  );
 
   const studentsQ = useStudents();
 
@@ -291,18 +330,39 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Dojo Points: award +1/+5/+10, confirm with the new running total and offer a
+   * 3-second Undo that removes the audit row again. A per-session tally keeps
+   * instructors honest about how much they've handed out on this device.
+   */
   const addPoints = useMutation({
-    mutationFn: async (student: Student) => {
-      const { error } = await supabase
-        .from("students")
-        .update({ points: student.points + 5 })
-        .eq("id", student.id);
-      if (error) throw error;
-      return student.id;
-    },
-    onSuccess: (id) => {
-      lockButton(setPointsLock, id);
+    mutationFn: async ({ student, delta }: { student: Student; delta: number }) =>
+      awardPoints({ studentId: student.id, currentPoints: student.points, delta }),
+    onSuccess: (award) => {
+      lockButton(setPointsLock, award.studentId);
+      setSessionPoints((t) => t + award.delta);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      toast.success(`+${award.delta} · now ${award.newTotal}`, {
+        duration: 3000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await revertPointEvent({
+                studentId: award.studentId,
+                currentPoints: award.newTotal,
+                delta: award.delta,
+                eventId: award.eventId,
+              });
+              setSessionPoints((t) => t - award.delta);
+              qc.invalidateQueries({ queryKey: ["admin-students"] });
+              toast.success("Points reverted");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          },
+        },
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -359,6 +419,10 @@ function AttendanceTab() {
           <h2 className="font-display text-xl font-bold uppercase">Master Attendance Sheet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Filter by class, then tap +1 to log a session. Buttons cool down for 3 seconds to prevent double taps.
+            Dojo Points show the new total and can be undone for 3 seconds.
+          </p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-widest text-primary" aria-live="polite">
+            Points awarded this session: {sessionPoints}
           </p>
         </div>
         <div className="relative w-full sm:w-80">
@@ -446,6 +510,7 @@ function AttendanceTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
                   <FollowUpBadge n={s.consecutive_absences} />
+                  {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
@@ -464,17 +529,24 @@ function AttendanceTab() {
                     ? <><Check className="mr-1 h-4 w-4" /> Logged</>
                     : <><Plus className="mr-1 h-4 w-4" />+1 Class</>}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => addPoints.mutate(s)}
-                  disabled={addPoints.isPending || pointsActive}
-                  className="h-9 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
-                >
-                  {pointsActive
-                    ? <><Check className="mr-1 h-3.5 w-3.5" /> +5</>
-                    : <><Sparkles className="mr-1 h-3.5 w-3.5" /> +5 Points</>}
-                </Button>
+                <div className="flex gap-1" role="group" aria-label={`Award Dojo Points to ${s.first_name}`}>
+                  {[1, 5, 10].map((delta) => (
+                    <Button
+                      key={delta}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addPoints.mutate({ student: s, delta })}
+                      disabled={addPoints.isPending || pointsActive}
+                      className="h-9 flex-1 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
+                    >
+                      {pointsActive ? (
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      ) : (
+                        <><Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> +{delta}</>
+                      )}
+                    </Button>
+                  ))}
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
@@ -636,13 +708,13 @@ function ManageStudentsTab() {
 function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void }) {
   const qc = useQueryClient();
   const adjustPoints = useMutation({
-    mutationFn: async (delta: number) => {
-      const { error } = await supabase
-        .from("students")
-        .update({ points: Math.max(0, student.points + delta) })
-        .eq("id", student.id);
-      if (error) throw error;
-    },
+    mutationFn: async (delta: number) =>
+      awardPoints({
+        studentId: student.id,
+        currentPoints: student.points,
+        delta,
+        reason: "Manual adjustment (roster)",
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1708,19 +1780,31 @@ type ParentProfile = {
   email: string;
   family_name: string | null;
   subscription_status: "free" | "premium";
+  photo_consent: boolean;
+  photo_consent_updated_at: string | null;
   created_at: string;
 };
 
-function ParentsTab() {
+function ParentsTab({
+  consentOnly,
+  onConsentOnlyChange,
+}: {
+  consentOnly: boolean;
+  onConsentOnlyChange: (v: boolean) => void;
+}) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const { data: pendingConsent } = useUnacknowledgedConsentOff();
+  const acknowledge = useAcknowledgeConsentEvents();
 
   const profilesQ = useQuery({
     queryKey: ["admin-profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, family_name, subscription_status, created_at")
+        .select(
+          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ParentProfile[];
@@ -1740,10 +1824,13 @@ function ParentsTab() {
   });
 
   const list = (profilesQ.data ?? []).filter((p) => {
+    if (consentOnly && p.photo_consent) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
     return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
   });
+
+  const pendingCount = (pendingConsent ?? []).length;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -1755,6 +1842,7 @@ function ParentsTab() {
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Toggle a family between Free and Premium. Premium unlocks the Leaderboard and Community Feed.
+            Photo display preference is shown per family — check it before publishing photos.
           </p>
         </div>
         <div className="relative w-full sm:w-72">
@@ -1764,8 +1852,26 @@ function ParentsTab() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by email or family…"
             className="h-10 pl-9 text-sm"
+            aria-label="Search parent accounts"
           />
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant={consentOnly ? "default" : "outline"}
+          className={consentOnly ? "bg-gradient-red" : ""}
+          aria-pressed={consentOnly}
+          onClick={() => onConsentOnlyChange(!consentOnly)}
+        >
+          <CameraOff className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Photos off only
+        </Button>
+        {pendingCount > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {pendingCount} recent consent change{pendingCount === 1 ? "" : "s"} still need a staff review.
+          </span>
+        )}
       </div>
 
       <div className="mt-5 space-y-2">
@@ -1785,9 +1891,33 @@ function ParentsTab() {
                       <Crown className="mr-1 h-3 w-3" /> Premium
                     </Badge>
                   )}
+                  {p.photo_consent ? (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      <Camera className="mr-1 h-3 w-3" aria-hidden="true" /> Photos on
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-amber-400/60 text-amber-200">
+                      <CameraOff className="mr-1 h-3 w-3" aria-hidden="true" /> Photos off
+                    </Badge>
+                  )}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.email}</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {p.email}
+                  {p.photo_consent_updated_at
+                    ? ` · preference updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
+                    : ""}
+                </div>
               </div>
+              {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acknowledge.isPending}
+                  onClick={() => acknowledge.mutate(p.id)}
+                >
+                  Mark reviewed
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant={premium ? "outline" : "default"}
