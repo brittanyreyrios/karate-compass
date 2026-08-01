@@ -1628,7 +1628,7 @@ function CsvImporter() {
             const cls =
               r.status === "ok"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                : r.status === "unlinked"
+                : r.status === "warning" || r.status === "unlinked"
                 ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-100"
                 : "border-red-500/40 bg-red-500/10 text-red-100";
             return (
