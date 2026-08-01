@@ -510,6 +510,7 @@ function AttendanceTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
                   <FollowUpBadge n={s.consecutive_absences} />
+                  {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline" className="border-primary/40 text-primary">{s.current_belt}</Badge>
@@ -528,17 +529,24 @@ function AttendanceTab() {
                     ? <><Check className="mr-1 h-4 w-4" /> Logged</>
                     : <><Plus className="mr-1 h-4 w-4" />+1 Class</>}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => addPoints.mutate(s)}
-                  disabled={addPoints.isPending || pointsActive}
-                  className="h-9 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
-                >
-                  {pointsActive
-                    ? <><Check className="mr-1 h-3.5 w-3.5" /> +5</>
-                    : <><Sparkles className="mr-1 h-3.5 w-3.5" /> +5 Points</>}
-                </Button>
+                <div className="flex gap-1" role="group" aria-label={`Award Dojo Points to ${s.first_name}`}>
+                  {[1, 5, 10].map((delta) => (
+                    <Button
+                      key={delta}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addPoints.mutate({ student: s, delta })}
+                      disabled={addPoints.isPending || pointsActive}
+                      className="h-9 flex-1 border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/10"
+                    >
+                      {pointsActive ? (
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      ) : (
+                        <><Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> +{delta}</>
+                      )}
+                    </Button>
+                  ))}
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
