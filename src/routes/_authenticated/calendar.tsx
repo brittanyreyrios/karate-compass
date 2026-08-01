@@ -262,8 +262,9 @@ function ItemCard({ item }: { item: CalendarItem }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className={meta ? meta.badge : "border-border text-muted-foreground"}>
-          {meta ? meta.label : "Weekly class"}
+          {meta ? meta.label : "Closure"}
         </Badge>
+
         {item.cancelled && (
           <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
             <Ban className="h-3 w-3" aria-hidden="true" /> No class
