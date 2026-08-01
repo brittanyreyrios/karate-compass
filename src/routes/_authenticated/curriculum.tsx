@@ -121,7 +121,7 @@ function Curriculum() {
 
       {!loading && perChild.length > 0 && (
         <div className="mt-10 space-y-10">
-          {perChild.map(({ student, rank, system, entitled }) => (
+          {perChild.map(({ student, rank, system, current, earnedGroups }) => (
             <section key={student.id} className="rounded-2xl border border-border bg-card p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -148,41 +148,53 @@ function Curriculum() {
                       {TIER_LABELS[rank.curriculum_tier]} curriculum
                     </Badge>
                   )}
+                  {/* Current-rank count only — it must not inflate as a student advances. */}
                   <div className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">
-                    {count(entitled.length, "requirement")}
+                    {count(current.length, "requirement")} at this rank
                   </div>
                 </div>
               </div>
 
-              {entitled.length === 0 ? (
-                <p className="mt-6 text-sm text-muted-foreground">
+              <h3 className="mt-8 font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
+                Working on now
+              </h3>
+              {current.length === 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">
                   Nothing published for this rank yet. Ask at the front desk for the printed requirement
                   sheet in the meantime.
                 </p>
               ) : (
-                <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {entitled.map((t, i) => (
-                    <li key={t.id} className="rounded-xl border border-border bg-background p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="font-semibold">{t.technique}</div>
-                          {t.category && (
-                            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                              {t.category}
-                            </div>
-                          )}
-                          {t.notes && <p className="mt-2 text-sm text-muted-foreground">{t.notes}</p>}
-                        </div>
-                      </div>
-                    </li>
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {current.map((t, i) => (
+                    <RequirementCard key={t.id} item={t} index={i} />
                   ))}
                 </ul>
               )}
+
+              {earnedGroups.length > 0 && (
+                <details className="mt-8 rounded-xl border border-border bg-background/60">
+                  <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+                    Everything {student.first_name} has earned so far
+                  </summary>
+                  <div className="space-y-6 border-t border-border px-4 py-4">
+                    {earnedGroups.map((group) => (
+                      <div key={group.label}>
+                        <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                          {group.label}
+                        </h4>
+                        <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {group.items.map((t, i) => (
+                            <RequirementCard key={t.id} item={t} index={i} />
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </section>
           ))}
+
         </div>
       )}
 
