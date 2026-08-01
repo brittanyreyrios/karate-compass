@@ -58,17 +58,24 @@ export function useBeltRanks() {
     queryKey: ["belt-ranks"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
+      // Ordered by the *system's* sort_order first, then the rank's. Ranks in
+      // different systems share sort_order values, so ordering on the rank alone
+      // is nondeterministic and any list rendered from it can reshuffle.
       const { data, error } = await supabase
         .from("belt_ranks")
         .select(
-          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active",
+          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active, belt_systems!inner(sort_order)",
         )
+        .order("sort_order", { referencedTable: "belt_systems" })
         .order("sort_order");
       if (error) throw error;
-      return (data ?? []) as BeltRank[];
+      return ((data ?? []) as (BeltRank & { belt_systems: { sort_order: number } })[]).map(
+        ({ belt_systems: _system, ...rank }) => rank as BeltRank,
+      );
     },
   });
 }
+
 
 /** Ranks of one system, in order. */
 export function ranksOfSystem(ranks: BeltRank[] | undefined, systemId: string | undefined) {
