@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Camera, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
+import { coverSrc, useCoverUrls } from "@/lib/album-covers";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
