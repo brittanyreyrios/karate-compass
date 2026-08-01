@@ -72,7 +72,10 @@ function MediaReleasePage() {
         </LegalSection>
 
         <LegalSection n={2} title="Where It May Appear">
-          <p>If you grant permission, media of your student may appear in:</p>
+        <LegalSection n={2} title="Where It May Appear">
+          <p>
+            While your display preference is ON, media of your student may appear in:
+          </p>
           <LegalBullets
             items={[
               "The Media Gallery inside the Parent Portal, visible to other enrolled families",
