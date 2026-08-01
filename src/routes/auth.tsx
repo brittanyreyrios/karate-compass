@@ -49,7 +49,8 @@ function AuthPage() {
   const [inviteCode, setInviteCode] = useState(invitedCode?.toUpperCase() ?? "");
   const [inviteState, setInviteState] = useState<InviteState>("idle");
   const [consent, setConsent] = useState(false);
-  const [photoConsent, setPhotoConsent] = useState(false);
+  // Pre-selected ON, shown to the parent on the form (Section F2). Optional.
+  const [photoConsent, setPhotoConsent] = useState(true);
   const [loading, setLoading] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState<string | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
