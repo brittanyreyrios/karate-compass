@@ -195,6 +195,7 @@ function AdminPage() {
           <TabsTrigger value="qr">Signup QR</TabsTrigger>
           <TabsTrigger value="gallery">Media Gallery</TabsTrigger>
           <TabsTrigger value="curriculum">Belt Curriculum</TabsTrigger>
+          <TabsTrigger value="belts">Belt Systems</TabsTrigger>
           <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
           <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
         </TabsList>
