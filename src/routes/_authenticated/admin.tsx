@@ -1438,16 +1438,23 @@ function CsvImporter() {
   const ranksQ = useBeltRanks();
   const allRanks = ranksQ.data ?? [];
   const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
-  /** Match a CSV belt value against every rank in all three systems. */
-  const findRank = (belt: string) => {
+  /**
+   * Match a CSV belt value against every rank in all three systems, and return
+   * *all* candidates. Several camo short_names are identical to solid rank names
+   * ("Purple" is both Camo Purple and Solid Purple), so picking a winner would
+   * silently file a roster of eight-year-olds into the camo system. Ambiguity is
+   * reported, never resolved.
+   */
+  const findRanks = (belt: string) => {
     const needle = belt.trim().toLowerCase();
-    if (!needle) return undefined;
-    return allRanks.find(
+    if (!needle) return [];
+    return allRanks.filter(
       (r) =>
         r.name.trim().toLowerCase() === needle ||
         (r.short_name ?? "").trim().toLowerCase() === needle,
     );
   };
+
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
