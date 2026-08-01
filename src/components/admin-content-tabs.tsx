@@ -25,6 +25,14 @@ import {
   useBeltSystems,
   type CurriculumTier,
 } from "@/lib/belts";
+import {
+  coverSrc,
+  deleteCoverObject,
+  isExternalCover,
+  uploadCover,
+  useCoverUrls,
+  validateCoverFile,
+} from "@/lib/album-covers";
 
 /* ------------------------------------------------------------------ */
 /* Media Gallery albums                                                */
@@ -45,7 +53,6 @@ export function GalleryAdminTab() {
   const qc = useQueryClient();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
-  const [cover, setCover] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [description, setDescription] = useState("");
 
@@ -62,24 +69,43 @@ export function GalleryAdminTab() {
     },
   });
 
+  const albums = albumsQ.data ?? [];
+  const coversQ = useCoverUrls(albums.map((a) => a.cover_image_url));
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-gallery-albums"] });
+    qc.invalidateQueries({ queryKey: ["gallery-albums"] });
+  };
+
   const addAlbum = useMutation({
     mutationFn: async () => {
-      if (!title.trim() || !url.trim()) throw new Error("Album title and link are required.");
+      if (!title.trim()) throw new Error("Album title is required.");
       const { error } = await supabase.from("gallery_albums").insert({
         title: title.trim(),
+        // external_url is NOT NULL — a link-less album stores an empty string,
+        // which renders the "Photos coming soon" state on /gallery.
         external_url: url.trim(),
-        cover_image_url: cover.trim() || null,
+        cover_image_url: null,
         event_date: eventDate || null,
         description: description.trim() || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Album published to the Media Gallery.");
-      setTitle(""); setUrl(""); setCover(""); setEventDate(""); setDescription("");
-      qc.invalidateQueries({ queryKey: ["admin-gallery-albums"] });
-      qc.invalidateQueries({ queryKey: ["gallery-albums"] });
+      toast.success("Album published. Add a cover photo from the list on the right.");
+      setTitle(""); setUrl(""); setEventDate(""); setDescription("");
+      invalidate();
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /** Save-on-blur: only writes when the value actually changed. */
+  const patchAlbum = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Album> }) => {
+      const { error } = await supabase.from("gallery_albums").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -88,22 +114,19 @@ export function GalleryAdminTab() {
       const { error } = await supabase.from("gallery_albums").update({ active: !a.active }).eq("id", a.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-gallery-albums"] });
-      qc.invalidateQueries({ queryKey: ["gallery-albums"] });
-    },
+    onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
   });
 
   const removeAlbum = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("gallery_albums").delete().eq("id", id);
+    mutationFn: async (a: Album) => {
+      const { error } = await supabase.from("gallery_albums").delete().eq("id", a.id);
       if (error) throw error;
+      await deleteCoverObject(a.cover_image_url);
     },
     onSuccess: () => {
       toast.success("Album removed.");
-      qc.invalidateQueries({ queryKey: ["admin-gallery-albums"] });
-      qc.invalidateQueries({ queryKey: ["gallery-albums"] });
+      invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -123,12 +146,11 @@ export function GalleryAdminTab() {
             <Input id="album-title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Fall Belt Test 2026" />
           </div>
           <div>
-            <Label htmlFor="album-url">Album link (Google Photos, Drive, etc.)</Label>
-            <Input id="album-url" type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://photos.app.goo.gl/…" />
-          </div>
-          <div>
-            <Label htmlFor="album-cover">Cover image URL (optional)</Label>
-            <Input id="album-cover" type="url" value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://…/cover.jpg" />
+            <Label htmlFor="album-url">Album link (optional)</Label>
+            <Input id="album-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://photos.app.goo.gl/…" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave blank for now — the album shows "Photos coming soon" until you add a link.
+            </p>
           </div>
           <div>
             <Label htmlFor="album-date">Event date (optional)</Label>
@@ -142,48 +164,227 @@ export function GalleryAdminTab() {
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> {addAlbum.isPending ? "Publishing…" : "Publish album"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Only families who opted in to photo sharing should appear in linked albums.
+            Cover photos are uploaded from the album list once the album exists. Only families who opted
+            in to photo sharing should appear in linked albums.
           </p>
         </div>
       </form>
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <h2 className="font-display text-xl font-bold uppercase tracking-wide">Published Albums</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Edit any field below — changes save when you click away.
+        </p>
         {albumsQ.isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Loading albums…</p>
-        ) : (albumsQ.data ?? []).length === 0 ? (
+        ) : albums.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">No albums yet.</p>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {(albumsQ.data ?? []).map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/50 p-4">
-                <div className="min-w-0">
+          <ul className="mt-4 space-y-4">
+            {albums.map((a) => (
+              <li key={a.id} className="rounded-xl border border-border bg-background/50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-semibold">{a.title}</span>
                     {!a.active && <Badge variant="outline" className="text-muted-foreground">Hidden</Badge>}
                   </div>
-                  <div className="mt-1 truncate text-xs text-muted-foreground">
-                    {a.event_date ? `${new Date(a.event_date).toLocaleDateString()} · ` : ""}{a.external_url}
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => toggleActive.mutate(a)}>
+                      {a.active ? "Hide" : "Show"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete album ${a.title}`}
+                      onClick={() => removeAlbum.mutate(a)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => toggleActive.mutate(a)}>
-                    {a.active ? "Hide" : "Show"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete album ${a.title}`}
-                    onClick={() => removeAlbum.mutate(a.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
-                  </Button>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor={`t-${a.id}`}>Album title</Label>
+                    <Input
+                      id={`t-${a.id}`}
+                      defaultValue={a.title}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (!v) { e.target.value = a.title; return; }
+                        if (v !== a.title) patchAlbum.mutate({ id: a.id, patch: { title: v } });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`d-${a.id}`}>Event date</Label>
+                    <Input
+                      id={`d-${a.id}`}
+                      type="date"
+                      defaultValue={a.event_date ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value || null;
+                        if (v !== (a.event_date ?? null)) patchAlbum.mutate({ id: a.id, patch: { event_date: v } });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`o-${a.id}`}>Display order</Label>
+                    <Input
+                      id={`o-${a.id}`}
+                      type="number"
+                      defaultValue={a.sort_order}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v) && v !== a.sort_order) {
+                          patchAlbum.mutate({ id: a.id, patch: { sort_order: v } });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor={`u-${a.id}`}>Album link</Label>
+                    <Input
+                      id={`u-${a.id}`}
+                      defaultValue={a.external_url}
+                      placeholder="https://photos.app.goo.gl/…"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== a.external_url) patchAlbum.mutate({ id: a.id, patch: { external_url: v } });
+                      }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor={`desc-${a.id}`}>Description</Label>
+                    <Textarea
+                      id={`desc-${a.id}`}
+                      rows={2}
+                      defaultValue={a.description ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() || null;
+                        if (v !== (a.description ?? null)) patchAlbum.mutate({ id: a.id, patch: { description: v } });
+                      }}
+                    />
+                  </div>
                 </div>
+
+                <AlbumCoverEditor album={a} signed={coversQ.data} onSaved={invalidate} />
               </li>
             ))}
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Upload / replace / remove one album's cover photo. */
+function AlbumCoverEditor({
+  album,
+  signed,
+  onSaved,
+}: {
+  album: Album;
+  signed: Record<string, string> | undefined;
+  onSaved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [showLink, setShowLink] = useState(false);
+  const src = coverSrc(album.cover_image_url, signed);
+
+  const save = async (value: string | null, previous: string | null) => {
+    const { error } = await supabase
+      .from("gallery_albums")
+      .update({ cover_image_url: value })
+      .eq("id", album.id);
+    if (error) throw error;
+    // Cleanup is best-effort and never blocks the save.
+    if (previous && previous !== value) await deleteCoverObject(previous);
+    onSaved();
+  };
+
+  const onPick = async (file: File | undefined) => {
+    if (!file) return;
+    const problem = validateCoverFile(file);
+    if (problem) { toast.error(problem); return; }
+    setBusy(true);
+    try {
+      const key = await uploadCover(album.id, file);
+      await save(key, album.cover_image_url);
+      toast.success("Cover photo updated.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not upload that photo.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRemove = async () => {
+    setBusy(true);
+    try {
+      await save(null, album.cover_image_url);
+      toast.success("Cover photo removed.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not remove that cover.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
+          {src ? (
+            <img src={src} alt={album.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">
+              No cover
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <Label htmlFor={`cover-${album.id}`}>Cover photo</Label>
+          <Input
+            id={`cover-${album.id}`}
+            type="file"
+            accept="image/*"
+            disabled={busy}
+            onChange={(e) => { void onPick(e.target.files?.[0]); e.target.value = ""; }}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {busy ? "Uploading…" : "JPG, PNG or WebP up to 5 MB. Large photos are resized automatically."}
+          </p>
+        </div>
+        {album.cover_image_url && (
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => void onRemove()}>
+            Remove cover
+          </Button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+        onClick={() => setShowLink((v) => !v)}
+      >
+        {showLink ? "Hide link option" : "or paste a link to an already-hosted image"}
+      </button>
+      {showLink && (
+        <Input
+          className="mt-2"
+          defaultValue={isExternalCover(album.cover_image_url) ? album.cover_image_url ?? "" : ""}
+          placeholder="https://…/cover.jpg"
+          onBlur={(e) => {
+            const v = e.target.value.trim() || null;
+            const current = isExternalCover(album.cover_image_url) ? album.cover_image_url : null;
+            if (v === current) return;
+            void save(v, album.cover_image_url).then(
+              () => toast.success("Cover photo updated."),
+              (err: Error) => toast.error(err.message),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

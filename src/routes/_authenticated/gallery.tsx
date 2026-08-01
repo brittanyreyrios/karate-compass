@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Camera, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
+import { coverSrc, useCoverUrls } from "@/lib/album-covers";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
@@ -41,8 +42,9 @@ function Gallery() {
       return (data ?? []) as Album[];
     },
   });
-
   const albums = albumsQ.data ?? [];
+  const coversQ = useCoverUrls(albums.map((a) => a.cover_image_url));
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -86,13 +88,16 @@ function Gallery() {
       {albums.length > 0 && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {albums.map((a) => {
+            // A link-less album stores '' (the column is NOT NULL), so the
+            // "coming soon" state must key off empty string as well as null.
             const hasLink = !!a.external_url?.trim();
+            const cover = coverSrc(a.cover_image_url, coversQ.data);
             const body = (
               <>
                 <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
-                  {a.cover_image_url ? (
+                  {cover ? (
                     <img
-                      src={a.cover_image_url}
+                      src={cover}
                       alt={`Cover photo for the ${a.title} album`}
                       loading="lazy"
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
