@@ -23,7 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BELT_PROGRESSION, CLASS_CATALOG } from "@/lib/dojo-constants";
+import { BELT_PROGRESSION } from "@/lib/dojo-constants";
+import { EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
+import { Link } from "@tanstack/react-router";
+
 import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
