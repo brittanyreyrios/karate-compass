@@ -97,7 +97,7 @@ function TermsPage() {
 
         <LegalSection n={5} title="Photos, Videos and Media Release">
           <p>
-            Photo and video sharing is opt-in and controlled by you in Account Settings. Media use is
+            Photo and video sharing requires your express written permission and is controlled by you in Account Settings. Media use is
             governed by our Media Release, which forms part of these Terms. You may change your consent
             at any time; changing it going forward does not automatically remove material already
             published elsewhere (for example, printed materials already distributed).
