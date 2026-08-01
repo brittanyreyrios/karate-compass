@@ -85,6 +85,41 @@ type Student = {
   class_name: string;
   points: number;
   consecutive_absences: number;
+  belt_rank_id: string | null;
+};
+
+/**
+ * Belt badge for staff screens: renders the real pattern (solid / stripe / camo)
+ * and names the system so nobody confuses Camo Purple with Solid Purple.
+ */
+function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback: string }) {
+  const ranksQ = useBeltRanks();
+  const systemsQ = useBeltSystems();
+  const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
+  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
+  if (!rank) {
+    return (
+      <Badge variant="outline" className="border-border text-muted-foreground">
+        {fallback || "No rank set"}
+      </Badge>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <BeltSwatch
+        name={rank.name}
+        pattern={rank.pattern}
+        colorPrimary={rank.color_primary}
+        colorAccent={rank.color_accent}
+        systemName={system?.name ?? null}
+        size="sm"
+      />
+      <Badge variant="outline" className="border-primary/40 text-primary">
+        {rank.name}
+        {system ? ` · ${system.name}` : ""}
+      </Badge>
+    </span>
+  );
 };
 
 const ALL_CLASSES = "__all__";
