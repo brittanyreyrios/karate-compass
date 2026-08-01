@@ -186,8 +186,11 @@ function CalendarPage() {
         <section className="mt-6 space-y-6" aria-label="Upcoming schedule">
           {loading && <p className="text-sm text-muted-foreground">Loading calendar…</p>}
           {!loading && agenda.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nothing scheduled in this window.</p>
+            <p className="text-sm text-muted-foreground">
+              Nothing special coming up — regular classes run as normal.
+            </p>
           )}
+
           {agenda.map((day) => (
             <div key={day.dateKey}>
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
