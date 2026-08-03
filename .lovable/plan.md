@@ -1,54 +1,53 @@
-# Sections H + I — Three Belt Systems & Fair Monthly Leaderboard
+# Round 3 — plan
 
-## Build order
+Build order: **N → O → K → J → L → M**. N first as requested; O is tiny and shares the admin-tab files with J.
 
-**H → I.** Section E (Dojo Points audit log, `point_events`) is already built and live from the previous round, so it does not need rebuilding — the monthly leaderboard can read `point_events.delta` / `occurred_on` directly. Confirmed: table exists, currently 0 rows.
+## N. Granting admin access (first)
 
-## Pre-flight findings
+**Migration**
+- `GRANT INSERT, DELETE ON public.user_roles TO authenticated`.
+- Policies on `user_roles`: INSERT and DELETE `TO authenticated` with `public.has_role(auth.uid(), 'admin')` only. No self-service grant path. Existing SELECT policies untouched.
+- `BEFORE DELETE` trigger `guard_admin_role_delete()`:
+  - raises `You cannot remove your own admin access` when `OLD.user_id = auth.uid()` and `OLD.role = 'admin'`;
+  - raises `At least one admin must remain` when the row is the last `admin`.
+- New table `public.role_change_events` (`target_user_id`, `role app_role`, `action text` in `granted|revoked`, `changed_by uuid`, `changed_at`), GRANT SELECT to `authenticated` + ALL to `service_role`, RLS on, admin-read-only policy, no client insert/update/delete policies (same shape as `photo_consent_events`).
+- `AFTER INSERT OR DELETE` trigger on `user_roles` writing the audit row (SECURITY DEFINER) so SQL-editor changes are captured too; `changed_by = auth.uid()` (NULL when there is no session — left blank, never invented).
 
-- **H3 backfill risk: none.** There is exactly one student row in the database, with `current_belt = 'Green'`, which matches Solid Green cleanly. Zero unmatched rows expected. The migration will still be written to leave unmatched rows NULL (never defaulted), and I will report the actual result after it runs.
-- `curriculum_items` is currently empty (0 rows), so adding the rank/tier columns needs no data backfill.
-- Belt logic currently lives in `src/lib/dojo-constants.ts` (`BELT_PROGRESSION`) — not `mock-data.ts`, which no longer exists. Consumers: dashboard, curriculum, leaderboard, admin console, admin content tabs.
-- ⚠️ **Camo belt colors are a guess.** I will seed camo ranks as `color_primary = #4b5320` (olive/camo green) with `color_accent` = the matching solid hex, and stripe ranks as `color_primary = #f8fafc` with the solid hex as accent. Both fields will be admin-editable so you can correct them with no migration. Please confirm what our camo belts actually look like.
+**UI — Admin → Parents & Premium**
+- Each account row shows its current role (Admin / Parent).
+- "Make admin" / "Remove admin" per row, admin-only, behind an AlertDialog naming the person: *"Give Sarah Nguyen full admin access? They will be able to see and edit every family's information."* Revoke dialog is destructive-styled.
+- Your own row's control is disabled with a tooltip explaining why.
+- Below the tab, "Recent role changes" — last 10 `role_change_events` joined to profiles for names, with the action, date, and who made it. DB error messages from the guard trigger surface verbatim in a toast.
+- No account is seeded or promoted.
 
-## Migrations
+## O. "Large Dojo" → "Big Dojo"
+- New migration: `UPDATE public.class_schedules SET location = 'Big Dojo' WHERE location = 'Large Dojo';`
+- Repo grep result: `Large Dojo` appears **only** in the two historical seed migrations (`20260709030700`, `20260801191823`), which cannot be edited in place. No app code, placeholder, comment, or type union carries it. `Small Dojo` / `V12` untouched.
+- Class Schedules admin tab: `location` becomes an inline save-on-blur text input (same pattern as Belt Systems), writing only on actual change.
 
-**Migration 1 — belt systems and ranks**
-- `belt_systems` and `belt_ranks` exactly per H2 (including `UNIQUE (system_id, sort_order)` and the `ON DELETE RESTRICT` FK).
-- GRANTs, RLS enabled; signed-in users read, admins full write (via `has_role`).
-- Seeds all three systems and all 22 ranks in the H1 order, with `curriculum_tier` set per your mapping (youth_stripe + camo all beginner; solid White/Gold/Orange beginner, Green/Purple/Blue intermediate, Brown/Black advanced). Idempotent on slug/name.
+## K. Mobile nav stays open
+- `app-sidebar.tsx`: pull `setOpenMobile` and `isMobile` from `useSidebar()`; every `<Link>` inside a `SidebarMenuButton` (main nav + admin item) gets `onClick={() => setOpenMobile(false)}`. Desktop sidebar state is untouched, since `setOpenMobile` only affects the mobile sheet.
 
-**Migration 2 — student rank FK + denormalized display value**
-- `students.belt_rank_id uuid REFERENCES belt_ranks(id)`.
-- Backfill matching `current_belt` case-insensitively against solid-system rank names only. Unmatched rows stay NULL.
-- Trigger keeps `current_belt` in sync as the rank's display name whenever `belt_rank_id` changes. `current_belt` is **not** dropped this round.
+## J. Admin console at 390px
+- **J1 tabs:** wrap the tab region in a normal-flow container with its own stacking context; remove whatever wrapping/absolute/negative-margin rule causes the overlap. Below `sm`: a full-width `<Select>` with a real `<label>` "Section" driving the same tab value. At `sm`+: `overflow-x-auto flex-nowrap` strip with scroll-snap, no wrapping.
+- **J2 student cards:** vertical stack on mobile — name row (wraps, no truncate), then belt + class chips on a wrapping row, then the points stepper full-width, then Edit. `−`/`+` at `min-h-11 min-w-11` (44px). Promote to the current horizontal layout at `sm`+.
+- **J3 unlinked audit:** name + belt + class, email on its own full-width wrapping row (`break-all`), then "Retry link" and "Remove" as two full-width buttons. "Remove" destructive variant behind an AlertDialog confirming the parked row deletion.
+- **J4 sweep:** walk every admin tab at 390px in a headless browser, screenshot each, and fix every overlap/clip/truncation found. I will report the actual list of what was found and fixed — not a blanket "all fine".
 
-**Migration 3 — curriculum gating**
-- `curriculum_items.belt_rank_id uuid REFERENCES belt_ranks(id)` and `curriculum_items.curriculum_tier text`, both nullable, plus a CHECK enforcing exactly one is set (the legacy `belt` text column stays for now, nullable).
+## L. Skeletons
+- New `src/components/skeletons.tsx` with layout-matched skeleton blocks reusing `ui/skeleton`, each region `aria-busy="true"` with an `sr-only` "Loading …" label.
+- Applied to: parent dashboard (student cards, "Next up" strip, class schedule card), `/curriculum`, `/gallery` tile grid, `/leaderboard` (podium + list), `/calendar`, `/polls`, admin Master Attendance and All Students lists.
+- Dimensions matched to the real rows so nothing shifts on load.
+- `prefers-reduced-motion`: add a `motion-reduce:animate-none` rule (plus a global CSS media query guard) so no shimmer runs.
+- No skeletons on instant, non-networked UI.
 
-**Migration 4 — leaderboard rewrite**
-- Drop and recreate `get_leaderboard(_system_slug text, _period text DEFAULT 'month')`, SECURITY DEFINER, `search_path = public`, EXECUTE granted to `authenticated`, revoked from `anon`/`public`.
-- Returns `id, first_name, last_initial, rank_name, rank_short_name, pattern, color_primary, color_accent, class_name, period_points`.
-- Privacy behavior preserved exactly: first name plus uppercased last initial and a period, never a full surname.
-- `'month'` sums `point_events.delta` for the current calendar month; `'all_time'` sums the whole log. Top 10 per system, no padding.
+## M. Mobile month calendar
+- Horizontal, keyboard-operable month selector (`Jul · Aug · Sep …`), current month highlighted, `overflow-x-auto` with scroll-snap, arrow-key/tab operable, `aria-current`.
+- Month grid below: 7 columns, min cell touch target, up to two event chips per day — colour-coded by `event_type` **and** always text-labelled — plus `+N more`.
+- Tapping a day opens the existing day detail panel beneath the grid; today marked with a ring + "Today" text, not colour alone.
+- Chips truncate; cells never shrink below the touch minimum at 320px.
+- Existing agenda list kept as a Month / Agenda toggle.
+- Closures and events only — recurring classes stay off the calendar.
 
-## Frontend changes
-
-**New files**
-- `src/lib/belts.ts` — belt-system/rank types, queries, progress computation per system, and the H6 label map (Solid → "Road to Black Belt" step X of 8; Camo → "Camo Belt Progress" step X of 7; Stripe → "White Belt Progress" step X of 7).
-- `src/components/belt-chip.tsx` — renders solid / stripe (white chip with a colored band) / camo (camo-patterned chip with accent) plus an optional system-name suffix ("Camo Purple · Camo Belt"). Every chip gets an `aria-label` with the full rank name; pattern is also conveyed by shape/text, never color alone.
-- `src/components/belt-picker.tsx` — dependent system → rank dropdowns with the system's `age_guidance` as a muted hint. No age validation or blocking anywhere.
-
-**Edited files**
-- `src/lib/dojo-constants.ts` — `BELT_PROGRESSION` reduced to a color reference for the solid system; belt ordering logic moves to the database.
-- `src/routes/_authenticated/index.tsx` — per-system progress bar and label, belt chip with system name, and "Dojo Points — all time: N · this month: N".
-- `src/routes/_authenticated/curriculum.tsx` — fetches entitled items per child (`belt_rank_id = rank` OR `curriculum_tier = rank tier`); groups by child when a family has students on different systems.
-- `src/routes/_authenticated/leaderboard.tsx` — three tabs (stripe / camo / solid) with `role="tablist"` keyboard semantics, rank position rendered as text, the H5 belt chips, the H6 reset explainer line, and the H5 empty state copy.
-- `src/routes/_authenticated/admin.tsx` — student add/edit uses the belt picker; roster and attendance cards show pattern-correct chips.
-- `src/components/admin-content-tabs.tsx` — Curriculum tab gains an explicit either/or toggle (Specific rank | Tier) so both fields can never be filled; new **Belt systems** editor to correct rank names, short names, pattern and both color fields without a migration.
-
-## Accessibility
-WCAG AA maintained: tab semantics, text rank positions, aria-labelled belt chips, and no information conveyed by color alone.
-
-## Reported back after implementation
-Backfill match results row by row, the camo color confirmation request, and anything left blank.
+## Verification
+Typecheck plus a headless pass at 390px and 320px over `/admin` (every tab), `/`, `/calendar`, `/leaderboard`, `/gallery`, `/curriculum`, `/polls`, with screenshots. Anything I cannot verify or resolve is reported blank rather than filled in.
