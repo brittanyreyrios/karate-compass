@@ -184,21 +184,41 @@ function AdminPage() {
       </section>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
-          <TabsTrigger value="students">Manage Students</TabsTrigger>
-          <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
-          <TabsTrigger value="events">Events Calendar</TabsTrigger>
-          <TabsTrigger value="polls">Polls</TabsTrigger>
-          <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
-          <TabsTrigger value="invites">Invite Codes</TabsTrigger>
-          <TabsTrigger value="qr">Signup QR</TabsTrigger>
-          <TabsTrigger value="gallery">Media Gallery</TabsTrigger>
-          <TabsTrigger value="curriculum">Belt Curriculum</TabsTrigger>
-          <TabsTrigger value="belts">Belt Systems</TabsTrigger>
-          <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
-          <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
-        </TabsList>
+        {/*
+          Thirteen tabs never wrapped acceptably on a phone: TabsList ships a
+          fixed h-9, so `flex-wrap` wrapped the labels while the box kept its
+          one-row height and the overflow painted straight over the heading
+          below. Below `sm` we swap the strip for a real labelled <Select>; at
+          `sm`+ it is a single non-wrapping, scroll-snapping row.
+        */}
+        <div className="relative isolate">
+          <div className="sm:hidden">
+            <Label htmlFor="admin-section" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Section
+            </Label>
+            <Select value={tab} onValueChange={setTab}>
+              <SelectTrigger id="admin-section" className="mt-1.5 h-11 w-full">
+                <SelectValue placeholder="Choose a section" />
+              </SelectTrigger>
+              <SelectContent>
+                {ADMIN_TABS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <TabsList className="hidden h-auto w-full snap-x snap-mandatory flex-nowrap justify-start overflow-x-auto sm:flex">
+            {ADMIN_TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="shrink-0 snap-start">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+
 
         <TabsContent value="attendance" className="mt-6">
           <AttendanceTab />
