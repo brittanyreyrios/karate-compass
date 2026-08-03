@@ -182,8 +182,9 @@ function Dashboard() {
   }, [student?.next_test_date]);
 
   if (studentsQ.isLoading || profileQ.isLoading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading dashboard…</div>;
+    return <DashboardSkeleton />;
   }
+
 
   if (!student) {
     return (
