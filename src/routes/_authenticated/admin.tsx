@@ -1399,36 +1399,60 @@ function ClassScheduleRow({
     : null;
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-4">
-      <div className="min-w-[160px] flex-1">
-        <div className="font-display text-lg font-bold uppercase">{schedule.class_name}</div>
+    <div className="rounded-xl border border-border bg-background p-4">
+      <div className="min-w-0">
+        <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
         <div className="mt-1 text-xs text-muted-foreground">
           {schedule.next_test_date
             ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
             : "No test scheduled"}
         </div>
       </div>
-      <div>
-        <Label className="text-xs">Next mass testing date</Label>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="mt-1 w-[180px]"
-        />
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
+          <Label className="text-xs" htmlFor={`test-date-${schedule.id}`}>Next mass testing date</Label>
+          <Input
+            id={`test-date-${schedule.id}`}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="mt-1 h-11 w-full"
+          />
+        </div>
+        <div className="min-w-0">
+          <Label className="text-xs" htmlFor={`location-${schedule.id}`}>Location / room</Label>
+          <Input
+            id={`location-${schedule.id}`}
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            onBlur={commitLocation}
+            placeholder="e.g. Big Dojo"
+            className="mt-1 h-11 w-full"
+          />
+        </div>
       </div>
-      <Button
-        className="bg-gradient-red"
-        disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
-        onClick={() => save.mutate()}
-      >
-        <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="Remove class" onClick={onRemove} title="Remove class">
-        <Trash2 className="h-4 w-4 text-muted-foreground" />
-      </Button>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button
+          className="h-11 w-full bg-gradient-red sm:w-auto"
+          disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
+          onClick={() => save.mutate()}
+        >
+          <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
+        </Button>
+        <Button
+          variant="outline"
+          className="h-11 w-full text-destructive-foreground sm:w-auto"
+          aria-label={`Remove ${schedule.class_name}`}
+          onClick={onRemove}
+        >
+          <Trash2 className="mr-1 h-4 w-4" /> Remove class
+        </Button>
+      </div>
     </div>
   );
+
 }
 
 /* ---------- CSV IMPORTER ---------- */
