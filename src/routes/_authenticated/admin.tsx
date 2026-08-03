@@ -69,6 +69,7 @@ import {
   useAcknowledgeConsentEvents,
 } from "@/components/admin-photo-consent";
 import { awardPoints, revertPointEvent } from "@/lib/points";
+import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/components/admin-roles";
 
 
 
