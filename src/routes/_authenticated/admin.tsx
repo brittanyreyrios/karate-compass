@@ -2155,17 +2155,23 @@ function ParentsTab({
       </div>
 
       <div className="mt-5 space-y-2">
-        {profilesQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {profilesQ.isLoading && <p className="text-sm text-muted-foreground" aria-busy="true">Loading…</p>}
         {!profilesQ.isLoading && list.length === 0 && (
           <p className="text-sm text-muted-foreground">No parent accounts match.</p>
         )}
         {list.map((p) => {
           const premium = p.subscription_status === "premium";
+          const staff = adminIds?.has(p.id) ?? false;
           return (
-            <div key={p.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
-              <div className="min-w-0 flex-1">
+            <div key={p.id} className={`rounded-xl border p-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
+              <div className="min-w-0 sm:flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{p.family_name ?? "—"}</span>
+                  <span className="min-w-0 break-words font-semibold">{p.family_name ?? "—"}</span>
+                  {staff && (
+                    <Badge variant="outline" className="border-primary/50 text-primary">
+                      <ShieldCheck className="mr-1 h-3 w-3" aria-hidden="true" /> Admin
+                    </Badge>
+                  )}
                   {premium && (
                     <Badge className="bg-gradient-red text-primary-foreground">
                       <Crown className="mr-1 h-3 w-3" /> Premium
@@ -2181,39 +2187,50 @@ function ParentsTab({
                     </Badge>
                   )}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                <div className="mt-0.5 break-words text-xs text-muted-foreground">
                   {p.email}
                   {p.photo_consent_updated_at
                     ? ` · preference updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
                     : ""}
                 </div>
               </div>
-              {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+              <div className="mt-3 flex flex-col gap-2 sm:mt-0 sm:flex-row sm:items-center">
+                {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full sm:h-9 sm:w-auto"
+                    disabled={acknowledge.isPending}
+                    onClick={() => acknowledge.mutate(p.id)}
+                  >
+                    Mark reviewed
+                  </Button>
+                )}
                 <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={acknowledge.isPending}
-                  onClick={() => acknowledge.mutate(p.id)}
+                  variant={premium ? "outline" : "default"}
+                  className={`h-11 w-full sm:w-auto ${premium ? "" : "bg-gradient-red"}`}
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
                 >
-                  Mark reviewed
+                  {premium ? "Set to Free" : "Upgrade to Premium"}
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant={premium ? "outline" : "default"}
-                className={premium ? "" : "bg-gradient-red"}
-                disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
-              >
-                {premium ? "Set to Free" : "Upgrade to Premium"}
-              </Button>
+                <AdminRoleButton
+                  profileId={p.id}
+                  email={p.email}
+                  familyName={p.family_name}
+                  isAdmin={staff}
+                  adminCount={adminIds?.size ?? 0}
+                />
+              </div>
             </div>
           );
         })}
       </div>
+
+      <RoleChangeHistory />
     </div>
   );
 }
+
 
 /* ---------- INVITE CODES ---------- */
 
