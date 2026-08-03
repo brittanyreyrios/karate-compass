@@ -832,35 +832,41 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
   });
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 transition-all ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
-      <div className="min-w-0 flex-1">
+    <div className={`rounded-xl border p-3 transition-all sm:flex sm:flex-wrap sm:items-center sm:gap-3 ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
+      {/* Mobile: a strict vertical stack. The old single flex row let the belt
+          chip and the points stepper share a line they could not both fit on,
+          so the chip painted over the stepper and the name truncated. */}
+      <div className="min-w-0 sm:flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="truncate font-semibold">{student.first_name} {student.last_name}</div>
+          <div className="min-w-0 break-words font-semibold">{student.first_name} {student.last_name}</div>
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
+
+      <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
+        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
           <Minus className="h-4 w-4" />
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
         </div>
-        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
+        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <Button size="sm" variant="outline" onClick={onEdit}>
+
+      <Button size="sm" variant="outline" className="mt-2 h-11 w-full sm:mt-0 sm:h-9 sm:w-auto" onClick={onEdit}>
         <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
       </Button>
     </div>
   );
+
 }
 
 function StudentEditRow({ student, onDone }: { student: Student; onDone: () => void }) {
