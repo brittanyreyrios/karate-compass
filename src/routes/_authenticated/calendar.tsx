@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, List, MapPin, Users, Clock, Ban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarGrid } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
+import { MonthGrid } from "@/components/month-grid";
+import { CalendarSkeleton } from "@/components/skeletons";
 import {
   EVENT_TYPE_META,
   buildCalendarItems,
