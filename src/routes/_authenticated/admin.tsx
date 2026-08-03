@@ -2076,6 +2076,7 @@ function ParentsTab({
   const [q, setQ] = useState("");
   const { data: pendingConsent } = useUnacknowledgedConsentOff();
   const acknowledge = useAcknowledgeConsentEvents();
+  const { data: adminIds } = useAdminUserIds();
 
   const profilesQ = useQuery({
     queryKey: ["admin-profiles"],
