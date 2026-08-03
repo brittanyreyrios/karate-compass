@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BeltSwatch } from "@/components/belt-chip";
 import { useBeltSystems } from "@/lib/belts";
+import { LeaderboardSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -150,7 +151,7 @@ function LeaderboardPage() {
         aria-labelledby={slug ? `lb-tab-${slug}` : undefined}
         tabIndex={0}
       >
-        {q.isLoading && <p className="mt-10 text-center text-sm text-muted-foreground">Loading rankings…</p>}
+        {q.isLoading && <LeaderboardSkeleton />}
 
         {!q.isLoading && rows.length === 0 && (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">

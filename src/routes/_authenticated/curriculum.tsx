@@ -6,6 +6,7 @@ import { BeltChip } from "@/components/belt-chip";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
+import { CurriculumSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
@@ -110,7 +111,7 @@ function Curriculum() {
         </p>
       </header>
 
-      {loading && <p className="mt-8 text-sm text-muted-foreground">Loading curriculum…</p>}
+      {loading && <CurriculumSkeleton />}
 
       {!loading && students.length === 0 && (
         <EmptyCard

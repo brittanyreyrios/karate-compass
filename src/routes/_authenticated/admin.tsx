@@ -36,6 +36,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -58,6 +69,7 @@ import {
   useAcknowledgeConsentEvents,
 } from "@/components/admin-photo-consent";
 import { awardPoints, revertPointEvent } from "@/lib/points";
+import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/components/admin-roles";
 
 
 
@@ -152,7 +164,26 @@ function FollowUpBadge({ n }: { n: number }) {
   );
 }
 
+
+/** Single source of truth for the tab strip and its mobile <Select> twin. */
+const ADMIN_TABS: { value: string; label: string }[] = [
+  { value: "attendance", label: "Master Attendance" },
+  { value: "students", label: "Manage Students" },
+  { value: "schedules", label: "Class Schedules & Testing" },
+  { value: "events", label: "Events Calendar" },
+  { value: "polls", label: "Polls" },
+  { value: "parents", label: "Parents & Premium" },
+  { value: "invites", label: "Invite Codes" },
+  { value: "qr", label: "Signup QR" },
+  { value: "gallery", label: "Media Gallery" },
+  { value: "curriculum", label: "Belt Curriculum" },
+  { value: "belts", label: "Belt Systems" },
+  { value: "guidelines", label: "Dojo Point Guidelines" },
+  { value: "announcements", label: "Post Announcement" },
+];
+
 function AdminPage() {
+
   const [tab, setTab] = useState("attendance");
   const [consentOnly, setConsentOnly] = useState(false);
 
@@ -184,21 +215,41 @@ function AdminPage() {
       </section>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="attendance">Master Attendance</TabsTrigger>
-          <TabsTrigger value="students">Manage Students</TabsTrigger>
-          <TabsTrigger value="schedules">Class Schedules &amp; Testing</TabsTrigger>
-          <TabsTrigger value="events">Events Calendar</TabsTrigger>
-          <TabsTrigger value="polls">Polls</TabsTrigger>
-          <TabsTrigger value="parents">Parents &amp; Premium</TabsTrigger>
-          <TabsTrigger value="invites">Invite Codes</TabsTrigger>
-          <TabsTrigger value="qr">Signup QR</TabsTrigger>
-          <TabsTrigger value="gallery">Media Gallery</TabsTrigger>
-          <TabsTrigger value="curriculum">Belt Curriculum</TabsTrigger>
-          <TabsTrigger value="belts">Belt Systems</TabsTrigger>
-          <TabsTrigger value="guidelines">Dojo Point Guidelines</TabsTrigger>
-          <TabsTrigger value="announcements">Post Announcement</TabsTrigger>
-        </TabsList>
+        {/*
+          Thirteen tabs never wrapped acceptably on a phone: TabsList ships a
+          fixed h-9, so `flex-wrap` wrapped the labels while the box kept its
+          one-row height and the overflow painted straight over the heading
+          below. Below `sm` we swap the strip for a real labelled <Select>; at
+          `sm`+ it is a single non-wrapping, scroll-snapping row.
+        */}
+        <div className="relative isolate">
+          <div className="sm:hidden">
+            <Label htmlFor="admin-section" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Section
+            </Label>
+            <Select value={tab} onValueChange={setTab}>
+              <SelectTrigger id="admin-section" className="mt-1.5 h-11 w-full">
+                <SelectValue placeholder="Choose a section" />
+              </SelectTrigger>
+              <SelectContent>
+                {ADMIN_TABS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <TabsList className="hidden h-auto w-full snap-x snap-mandatory flex-nowrap justify-start overflow-x-auto sm:flex">
+            {ADMIN_TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="shrink-0 snap-start">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+
 
         <TabsContent value="attendance" className="mt-6">
           <AttendanceTab />
@@ -793,35 +844,41 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
   });
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 transition-all ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
-      <div className="min-w-0 flex-1">
+    <div className={`rounded-xl border p-3 transition-all sm:flex sm:flex-wrap sm:items-center sm:gap-3 ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
+      {/* Mobile: a strict vertical stack. The old single flex row let the belt
+          chip and the points stepper share a line they could not both fit on,
+          so the chip painted over the stepper and the name truncated. */}
+      <div className="min-w-0 sm:flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="truncate font-semibold">{student.first_name} {student.last_name}</div>
+          <div className="min-w-0 break-words font-semibold">{student.first_name} {student.last_name}</div>
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
+
+      <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
+        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
           <Minus className="h-4 w-4" />
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
         </div>
-        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-8 w-8" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
+        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <Button size="sm" variant="outline" onClick={onEdit}>
+
+      <Button size="sm" variant="outline" className="mt-2 h-11 w-full sm:mt-0 sm:h-9 sm:w-auto" onClick={onEdit}>
         <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
       </Button>
     </div>
   );
+
 }
 
 function StudentEditRow({ student, onDone }: { student: Student; onDone: () => void }) {
@@ -1176,8 +1233,10 @@ type ClassSchedule = {
   id: string;
   class_name: string;
   next_test_date: string | null;
+  location: string | null;
   updated_at: string;
 };
+
 
 function ClassSchedulesTab() {
   const qc = useQueryClient();
@@ -1188,7 +1247,7 @@ function ClassSchedulesTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_schedules")
-        .select("id, class_name, next_test_date, updated_at")
+        .select("id, class_name, next_test_date, location, updated_at")
         .order("class_name");
       if (error) throw error;
       return (data ?? []) as ClassSchedule[];
@@ -1293,10 +1352,40 @@ function ClassScheduleRow({
 }) {
   const qc = useQueryClient();
   const [date, setDate] = useState(schedule.next_test_date ?? "");
+  const [location, setLocation] = useState(schedule.location ?? "");
 
   useEffect(() => {
     setDate(schedule.next_test_date ?? "");
   }, [schedule.next_test_date]);
+
+  useEffect(() => {
+    setLocation(schedule.location ?? "");
+  }, [schedule.location]);
+
+  // Save-on-blur, same pattern as the Belt Systems tab: only writes when the
+  // value actually changed, so the next room rename needs no migration.
+  const saveLocation = useMutation({
+    mutationFn: async (next: string) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ location: next.trim() === "" ? null : next.trim() })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Location saved");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["class-schedule-mine"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const commitLocation = () => {
+    const next = location.trim();
+    if (next === (schedule.location ?? "").trim()) return;
+    saveLocation.mutate(next);
+  };
+
 
   const save = useMutation({
     mutationFn: async () => {
@@ -1328,36 +1417,60 @@ function ClassScheduleRow({
     : null;
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-4">
-      <div className="min-w-[160px] flex-1">
-        <div className="font-display text-lg font-bold uppercase">{schedule.class_name}</div>
+    <div className="rounded-xl border border-border bg-background p-4">
+      <div className="min-w-0">
+        <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
         <div className="mt-1 text-xs text-muted-foreground">
           {schedule.next_test_date
             ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
             : "No test scheduled"}
         </div>
       </div>
-      <div>
-        <Label className="text-xs">Next mass testing date</Label>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="mt-1 w-[180px]"
-        />
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
+          <Label className="text-xs" htmlFor={`test-date-${schedule.id}`}>Next mass testing date</Label>
+          <Input
+            id={`test-date-${schedule.id}`}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="mt-1 h-11 w-full"
+          />
+        </div>
+        <div className="min-w-0">
+          <Label className="text-xs" htmlFor={`location-${schedule.id}`}>Location / room</Label>
+          <Input
+            id={`location-${schedule.id}`}
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            onBlur={commitLocation}
+            placeholder="e.g. Big Dojo"
+            className="mt-1 h-11 w-full"
+          />
+        </div>
       </div>
-      <Button
-        className="bg-gradient-red"
-        disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
-        onClick={() => save.mutate()}
-      >
-        <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="Remove class" onClick={onRemove} title="Remove class">
-        <Trash2 className="h-4 w-4 text-muted-foreground" />
-      </Button>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button
+          className="h-11 w-full bg-gradient-red sm:w-auto"
+          disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
+          onClick={() => save.mutate()}
+        >
+          <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
+        </Button>
+        <Button
+          variant="outline"
+          className="h-11 w-full text-destructive-foreground sm:w-auto"
+          aria-label={`Remove ${schedule.class_name}`}
+          onClick={onRemove}
+        >
+          <Trash2 className="mr-1 h-4 w-4" /> Remove class
+        </Button>
+      </div>
     </div>
   );
+
 }
 
 /* ---------- CSV IMPORTER ---------- */
@@ -1879,36 +1992,66 @@ function UnlinkedRow({
   const [email, setEmail] = useState(row.parent_email);
   const dirty = email.trim().toLowerCase() !== row.parent_email.toLowerCase();
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{row.first_name} {row.last_name}</span>
+    <div className="rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="min-w-0 break-words font-semibold">{row.first_name} {row.last_name}</span>
           <Badge variant="outline" className="border-primary/40 text-primary">{row.current_belt}</Badge>
           <Badge variant="outline">{row.class_name}</Badge>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[240px] flex-1">
-            <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => { if (dirty) onEmailChange(email); }}
-              className="h-9 pl-8 text-xs"
-            />
-          </div>
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            Added {new Date(row.created_at).toLocaleDateString()}
-          </span>
-        </div>
       </div>
-      <Button size="sm" variant="outline" onClick={onRetry} disabled={busy} className="border-primary/50 text-primary">
-        <Link2 className="mr-1 h-3.5 w-3.5" /> Retry link
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy}>
-        <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
-      </Button>
+
+      {/* The email gets its own full-width row: a long address like
+          bryananthonyrivera@gmail.com must be readable in full, and sharing a
+          line with the action buttons is what made them overlap it. */}
+      <div className="relative mt-2 w-full">
+        <Label htmlFor={`unlinked-email-${row.id}`} className="sr-only">Parent email</Label>
+        <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id={`unlinked-email-${row.id}`}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => { if (dirty) onEmailChange(email); }}
+          className="h-11 w-full pl-8 text-xs"
+        />
+      </div>
+      <div className="mt-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+        Added {new Date(row.created_at).toLocaleDateString()}
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <Button onClick={onRetry} disabled={busy} variant="outline" className="h-11 w-full border-primary/50 text-primary sm:w-auto">
+          <Link2 className="mr-1 h-4 w-4" /> Retry link
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={busy} className="h-11 w-full sm:w-auto">
+              <Trash2 className="mr-1 h-4 w-4" /> Remove
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Discard the import for {row.first_name} {row.last_name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This deletes the parked roster row for {row.parent_email}. It will not be
+                linked automatically if that parent signs up later — you would have to
+                re-import or add the student by hand.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it</AlertDialogCancel>
+              <AlertDialogAction onClick={onRemove} className="bg-destructive text-destructive-foreground">
+                Discard import
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
+
 }
 
 /* ---------- PARENT USER MANAGEMENT ---------- */
@@ -1934,6 +2077,7 @@ function ParentsTab({
   const [q, setQ] = useState("");
   const { data: pendingConsent } = useUnacknowledgedConsentOff();
   const acknowledge = useAcknowledgeConsentEvents();
+  const { data: adminIds } = useAdminUserIds();
 
   const profilesQ = useQuery({
     queryKey: ["admin-profiles"],
@@ -2013,17 +2157,23 @@ function ParentsTab({
       </div>
 
       <div className="mt-5 space-y-2">
-        {profilesQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {profilesQ.isLoading && <p className="text-sm text-muted-foreground" aria-busy="true">Loading…</p>}
         {!profilesQ.isLoading && list.length === 0 && (
           <p className="text-sm text-muted-foreground">No parent accounts match.</p>
         )}
         {list.map((p) => {
           const premium = p.subscription_status === "premium";
+          const staff = adminIds?.has(p.id) ?? false;
           return (
-            <div key={p.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
-              <div className="min-w-0 flex-1">
+            <div key={p.id} className={`rounded-xl border p-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3 ${premium ? "border-primary/40 bg-primary/5" : "border-border bg-background"}`}>
+              <div className="min-w-0 sm:flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{p.family_name ?? "—"}</span>
+                  <span className="min-w-0 break-words font-semibold">{p.family_name ?? "—"}</span>
+                  {staff && (
+                    <Badge variant="outline" className="border-primary/50 text-primary">
+                      <ShieldCheck className="mr-1 h-3 w-3" aria-hidden="true" /> Admin
+                    </Badge>
+                  )}
                   {premium && (
                     <Badge className="bg-gradient-red text-primary-foreground">
                       <Crown className="mr-1 h-3 w-3" /> Premium
@@ -2039,39 +2189,50 @@ function ParentsTab({
                     </Badge>
                   )}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                <div className="mt-0.5 break-words text-xs text-muted-foreground">
                   {p.email}
                   {p.photo_consent_updated_at
                     ? ` · preference updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
                     : ""}
                 </div>
               </div>
-              {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+              <div className="mt-3 flex flex-col gap-2 sm:mt-0 sm:flex-row sm:items-center">
+                {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full sm:h-9 sm:w-auto"
+                    disabled={acknowledge.isPending}
+                    onClick={() => acknowledge.mutate(p.id)}
+                  >
+                    Mark reviewed
+                  </Button>
+                )}
                 <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={acknowledge.isPending}
-                  onClick={() => acknowledge.mutate(p.id)}
+                  variant={premium ? "outline" : "default"}
+                  className={`h-11 w-full sm:w-auto ${premium ? "" : "bg-gradient-red"}`}
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
                 >
-                  Mark reviewed
+                  {premium ? "Set to Free" : "Upgrade to Premium"}
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant={premium ? "outline" : "default"}
-                className={premium ? "" : "bg-gradient-red"}
-                disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: p.id, status: premium ? "free" : "premium" })}
-              >
-                {premium ? "Set to Free" : "Upgrade to Premium"}
-              </Button>
+                <AdminRoleButton
+                  profileId={p.id}
+                  email={p.email}
+                  familyName={p.family_name}
+                  isAdmin={staff}
+                  adminCount={adminIds?.size ?? 0}
+                />
+              </div>
             </div>
           );
         })}
       </div>
+
+      <RoleChangeHistory />
     </div>
   );
 }
+
 
 /* ---------- INVITE CODES ---------- */
 

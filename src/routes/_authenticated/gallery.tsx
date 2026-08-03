@@ -4,6 +4,7 @@ import { Camera, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
+import { CardGridSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
@@ -72,7 +73,7 @@ function Gallery() {
         </div>
       </header>
 
-      {albumsQ.isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading albums…</p>}
+      {albumsQ.isLoading && <CardGridSkeleton label="Loading albums" />}
 
       {!albumsQ.isLoading && albums.length === 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">

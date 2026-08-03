@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, List, MapPin, Users, Clock, Ban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarGrid } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
+import { MonthGrid } from "@/components/month-grid";
+import { CalendarSkeleton } from "@/components/skeletons";
 import {
   EVENT_TYPE_META,
   buildCalendarItems,
@@ -109,7 +110,6 @@ function CalendarPage() {
 
   const selectedKey = toDateKey(selected);
   const selectedItems = items.filter((i) => i.dateKey === selectedKey);
-  const eventDays = useMemo(() => [...new Set(items.map((i) => i.dateKey))], [items]);
 
 
   const goToday = () => {
@@ -132,25 +132,28 @@ function CalendarPage() {
 
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToday}>
+          <Button variant="outline" className="h-11" onClick={goToday}>
             Today
           </Button>
+          {/* The month grid now works on a phone, so the toggle is no longer
+              desktop-only — a parent scanning "what's on this month" gets the
+              same two views everywhere. */}
           <div
-            className="hidden items-center gap-1 rounded-md border border-border p-1 sm:flex"
+            className="flex items-center gap-1 rounded-md border border-border p-1"
             role="group"
             aria-label="Calendar view"
           >
             <Button
-              size="sm"
               variant={view === "list" ? "default" : "ghost"}
+              className="h-9"
               onClick={() => setView("list")}
               aria-pressed={view === "list"}
             >
               <List className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> List
             </Button>
             <Button
-              size="sm"
               variant={view === "month" ? "default" : "ghost"}
+              className="h-9"
               onClick={() => setView("month")}
               aria-pressed={view === "month"}
             >
@@ -162,30 +165,24 @@ function CalendarPage() {
 
       <Legend />
 
-      {/* Phone: agenda always. Desktop: honours the toggle. */}
-      <div className={view === "month" ? "hidden sm:block" : "block"}>
-        {view === "month" ? (
-          <div className="mt-6 grid gap-6 lg:grid-cols-[auto_1fr]">
-            <div className="rounded-2xl border border-border bg-card p-3">
-              <CalendarGrid
-                mode="single"
-                selected={selected}
-                onSelect={(d) => d && setSelected(d)}
-                month={month}
-                onMonthChange={setMonth}
-                modifiers={{ hasEvent: (d) => eventDays.includes(toDateKey(d)) }}
-                modifiersClassNames={{ hasEvent: "font-bold underline decoration-primary decoration-2" }}
-              />
-            </div>
-            <DayPanel dateKey={selectedKey} items={selectedItems} />
-          </div>
-        ) : null}
-      </div>
+      {loading && <CalendarSkeleton />}
 
-      <div className={view === "month" ? "block sm:hidden" : "block"}>
+      {!loading && view === "month" && (
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+          <MonthGrid
+            month={month}
+            onMonthChange={setMonth}
+            selected={selected}
+            onSelect={setSelected}
+            items={items}
+          />
+          <DayPanel dateKey={selectedKey} items={selectedItems} />
+        </div>
+      )}
+
+      {!loading && view === "list" && (
         <section className="mt-6 space-y-6" aria-label="Upcoming schedule">
-          {loading && <p className="text-sm text-muted-foreground">Loading calendar…</p>}
-          {!loading && agenda.length === 0 && (
+          {agenda.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Nothing special coming up — regular classes run as normal.
             </p>
@@ -207,7 +204,8 @@ function CalendarPage() {
             </div>
           ))}
         </section>
-      </div>
+      )}
+
     </div>
   );
 }

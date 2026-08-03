@@ -127,3 +127,14 @@
 @utility shadow-red-glow {
   box-shadow: var(--shadow-red);
 }
+
+/*
+  Skeleton shimmer is decorative. Anyone who asked their OS to reduce motion
+  gets a still placeholder instead — the layout still holds its shape, it just
+  stops pulsing.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}

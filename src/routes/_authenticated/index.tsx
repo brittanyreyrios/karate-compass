@@ -31,6 +31,7 @@ import { Link } from "@tanstack/react-router";
 import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -182,8 +183,9 @@ function Dashboard() {
   }, [student?.next_test_date]);
 
   if (studentsQ.isLoading || profileQ.isLoading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading dashboard…</div>;
+    return <DashboardSkeleton />;
   }
+
 
   if (!student) {
     return (

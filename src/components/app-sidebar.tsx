@@ -25,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useIsAdmin } from "@/hooks/use-auth";
@@ -46,6 +47,7 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { setOpenMobile } = useSidebar();
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
 
@@ -84,7 +86,7 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={active} className="relative data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground">
-                      <Link to={item.url} className="flex items-center gap-3">
+                      <Link to={item.url} onClick={() => setOpenMobile(false)} className="flex items-center gap-3">
                         {active && <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />}
                         <item.icon className={`h-4 w-4 shrink-0 ${active ? "text-primary" : ""}`} />
                         <span className="font-medium">{item.title}</span>
@@ -104,7 +106,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/admin"} className="relative data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground">
-                    <Link to="/admin" className="flex items-center gap-3">
+                    <Link to="/admin" onClick={() => setOpenMobile(false)} className="flex items-center gap-3">
                       <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
                       <span className="font-medium">Admin Console</span>
                     </Link>
