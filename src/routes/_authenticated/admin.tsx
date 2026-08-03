@@ -152,7 +152,26 @@ function FollowUpBadge({ n }: { n: number }) {
   );
 }
 
+
+/** Single source of truth for the tab strip and its mobile <Select> twin. */
+const ADMIN_TABS: { value: string; label: string }[] = [
+  { value: "attendance", label: "Master Attendance" },
+  { value: "students", label: "Manage Students" },
+  { value: "schedules", label: "Class Schedules & Testing" },
+  { value: "events", label: "Events Calendar" },
+  { value: "polls", label: "Polls" },
+  { value: "parents", label: "Parents & Premium" },
+  { value: "invites", label: "Invite Codes" },
+  { value: "qr", label: "Signup QR" },
+  { value: "gallery", label: "Media Gallery" },
+  { value: "curriculum", label: "Belt Curriculum" },
+  { value: "belts", label: "Belt Systems" },
+  { value: "guidelines", label: "Dojo Point Guidelines" },
+  { value: "announcements", label: "Post Announcement" },
+];
+
 function AdminPage() {
+
   const [tab, setTab] = useState("attendance");
   const [consentOnly, setConsentOnly] = useState(false);
 
