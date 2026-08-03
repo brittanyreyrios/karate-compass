@@ -31,6 +31,7 @@ import { Link } from "@tanstack/react-router";
 import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 
 export const Route = createFileRoute("/_authenticated/")({

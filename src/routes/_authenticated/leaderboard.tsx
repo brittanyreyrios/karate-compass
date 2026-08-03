@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BeltSwatch } from "@/components/belt-chip";
 import { useBeltSystems } from "@/lib/belts";
+import { LeaderboardSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({

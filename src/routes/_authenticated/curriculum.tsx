@@ -6,6 +6,7 @@ import { BeltChip } from "@/components/belt-chip";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
+import { CurriculumSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
