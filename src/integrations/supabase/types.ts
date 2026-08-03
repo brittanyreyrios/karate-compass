@@ -735,6 +735,33 @@ export type Database = {
         }
         Relationships: []
       }
+      role_change_events: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           active: boolean
