@@ -1229,7 +1229,7 @@ function ClassSchedulesTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_schedules")
-        .select("id, class_name, next_test_date, updated_at")
+        .select("id, class_name, next_test_date, location, updated_at")
         .order("class_name");
       if (error) throw error;
       return (data ?? []) as ClassSchedule[];
