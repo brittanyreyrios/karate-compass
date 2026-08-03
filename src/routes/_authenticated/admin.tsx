@@ -1334,10 +1334,40 @@ function ClassScheduleRow({
 }) {
   const qc = useQueryClient();
   const [date, setDate] = useState(schedule.next_test_date ?? "");
+  const [location, setLocation] = useState(schedule.location ?? "");
 
   useEffect(() => {
     setDate(schedule.next_test_date ?? "");
   }, [schedule.next_test_date]);
+
+  useEffect(() => {
+    setLocation(schedule.location ?? "");
+  }, [schedule.location]);
+
+  // Save-on-blur, same pattern as the Belt Systems tab: only writes when the
+  // value actually changed, so the next room rename needs no migration.
+  const saveLocation = useMutation({
+    mutationFn: async (next: string) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ location: next.trim() === "" ? null : next.trim() })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Location saved");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["class-schedule-mine"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const commitLocation = () => {
+    const next = location.trim();
+    if (next === (schedule.location ?? "").trim()) return;
+    saveLocation.mutate(next);
+  };
+
 
   const save = useMutation({
     mutationFn: async () => {
