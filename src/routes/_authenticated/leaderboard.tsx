@@ -151,7 +151,7 @@ function LeaderboardPage() {
         aria-labelledby={slug ? `lb-tab-${slug}` : undefined}
         tabIndex={0}
       >
-        {q.isLoading && <p className="mt-10 text-center text-sm text-muted-foreground">Loading rankings…</p>}
+        {q.isLoading && <LeaderboardSkeleton />}
 
         {!q.isLoading && rows.length === 0 && (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">

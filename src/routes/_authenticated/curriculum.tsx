@@ -111,7 +111,7 @@ function Curriculum() {
         </p>
       </header>
 
-      {loading && <p className="mt-8 text-sm text-muted-foreground">Loading curriculum…</p>}
+      {loading && <CurriculumSkeleton />}
 
       {!loading && students.length === 0 && (
         <EmptyCard

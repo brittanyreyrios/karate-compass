@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSession } from "@/hooks/use-auth";
+import { ListSkeleton } from "@/components/skeletons";
 import {
   POLL_SELECT,
   isPollClosed,
@@ -79,7 +80,7 @@ function PollsPage() {
         </p>
       </header>
 
-      {pollsQ.isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading polls…</p>}
+      {pollsQ.isLoading && <ListSkeleton rows={3} height="h-40" label="Loading polls" />}
       {!pollsQ.isLoading && polls.length === 0 && (
         <p className="mt-8 text-sm text-muted-foreground">Nothing to answer right now.</p>
       )}

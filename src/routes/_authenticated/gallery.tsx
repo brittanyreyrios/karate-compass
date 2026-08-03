@@ -73,7 +73,7 @@ function Gallery() {
         </div>
       </header>
 
-      {albumsQ.isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading albums…</p>}
+      {albumsQ.isLoading && <CardGridSkeleton label="Loading albums" />}
 
       {!albumsQ.isLoading && albums.length === 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
