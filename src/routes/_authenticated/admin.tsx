@@ -1980,36 +1980,66 @@ function UnlinkedRow({
   const [email, setEmail] = useState(row.parent_email);
   const dirty = email.trim().toLowerCase() !== row.parent_email.toLowerCase();
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{row.first_name} {row.last_name}</span>
+    <div className="rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="min-w-0 break-words font-semibold">{row.first_name} {row.last_name}</span>
           <Badge variant="outline" className="border-primary/40 text-primary">{row.current_belt}</Badge>
           <Badge variant="outline">{row.class_name}</Badge>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[240px] flex-1">
-            <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => { if (dirty) onEmailChange(email); }}
-              className="h-9 pl-8 text-xs"
-            />
-          </div>
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            Added {new Date(row.created_at).toLocaleDateString()}
-          </span>
-        </div>
       </div>
-      <Button size="sm" variant="outline" onClick={onRetry} disabled={busy} className="border-primary/50 text-primary">
-        <Link2 className="mr-1 h-3.5 w-3.5" /> Retry link
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy}>
-        <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
-      </Button>
+
+      {/* The email gets its own full-width row: a long address like
+          bryananthonyrivera@gmail.com must be readable in full, and sharing a
+          line with the action buttons is what made them overlap it. */}
+      <div className="relative mt-2 w-full">
+        <Label htmlFor={`unlinked-email-${row.id}`} className="sr-only">Parent email</Label>
+        <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id={`unlinked-email-${row.id}`}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => { if (dirty) onEmailChange(email); }}
+          className="h-11 w-full pl-8 text-xs"
+        />
+      </div>
+      <div className="mt-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+        Added {new Date(row.created_at).toLocaleDateString()}
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <Button onClick={onRetry} disabled={busy} variant="outline" className="h-11 w-full border-primary/50 text-primary sm:w-auto">
+          <Link2 className="mr-1 h-4 w-4" /> Retry link
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={busy} className="h-11 w-full sm:w-auto">
+              <Trash2 className="mr-1 h-4 w-4" /> Remove
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Discard the import for {row.first_name} {row.last_name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This deletes the parked roster row for {row.parent_email}. It will not be
+                linked automatically if that parent signs up later — you would have to
+                re-import or add the student by hand.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it</AlertDialogCancel>
+              <AlertDialogAction onClick={onRemove} className="bg-destructive text-destructive-foreground">
+                Discard import
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
+
 }
 
 /* ---------- PARENT USER MANAGEMENT ---------- */
