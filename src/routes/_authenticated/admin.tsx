@@ -1215,8 +1215,10 @@ type ClassSchedule = {
   id: string;
   class_name: string;
   next_test_date: string | null;
+  location: string | null;
   updated_at: string;
 };
+
 
 function ClassSchedulesTab() {
   const qc = useQueryClient();
