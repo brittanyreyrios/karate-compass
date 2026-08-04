@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EVENT_TYPE_META, toDateKey, type CalendarItem } from "@/lib/calendar-data";
+import { chipMeta, toDateKey, type CalendarItem } from "@/lib/calendar-data";
 
 /**
  * Month grid, phone first.
@@ -135,12 +135,12 @@ export function MonthGrid({
 
               <span className="mt-0.5 flex min-w-0 flex-col gap-0.5">
                 {dayItems.slice(0, 2).map((item) => {
-                  const meta = item.eventType ? EVENT_TYPE_META[item.eventType] : null;
+                  const meta = chipMeta(item.eventType);
                   return (
                     <span
                       key={item.key}
-                      className={`truncate rounded border px-1 text-[11px] leading-4 ${
-                        meta ? meta.badge : "border-border bg-muted text-muted-foreground"
+                      className={`truncate rounded border px-1 text-[11px] font-semibold leading-4 ${
+                        meta.badge
                       } ${item.cancelled ? "line-through" : ""}`}
                     >
                       {item.title}

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { EVENT_TYPES, EVENT_TYPE_META, type DojoEvent, type EventType } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPES, EVENT_TYPE_META, type DojoEvent, type EventType } from "@/lib/calendar-data";
 
 type FormState = {
   title: string;
@@ -350,9 +350,9 @@ export function EventsAdminTab() {
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className={EVENT_TYPE_META[event.event_type].badge}>
+                  <span className={`${CHIP_BASE} ${EVENT_TYPE_META[event.event_type].badge}`}>
                     {EVENT_TYPE_META[event.event_type].label}
-                  </Badge>
+                  </span>
                   {!event.published && (
                     <Badge variant="outline" className="border-border text-muted-foreground">
                       Hidden

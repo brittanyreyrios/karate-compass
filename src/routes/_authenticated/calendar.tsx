@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, List, MapPin, Users, Clock, Ban } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { MonthGrid } from "@/components/month-grid";
@@ -161,7 +160,8 @@ function CalendarPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Everything that isn&apos;t the normal week — special classes, testing, tournaments,
-            seminars and closures. Your regular weekly class times are on the dashboard.
+            seminars, tournaments and closures. Your regular weekly class times are on the
+            dashboard.
           </p>
 
         </div>
