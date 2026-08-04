@@ -507,6 +507,25 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveVideo = useMutation({
+    mutationFn: async (patch: {
+      id: string;
+      video_youtube_id: string | null;
+      video_title: string | null;
+      video_seconds: number | null;
+    }) => {
+      const { id, ...fields } = patch;
+      const { error } = await supabase.from("curriculum_items").update(fields).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Video updated.");
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("curriculum_items").delete().eq("id", id);
@@ -522,19 +541,33 @@ export function CurriculumAdminTab() {
   const legacy = items.filter((i) => !i.belt_rank_id && !i.curriculum_tier);
 
   const ItemRow = ({ it }: { it: CurriculumItem }) => (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2">
-      <div className="min-w-0">
-        <span className="text-sm font-medium">{it.technique}</span>
-        {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
+    <li className="rounded-lg border border-border bg-background/50 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-sm font-medium">{it.technique}</span>
+          {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
+          {it.video_youtube_id && (
+            <Badge variant="outline" className="ml-2 gap-1 border-border text-xs">
+              <Video className="h-3 w-3" aria-hidden="true" />
+              Video
+              {formatRuntime(it.video_seconds) ? ` · ${formatRuntime(it.video_seconds)}` : ""}
+            </Badge>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Delete requirement ${it.technique}`}
+          onClick={() => removeItem.mutate(it.id)}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={`Delete requirement ${it.technique}`}
-        onClick={() => removeItem.mutate(it.id)}
-      >
-        <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
-      </Button>
+      <ItemVideoEditor
+        item={it}
+        pending={saveVideo.isPending}
+        onSave={(patch) => saveVideo.mutate({ id: it.id, ...patch })}
+      />
     </li>
   );
 
@@ -706,6 +739,143 @@ export function CurriculumAdminTab() {
             <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} />)}</ul>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Confirmation before saving: staff see the exact video they pasted, so a wrong
+ * copy/paste is caught here rather than by a parent finding the wrong technique.
+ * YouTube titles cannot be read without an API key, so the title stays manual.
+ */
+function VideoIdPreview({ link }: { link: string }) {
+  const trimmed = link.trim();
+  if (!trimmed) return null;
+  const id = extractYouTubeId(trimmed);
+  if (!id) {
+    return (
+      <p className="mt-2 flex items-start gap-2 text-xs text-destructive">
+        <VideoOff className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {YOUTUBE_LINK_ERROR}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <img
+        src={youTubeThumbnail(id)}
+        alt={`Thumbnail for video ${id}`}
+        className="h-14 w-24 shrink-0 rounded border border-border object-cover"
+      />
+      <span className="text-xs text-muted-foreground">
+        Video ID <code className="font-mono text-foreground">{id}</code>
+      </span>
+    </div>
+  );
+}
+
+function ItemVideoEditor({
+  item,
+  pending,
+  onSave,
+}: {
+  item: CurriculumItem;
+  pending: boolean;
+  onSave: (patch: {
+    video_youtube_id: string | null;
+    video_title: string | null;
+    video_seconds: number | null;
+  }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [link, setLink] = useState(item.video_youtube_id ?? "");
+  const [title, setTitle] = useState(item.video_title ?? "");
+  const [minutes, setMinutes] = useState(
+    item.video_seconds ? String(Math.round((item.video_seconds / 60) * 10) / 10) : "",
+  );
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 text-xs font-semibold text-primary underline underline-offset-4"
+      >
+        {item.video_youtube_id ? "Edit video" : "Add video"}
+      </button>
+    );
+  }
+
+  const submit = () => {
+    if (!link.trim()) {
+      onSave({ video_youtube_id: null, video_title: null, video_seconds: null });
+      setOpen(false);
+      return;
+    }
+    const id = extractYouTubeId(link);
+    if (!id) {
+      toast.error(YOUTUBE_LINK_ERROR);
+      return;
+    }
+    const seconds = minutes.trim() ? Math.round(Number(minutes) * 60) : null;
+    if (seconds !== null && (!Number.isFinite(seconds) || seconds <= 0)) {
+      toast.error("Video length must be a number of minutes, e.g. 1.5");
+      return;
+    }
+    onSave({ video_youtube_id: id, video_title: title.trim() || null, video_seconds: seconds });
+    setOpen(false);
+  };
+
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border border-border bg-card p-3">
+      <Label htmlFor={`vid-${item.id}`} className="text-xs">
+        YouTube link for “{item.technique}”
+      </Label>
+      <Input
+        id={`vid-${item.id}`}
+        value={link}
+        onChange={(e) => setLink(e.target.value)}
+        placeholder="https://www.youtube.com/watch?v=…"
+      />
+      <VideoIdPreview link={link} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Video title (optional)"
+          aria-label={`Video title for ${item.technique}`}
+        />
+        <Input
+          value={minutes}
+          onChange={(e) => setMinutes(e.target.value)}
+          inputMode="decimal"
+          placeholder="Length in minutes (optional)"
+          aria-label={`Video length in minutes for ${item.technique}`}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={submit} disabled={pending} className="bg-gradient-red">
+          Save video
+        </Button>
+        {item.video_youtube_id && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              setLink(""); setTitle(""); setMinutes("");
+              onSave({ video_youtube_id: null, video_title: null, video_seconds: null });
+              setOpen(false);
+            }}
+          >
+            <VideoOff className="mr-1 h-4 w-4" aria-hidden="true" /> Remove video
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
       </div>
     </div>
   );
