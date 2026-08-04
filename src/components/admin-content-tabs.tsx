@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy } from "lucide-react";
+import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy, Video, VideoOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BeltSwatch } from "@/components/belt-chip";
+import {
+  extractYouTubeId,
+  formatRuntime,
+  youTubeThumbnail,
+  YOUTUBE_LINK_ERROR,
+} from "@/lib/youtube";
 import { BeltPicker } from "@/components/belt-picker";
 import {
   CURRICULUM_TIERS,
@@ -403,6 +409,9 @@ type CurriculumItem = {
   notes: string | null;
   sort_order: number;
   active: boolean;
+  video_youtube_id: string | null;
+  video_title: string | null;
+  video_seconds: number | null;
 };
 
 type Target = "rank" | "tier";
@@ -423,6 +432,9 @@ export function CurriculumAdminTab() {
   const [technique, setTechnique] = useState("");
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
+  const [videoLink, setVideoLink] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoMinutes, setVideoMinutes] = useState("");
 
   const itemsQ = useQuery({
     queryKey: ["admin-curriculum-items"],
@@ -462,10 +474,24 @@ export function CurriculumAdminTab() {
       if (!technique.trim()) throw new Error("Technique name is required.");
       // Exactly one of the two targets is set — the database enforces this too.
       if (target === "rank" && !rankId) throw new Error("Choose the specific rank this belongs to.");
+      // A pasted link is validated here, before it can ever be saved: a bad ID
+      // would render as a dead player for every family at that rank.
+      let videoId: string | null = null;
+      if (videoLink.trim()) {
+        videoId = extractYouTubeId(videoLink);
+        if (!videoId) throw new Error(YOUTUBE_LINK_ERROR);
+      }
+      const seconds = videoMinutes.trim() ? Math.round(Number(videoMinutes) * 60) : null;
+      if (seconds !== null && (!Number.isFinite(seconds) || seconds <= 0)) {
+        throw new Error("Video length must be a number of minutes, e.g. 1.5");
+      }
       const { error } = await supabase.from("curriculum_items").insert({
         technique: technique.trim(),
         category: category.trim() || null,
         notes: notes.trim() || null,
+        video_youtube_id: videoId,
+        video_title: videoId ? videoTitle.trim() || null : null,
+        video_seconds: videoId ? seconds : null,
         belt_rank_id: target === "rank" ? rankId : null,
         curriculum_tier: target === "tier" ? tier : null,
       });
@@ -474,6 +500,7 @@ export function CurriculumAdminTab() {
     onSuccess: () => {
       toast.success("Requirement added.");
       setTechnique(""); setCategory(""); setNotes("");
+      setVideoLink(""); setVideoTitle(""); setVideoMinutes("");
       qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
       qc.invalidateQueries({ queryKey: ["curriculum-items"] });
     },
@@ -588,6 +615,43 @@ export function CurriculumAdminTab() {
             <Label htmlFor="cur-notes">Notes (optional)</Label>
             <Textarea id="cur-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+          <fieldset className="rounded-xl border border-border p-3">
+            <legend className="px-1 text-xs uppercase tracking-widest text-muted-foreground">
+              Video (optional)
+            </legend>
+            <Label htmlFor="cur-video">YouTube link</Label>
+            <Input
+              id="cur-video"
+              value={videoLink}
+              onChange={(e) => setVideoLink(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Paste the address straight from your browser. Playlist and timestamp bits are stripped
+              automatically.
+            </p>
+            <VideoIdPreview link={videoLink} />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="cur-video-title">Video title (optional)</Label>
+                <Input
+                  id="cur-video-title"
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cur-video-min">Length in minutes (optional)</Label>
+                <Input
+                  id="cur-video-min"
+                  inputMode="decimal"
+                  value={videoMinutes}
+                  onChange={(e) => setVideoMinutes(e.target.value)}
+                  placeholder="1.5"
+                />
+              </div>
+            </div>
+          </fieldset>
           <Button type="submit" disabled={addItem.isPending} className="w-full bg-gradient-red">
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> {addItem.isPending ? "Saving…" : "Add requirement"}
           </Button>
