@@ -37,6 +37,28 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Event-type chips: one token pair per type, distinct hue, never opacity-only. */
+  --color-ev-testing: var(--ev-testing-bg);
+  --color-ev-testing-fg: var(--ev-testing-fg);
+  --color-ev-testing-line: var(--ev-testing-line);
+  --color-ev-tournament: var(--ev-tournament-bg);
+  --color-ev-tournament-fg: var(--ev-tournament-fg);
+  --color-ev-tournament-line: var(--ev-tournament-line);
+  --color-ev-special: var(--ev-special-bg);
+  --color-ev-special-fg: var(--ev-special-fg);
+  --color-ev-special-line: var(--ev-special-line);
+  --color-ev-swat: var(--ev-swat-bg);
+  --color-ev-swat-fg: var(--ev-swat-fg);
+  --color-ev-swat-line: var(--ev-swat-line);
+  --color-ev-seminar: var(--ev-seminar-bg);
+  --color-ev-seminar-fg: var(--ev-seminar-fg);
+  --color-ev-seminar-line: var(--ev-seminar-line);
+  --color-ev-other: var(--ev-other-bg);
+  --color-ev-other-fg: var(--ev-other-fg);
+  --color-ev-other-line: var(--ev-other-line);
+  --color-ev-closure: var(--ev-closure-bg);
+  --color-ev-closure-fg: var(--ev-closure-fg);
+  --color-ev-closure-line: var(--ev-closure-line);
   --font-display: "Oswald", "Bebas Neue", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -83,6 +105,40 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(0.22 0.006 260);
   --sidebar-ring: oklch(0.62 0.24 25);
+
+  /*
+    Event-type palette. Seven distinct hues, each a solid (non-alpha) tinted
+    surface with its own paired foreground, so a chip's text contrast never
+    depends on what it happens to sit on. Measured with getComputedStyle in the
+    browser: every pair is >= 7:1, well past WCAG AA 4.5:1.
+  */
+  --ev-testing-bg: oklch(0.3 0.1 25);
+  --ev-testing-fg: oklch(0.91 0.07 25);
+  --ev-testing-line: oklch(0.48 0.16 25);
+
+  --ev-tournament-bg: oklch(0.3 0.07 75);
+  --ev-tournament-fg: oklch(0.92 0.11 85);
+  --ev-tournament-line: oklch(0.5 0.12 80);
+
+  --ev-special-bg: oklch(0.29 0.08 255);
+  --ev-special-fg: oklch(0.9 0.08 250);
+  --ev-special-line: oklch(0.5 0.14 255);
+
+  --ev-swat-bg: oklch(0.29 0.09 305);
+  --ev-swat-fg: oklch(0.9 0.09 305);
+  --ev-swat-line: oklch(0.5 0.15 305);
+
+  --ev-seminar-bg: oklch(0.28 0.06 190);
+  --ev-seminar-fg: oklch(0.9 0.08 185);
+  --ev-seminar-line: oklch(0.48 0.09 190);
+
+  --ev-other-bg: oklch(0.28 0.005 260);
+  --ev-other-fg: oklch(0.9 0 0);
+  --ev-other-line: oklch(0.45 0.006 260);
+
+  --ev-closure-bg: oklch(0.26 0.02 250);
+  --ev-closure-fg: oklch(0.87 0.02 250);
+  --ev-closure-line: oklch(0.55 0.03 250);
 
   --gradient-primary: linear-gradient(135deg, oklch(0.62 0.24 25), oklch(0.5 0.22 20));
   --gradient-hero: linear-gradient(135deg, oklch(0.16 0.006 260) 0%, oklch(0.12 0.005 260) 50%, oklch(0.28 0.18 25 / 0.35) 100%);
