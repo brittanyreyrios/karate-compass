@@ -45,6 +45,7 @@ function Gallery() {
     },
   });
   const albums = albumsQ.data ?? [];
+  const showSkeleton = useDelayedLoading(albumsQ.isLoading);
   const coversQ = useCoverUrls(albums.map((a) => a.cover_image_url));
 
 

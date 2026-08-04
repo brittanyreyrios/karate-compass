@@ -47,6 +47,8 @@ function Announcements() {
     },
   });
 
+  const showSkeleton = useDelayedLoading(isLoading);
+
   useEffect(() => {
     const ch = supabase
       .channel("ann-live")

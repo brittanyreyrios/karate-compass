@@ -55,6 +55,7 @@ function LeaderboardPage() {
       return (data ?? []) as Row[];
     },
   });
+  const showSkeleton = useDelayedLoading(q.isLoading);
 
   useEffect(() => {
     const ch = supabase

@@ -65,6 +65,7 @@ function PollsPage() {
   });
 
   const polls = pollsQ.data ?? [];
+  const showSkeleton = useDelayedLoading(pollsQ.isLoading);
   const open = polls.filter((p) => !isPollClosed(p));
   const closed = polls.filter(isPollClosed);
 
