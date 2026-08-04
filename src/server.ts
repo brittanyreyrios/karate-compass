@@ -70,6 +70,10 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // Curriculum videos are embedded from YouTube's no-cookie domain only, and only
+  // after a family presses play. Thumbnails are already covered by img-src https:.
+  "frame-src https://www.youtube-nocookie.com",
+
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -150,7 +150,25 @@ function PrivacyPolicyPage() {
             separately: we make reasonable efforts to remove it within 30 days. Materials already printed
             and distributed, or reshared by third parties, may not be recoverable.
           </p>
+          <p className="font-semibold text-foreground">Instructional videos hosted on YouTube:</p>
+          <p>
+            Technique videos shown on the Belt Curriculum page are hosted on YouTube (a Google service)
+            and embedded in the Portal. Nothing is requested from YouTube until you press play on a
+            video — before that, only a still thumbnail image is loaded. Once you press play, Google may
+            collect information about that playback as described in{" "}
+            <a
+              href="https://policies.google.com/privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline underline-offset-4"
+            >
+              Google's Privacy Policy
+            </a>
+            . We embed videos through YouTube's no-cookie domain, which reduces but does not eliminate
+            the information Google receives.
+          </p>
         </Section>
+
 
 
         <Section n={4} title="Children's Privacy">

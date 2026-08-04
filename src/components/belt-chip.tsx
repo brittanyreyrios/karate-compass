@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { BeltPattern } from "@/lib/belts";
 
 /**
@@ -5,8 +6,12 @@ import type { BeltPattern } from "@/lib/belts";
  * and a solid purple belt are different ranks with different curriculum, and
  * that distinction is the whole point of the three-system model.
  *
+ * It is drawn as an actual belt seen head-on: a horizontal band, a knot at the
+ * centre, and two short tails hanging below it. A vertical colour block read as
+ * "a swatch"; a tied belt reads as a rank.
+ *
  * Accessibility: the full rank name (plus system, when supplied) is exposed via
- * aria-label, and the pattern is also spelled out in text so it is never
+ * aria-label, and the pattern is also spelled out in words so it is never
  * conveyed by color alone.
  */
 export type BeltChipProps = {
@@ -15,7 +20,7 @@ export type BeltChipProps = {
   colorPrimary: string;
   colorAccent?: string | null;
   systemName?: string | null;
-  /** Render the rank name next to the swatch. */
+  /** Render the rank name next to the icon. */
   showLabel?: boolean;
   size?: "sm" | "md";
   className?: string;
@@ -27,6 +32,9 @@ const PATTERN_WORD: Record<string, string> = {
   camo: "camo belt with a colored stripe",
 };
 
+/** Geometry is fixed in a 48×24 viewBox; only the rendered width changes. */
+const SIZES = { sm: "h-3 w-6", md: "h-4 w-9" } as const;
+
 export function BeltSwatch({
   name,
   pattern,
@@ -35,55 +43,63 @@ export function BeltSwatch({
   systemName,
   size = "md",
 }: Omit<BeltChipProps, "showLabel" | "className">) {
-  const dims = size === "sm" ? "h-6 w-3.5" : "h-8 w-4";
+  const uid = useId().replace(/[:]/g, "");
   const patternWord = PATTERN_WORD[pattern] ?? "belt";
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
+  const camoId = `camo-${uid}`;
+
+  // The stripe runs along the belt's length for both stripe and camo ranks —
+  // that is how the belt actually looks on the mat.
+  const striped = pattern === "stripe" || pattern === "camo";
+  const bandFill = pattern === "camo" ? `url(#${camoId})` : colorPrimary;
 
   return (
-    <span
+    <svg
       role="img"
       aria-label={label}
-      title={label}
-      className={`relative inline-block shrink-0 overflow-hidden rounded-sm border border-border/60 ${dims}`}
-      style={{ backgroundColor: colorPrimary }}
+      viewBox="0 0 48 24"
+      className={`inline-block shrink-0 ${SIZES[size]}`}
+      preserveAspectRatio="xMidYMid meet"
     >
-      {pattern === "stripe" && (
-        <span
-          aria-hidden="true"
-          className="absolute left-0 right-0 top-1/2 h-[30%] -translate-y-1/2"
-          style={{ backgroundColor: accent }}
-        />
-      )}
+      <title>{label}</title>
       {pattern === "camo" && (
-        <>
-          {/* Camo tones are derived from the editable base color, so the pattern
-              reads as real multi-tone camo rather than colored blobs. */}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `radial-gradient(circle at 30% 25%, color-mix(in srgb, ${colorPrimary} 70%, black) 0 28%, transparent 30%), radial-gradient(circle at 70% 60%, color-mix(in srgb, ${colorPrimary} 70%, #c2b280) 0 24%, transparent 26%), radial-gradient(circle at 35% 85%, color-mix(in srgb, ${colorPrimary} 55%, black) 0 20%, transparent 22%)`,
-            }}
-          />
-          <span
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(135deg, rgba(0,0,0,0.28) 0 2px, transparent 2px 5px)",
-            }}
-          />
-          {/* The rank color is the stripe, not the camo — kept slightly taller
-              with a dark outline so it stays legible over the busy base. */}
-          <span
-            aria-hidden="true"
-            className="absolute left-0 right-0 top-1/2 h-[38%] -translate-y-1/2 border-y border-black/50"
-            style={{ backgroundColor: accent }}
-          />
-        </>
+        <defs>
+          <pattern id={camoId} width="16" height="12" patternUnits="userSpaceOnUse">
+            <rect width="16" height="12" fill={colorPrimary} />
+            <circle cx="4" cy="4" r="3.2" fill={colorPrimary} style={{ filter: "brightness(0.62)" }} />
+            <circle cx="12" cy="8" r="3" fill="#c2b280" opacity="0.55" />
+            <circle cx="9" cy="2" r="2.2" fill="#000" opacity="0.35" />
+          </pattern>
+        </defs>
       )}
-    </span>
+
+      {/* Tails, drawn first so the knot sits on top of them. */}
+      <g stroke="rgba(0,0,0,0.55)" strokeWidth="0.75">
+        <rect x="19" y="14" width="4.5" height="9" rx="1" fill={bandFill} />
+        <rect x="24.5" y="14" width="4.5" height="7.5" rx="1" fill={bandFill} />
+        {striped && (
+          <>
+            <rect x="19" y="16.5" width="4.5" height="2" fill={accent} stroke="none" />
+            <rect x="24.5" y="16.5" width="4.5" height="2" fill={accent} stroke="none" />
+          </>
+        )}
+      </g>
+
+      {/* Band across the full width. */}
+      <g stroke="rgba(0,0,0,0.55)" strokeWidth="0.75">
+        <rect x="0.5" y="6.5" width="47" height="9" rx="2" fill={bandFill} />
+        {striped && (
+          <rect x="1" y="9.5" width="46" height="3" fill={accent} stroke="none" />
+        )}
+      </g>
+
+      {/* Knot. */}
+      <g stroke="rgba(0,0,0,0.6)" strokeWidth="0.75">
+        <rect x="17.5" y="5" width="13" height="12" rx="2.5" fill={bandFill} />
+        {striped && <rect x="18" y="9.5" width="12" height="3" fill={accent} stroke="none" />}
+      </g>
+    </svg>
   );
 }
 
