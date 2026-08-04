@@ -32,6 +32,7 @@ import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -182,7 +183,7 @@ function Dashboard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [student?.next_test_date]);
 
-  if (studentsQ.isLoading || profileQ.isLoading) {
+  if (showSkeleton) {
     return <DashboardSkeleton />;
   }
 

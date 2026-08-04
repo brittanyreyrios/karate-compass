@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({

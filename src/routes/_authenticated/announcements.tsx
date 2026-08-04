@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateOnly, formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({

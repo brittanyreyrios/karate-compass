@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
 import { CurriculumSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
@@ -78,7 +79,8 @@ function Curriculum() {
     },
   });
 
-  const loading = studentsQ.isLoading || ranksQ.isLoading || (students.length > 0 && itemsQ.isLoading);
+  const rawLoading = studentsQ.isLoading || ranksQ.isLoading || (students.length > 0 && itemsQ.isLoading);
+  const loading = useDelayedLoading(rawLoading);
 
   const perChild = students.map((s) => {
     const rank = ranks.find((r) => r.id === s.belt_rank_id);

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { BeltSwatch } from "@/components/belt-chip";
 import { useBeltSystems } from "@/lib/belts";
 import { LeaderboardSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
