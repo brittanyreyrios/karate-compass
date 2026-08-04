@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, ScrollText } from "lucide-react";
+import { BookOpen, PlayCircle, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BeltChip } from "@/components/belt-chip";
+import { VideoFacade } from "@/components/video-facade";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
+import { beltLabelStyle } from "@/lib/belt-colors";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
 import { CurriculumSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
@@ -36,7 +39,11 @@ type CurriculumItem = {
   group_label: string;
   /** True for the student's exact rank, or their exact tier. */
   is_current: boolean;
+  video_youtube_id: string | null;
+  video_title: string | null;
+  video_seconds: number | null;
 };
+
 
 
 function Curriculum() {
@@ -86,17 +93,26 @@ function Curriculum() {
     const rank = ranks.find((r) => r.id === s.belt_rank_id);
     const system = systems.find((sys) => sys.id === rank?.system_id);
     const entitled = itemsQ.data?.get(s.id) ?? [];
-    const current = entitled.filter((i) => i.is_current);
+    // "Dojo Basics" is the beginner tier-wide material — etiquette and
+    // fundamentals every student is held to, at every belt. It is pulled out of
+    // the rank/earned buckets FIRST so each item renders exactly once.
+    const basics = entitled.filter(
+      (i) => i.belt_rank_id === null && i.curriculum_tier === "beginner",
+    );
+    const basicIds = new Set(basics.map((i) => i.id));
+    const rest = entitled.filter((i) => !basicIds.has(i.id));
+    const current = rest.filter((i) => i.is_current);
     // The RPC already orders earned material newest-rank-first with tier-wide
     // groups last, so grouping in arrival order preserves that.
     const earnedGroups: { label: string; items: CurriculumItem[] }[] = [];
-    for (const item of entitled.filter((i) => !i.is_current)) {
+    for (const item of rest.filter((i) => !i.is_current)) {
       const last = earnedGroups[earnedGroups.length - 1];
       if (last && last.label === item.group_label) last.items.push(item);
       else earnedGroups.push({ label: item.group_label, items: [item] });
     }
-    return { student: s, rank, system, current, earnedGroups };
+    return { student: s, rank, system, basics, current, earnedGroups };
   });
+
 
 
   return (
@@ -124,7 +140,7 @@ function Curriculum() {
 
       {!loading && perChild.length > 0 && (
         <div className="mt-10 space-y-10">
-          {perChild.map(({ student, rank, system, current, earnedGroups }) => (
+          {perChild.map(({ student, rank, system, basics, current, earnedGroups }) => (
             <section key={student.id} className="rounded-2xl border border-border bg-card p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -147,7 +163,10 @@ function Curriculum() {
                 </div>
                 <div className="text-right">
                   {rank && (
-                    <Badge variant="outline" className="border-primary/40 text-primary">
+                    <Badge
+                      variant="outline"
+                      style={beltLabelStyle(rank.color_primary, rank.color_accent)}
+                    >
                       {TIER_LABELS[rank.curriculum_tier]} curriculum
                     </Badge>
                   )}
@@ -158,9 +177,26 @@ function Curriculum() {
                 </div>
               </div>
 
+              {basics.length > 0 && (
+                <div className="mt-8 rounded-xl border border-border bg-background/40 p-4">
+                  <h3 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                    Dojo Basics
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Etiquette and fundamentals — for every student, at every belt.
+                  </p>
+                  <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {basics.map((t, i) => (
+                      <RequirementCard key={t.id} item={t} index={i} />
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <h3 className="mt-8 font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
                 Working on now
               </h3>
+
               {current.length === 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">
                   Nothing published for this rank yet. Ask at the front desk for the printed requirement
@@ -217,19 +253,36 @@ function RequirementCard({ item, index }: { item: CurriculumItem; index: number 
         <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
           {String(index + 1).padStart(2, "0")}
         </span>
-        <div className="min-w-0">
-          <div className="font-semibold">{item.technique}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <span className="min-w-0 font-semibold">{item.technique}</span>
+            {item.video_youtube_id && (
+              <PlayCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                aria-label="Has a video"
+              />
+            )}
+          </div>
           {item.category && (
             <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
               {item.category}
             </div>
           )}
           {item.notes && <p className="mt-2 text-sm text-muted-foreground">{item.notes}</p>}
+          {item.video_youtube_id && (
+            <VideoFacade
+              videoId={item.video_youtube_id}
+              technique={item.technique}
+              videoTitle={item.video_title}
+              videoSeconds={item.video_seconds}
+            />
+          )}
         </div>
       </div>
     </li>
   );
 }
+
 
 
 function EmptyCard({ title, body }: { title: string; body: string }) {

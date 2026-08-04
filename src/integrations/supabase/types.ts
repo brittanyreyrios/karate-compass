@@ -264,6 +264,9 @@ export type Database = {
           notes: string | null
           sort_order: number
           technique: string
+          video_seconds: number | null
+          video_title: string | null
+          video_youtube_id: string | null
         }
         Insert: {
           active?: boolean
@@ -276,6 +279,9 @@ export type Database = {
           notes?: string | null
           sort_order?: number
           technique: string
+          video_seconds?: number | null
+          video_title?: string | null
+          video_youtube_id?: string | null
         }
         Update: {
           active?: boolean
@@ -288,6 +294,9 @@ export type Database = {
           notes?: string | null
           sort_order?: number
           technique?: string
+          video_seconds?: number | null
+          video_title?: string | null
+          video_youtube_id?: string | null
         }
         Relationships: [
           {
@@ -871,6 +880,9 @@ export type Database = {
           rank_name: string
           sort_order: number
           technique: string
+          video_seconds: number
+          video_title: string
+          video_youtube_id: string
         }[]
       }
       get_leaderboard: {
