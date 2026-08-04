@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
@@ -44,6 +45,7 @@ function Gallery() {
     },
   });
   const albums = albumsQ.data ?? [];
+  const showSkeleton = useDelayedLoading(albumsQ.isLoading);
   const coversQ = useCoverUrls(albums.map((a) => a.cover_image_url));
 
 
@@ -73,9 +75,9 @@ function Gallery() {
         </div>
       </header>
 
-      {albumsQ.isLoading && <CardGridSkeleton label="Loading albums" />}
+      {showSkeleton && <CardGridSkeleton label="Loading albums" />}
 
-      {!albumsQ.isLoading && albums.length === 0 && (
+      {!showSkeleton && !albumsQ.isLoading && albums.length === 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
           <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
           <h2 className="mt-4 font-display text-lg font-bold uppercase">No albums published yet</h2>

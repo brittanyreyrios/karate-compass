@@ -165,3 +165,37 @@ export function CurriculumSkeleton() {
     </Loading>
   );
 }
+
+/**
+ * Route-level pending state.
+ *
+ * Used as the router's `defaultPendingComponent`, so the first boot and every
+ * route transition hold a page-shaped placeholder instead of collapsing to
+ * white. It is deliberately generic — a title block plus a few cards — because
+ * it has to stand in for any route, and deliberately a skeleton rather than a
+ * spinner so it matches the per-query states around it.
+ */
+export function RouteShellSkeleton() {
+  return (
+    <Loading label="Loading page" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <Skeleton className="h-3 w-28" />
+      <Skeleton className="mt-3 h-9 w-64 max-w-full" />
+      <Skeleton className="mt-3 h-3 w-full max-w-xl" />
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-2xl border border-border bg-card p-5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-3 h-7 w-28" />
+            <Skeleton className="mt-3 h-3 w-full" />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 space-y-2">
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+      </div>
+    </Loading>
+  );
+}

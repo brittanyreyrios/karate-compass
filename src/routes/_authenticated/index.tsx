@@ -25,13 +25,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BeltChip, BeltSwatch } from "@/components/belt-chip";
 import { computeBeltProgress, useBeltRanks, useBeltSystems } from "@/lib/belts";
-import { EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
 import { Link } from "@tanstack/react-router";
 
 import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -173,6 +174,9 @@ function Dashboard() {
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
 
+  // Delayed + minimum-duration so the skeleton never appears for one frame.
+  const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
+
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
   const daysToTest = useMemo(() => {
@@ -182,7 +186,7 @@ function Dashboard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [student?.next_test_date]);
 
-  if (studentsQ.isLoading || profileQ.isLoading) {
+  if (showSkeleton) {
     return <DashboardSkeleton />;
   }
 
@@ -465,9 +469,9 @@ function NextUpStrip() {
       <ul className="mt-4 grid gap-3 sm:grid-cols-3">
         {events.map((event) => (
           <li key={event.id} className="rounded-xl border border-border bg-background/50 p-4">
-            <Badge variant="outline" className={EVENT_TYPE_META[event.event_type].badge}>
+            <span className={`${CHIP_BASE} ${EVENT_TYPE_META[event.event_type].badge}`}>
               {EVENT_TYPE_META[event.event_type].label}
-            </Badge>
+            </span>
             <h3 className="mt-3 font-semibold text-foreground">{event.title}</h3>
             <div className="mt-1 text-xs text-muted-foreground">
               {new Date(event.starts_at).toLocaleDateString(undefined, {

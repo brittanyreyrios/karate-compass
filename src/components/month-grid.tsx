@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EVENT_TYPE_META, toDateKey, type CalendarItem } from "@/lib/calendar-data";
+import { chipMeta, toDateKey, type CalendarItem } from "@/lib/calendar-data";
 
 /**
  * Month grid, phone first.
@@ -135,16 +135,21 @@ export function MonthGrid({
 
               <span className="mt-0.5 flex min-w-0 flex-col gap-0.5">
                 {dayItems.slice(0, 2).map((item) => {
-                  const meta = item.eventType ? EVENT_TYPE_META[item.eventType] : null;
+                  const meta = chipMeta(item.eventType);
                   return (
                     <span
                       key={item.key}
-                      className={`truncate rounded border px-1 text-[11px] leading-4 ${
-                        meta ? meta.badge : "border-border bg-muted text-muted-foreground"
+                      title={item.title}
+                      /* Two lines of wrapped text, not one truncated word: at
+                         phone width a single line collapses "IBJJF Houston Fall
+                         Open" to "IB…", which tells a parent nothing. */
+                      className={`line-clamp-2 break-words rounded border px-0.5 text-[11px] font-semibold leading-[13px] sm:px-1 ${
+                        meta.badge
                       } ${item.cancelled ? "line-through" : ""}`}
                     >
                       {item.title}
                     </span>
+
                   );
                 })}
                 {extra > 0 && (
