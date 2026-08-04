@@ -139,12 +139,17 @@ export function MonthGrid({
                   return (
                     <span
                       key={item.key}
-                      className={`truncate rounded border px-1 text-[11px] font-semibold leading-4 ${
+                      title={item.title}
+                      /* Two lines of wrapped text, not one truncated word: at
+                         phone width a single line collapses "IBJJF Houston Fall
+                         Open" to "IB…", which tells a parent nothing. */
+                      className={`line-clamp-2 break-words rounded border px-0.5 text-[11px] font-semibold leading-[13px] sm:px-1 ${
                         meta.badge
                       } ${item.cancelled ? "line-through" : ""}`}
                     >
                       {item.title}
                     </span>
+
                   );
                 })}
                 {extra > 0 && (
