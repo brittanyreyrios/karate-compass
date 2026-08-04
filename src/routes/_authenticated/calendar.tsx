@@ -160,8 +160,8 @@ function CalendarPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Everything that isn&apos;t the normal week — special classes, testing, tournaments,
-            seminars, tournaments and closures. Your regular weekly class times are on the
-            dashboard.
+            seminars and closures. Your regular weekly class times are on the dashboard.
+
           </p>
 
         </div>
