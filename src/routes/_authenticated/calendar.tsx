@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { MonthGrid } from "@/components/month-grid";
 import { CalendarSkeleton } from "@/components/skeletons";
+import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import {
+  CHIP_BASE,
   EVENT_TYPE_META,
+  chipMeta,
+  CLOSURE_META,
   buildCalendarItems,
   groupByDate,
   formatDayHeading,
@@ -16,6 +20,7 @@ import {
   type CalendarItem,
   type DojoEvent,
   type HolidayRow,
+  type TournamentRow,
 } from "@/lib/calendar-data";
 
 
@@ -81,16 +86,44 @@ export function useCalendarData(month: Date) {
     },
   });
 
+  /**
+   * Tournaments live in `announcements` (category = 'tournament') — that table is
+   * the single source of truth and the Tournaments admin is the only place they
+   * are edited. Here they are read-only, and any tournament that *overlaps* the
+   * window is fetched, not just those starting in it, so a multi-day event that
+   * begins in the previous month still draws its remaining days.
+   */
+  const tournamentsQ = useQuery({
+    queryKey: ["calendar-tournaments", fromKey, toKey],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("announcements")
+        .select(
+          "id, title, body, discipline, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url",
+        )
+        .eq("category", "tournament")
+        .not("event_date", "is", null)
+        .lte("event_date", toKey)
+        .or(`event_end_date.gte.${fromKey},and(event_end_date.is.null,event_date.gte.${fromKey})`)
+        .order("event_date");
+      return (data ?? []) as TournamentRow[];
+    },
+  });
+
   const items = useMemo(
     () =>
       buildCalendarItems({
         holidays: holidaysQ.data ?? [],
         events: eventsQ.data ?? [],
+        tournaments: tournamentsQ.data ?? [],
       }),
-    [holidaysQ.data, eventsQ.data],
+    [holidaysQ.data, eventsQ.data, tournamentsQ.data],
   );
 
-  return { items, loading: holidaysQ.isLoading || eventsQ.isLoading };
+  return {
+    items,
+    loading: holidaysQ.isLoading || eventsQ.isLoading || tournamentsQ.isLoading,
+  };
 }
 
 
@@ -100,7 +133,8 @@ function CalendarPage() {
   const [selected, setSelected] = useState<Date>(today);
   const [view, setView] = useState<"list" | "month">("list");
 
-  const { items, loading } = useCalendarData(month);
+  const { items, loading: rawLoading } = useCalendarData(month);
+  const loading = useDelayedLoading(rawLoading);
 
   const todayKey = toDateKey(today);
   const agenda = useMemo(
@@ -213,18 +247,14 @@ function CalendarPage() {
 function Legend() {
   return (
     <ul className="mt-6 flex flex-wrap gap-2" aria-label="Calendar key">
-      <li>
-        <Badge variant="outline" className="border-border text-muted-foreground line-through">
-          No class
-        </Badge>
-      </li>
       {Object.entries(EVENT_TYPE_META).map(([type, meta]) => (
         <li key={type}>
-          <Badge variant="outline" className={meta.badge}>
-            {meta.label}
-          </Badge>
+          <span className={`${CHIP_BASE} ${meta.badge}`}>{meta.label}</span>
         </li>
       ))}
+      <li>
+        <span className={`${CHIP_BASE} ${CLOSURE_META.badge} line-through`}>{CLOSURE_META.label}</span>
+      </li>
     </ul>
   );
 }
@@ -251,7 +281,7 @@ function DayPanel({ dateKey, items }: { dateKey: string; items: CalendarItem[] }
 }
 
 function ItemCard({ item }: { item: CalendarItem }) {
-  const meta = item.eventType ? EVENT_TYPE_META[item.eventType] : null;
+  const meta = chipMeta(item.eventType);
   return (
     <article
       className={`rounded-xl border p-4 ${
@@ -259,9 +289,12 @@ function ItemCard({ item }: { item: CalendarItem }) {
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className={meta ? meta.badge : "border-border text-muted-foreground"}>
-          {meta ? meta.label : "Closure"}
-        </Badge>
+        <span className={`${CHIP_BASE} ${meta.badge}`}>{meta.label}</span>
+        {item.dayLabel && (
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {item.dayLabel}
+          </span>
+        )}
 
         {item.cancelled && (
           <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -294,7 +327,21 @@ function ItemCard({ item }: { item: CalendarItem }) {
             <Users className="h-3 w-3" aria-hidden="true" /> {item.audienceLabel}
           </span>
         )}
+        {item.address && <span>{item.address}</span>}
+        {item.registrationDeadline && (
+          <span>Register by {new Date(`${item.registrationDeadline}T12:00:00`).toLocaleDateString()}</span>
+        )}
       </div>
+      {item.eventUrl && (
+        <a
+          href={item.eventUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-2 inline-block text-xs font-semibold text-primary underline"
+        >
+          Event details
+        </a>
+      )}
     </article>
   );
 }
