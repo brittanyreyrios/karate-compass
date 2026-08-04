@@ -76,8 +76,8 @@ function Announcements() {
             <h2 className="font-display text-xl font-bold uppercase tracking-wide">School News</h2>
           </div>
           <div className="mt-4 space-y-4">
-            {isLoading && <ListSkeleton rows={2} height="h-40" label="Loading school news" />}
-            {!isLoading && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
+            {showSkeleton && <ListSkeleton rows={2} height="h-40" label="Loading school news" />}
+            {!showSkeleton && !isLoading && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
             {news.map((n, i) => (
               <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${i === 0 ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
                 {i === 0 && (
@@ -102,8 +102,8 @@ function Announcements() {
             <h2 className="font-display text-xl font-bold uppercase tracking-wide">Upcoming Tournaments</h2>
           </div>
           <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
-            {isLoading && <ListSkeleton rows={2} height="h-48" label="Loading tournaments" />}
-            {!isLoading && tournaments.length === 0 && <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
+            {showSkeleton && <ListSkeleton rows={2} height="h-48" label="Loading tournaments" />}
+            {!showSkeleton && !isLoading && tournaments.length === 0 && <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
             {tournaments.map((t) => {
               const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
               return (

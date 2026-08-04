@@ -81,8 +81,8 @@ function PollsPage() {
         </p>
       </header>
 
-      {pollsQ.isLoading && <ListSkeleton rows={3} height="h-40" label="Loading polls" />}
-      {!pollsQ.isLoading && polls.length === 0 && (
+      {showSkeleton && <ListSkeleton rows={3} height="h-40" label="Loading polls" />}
+      {!showSkeleton && !pollsQ.isLoading && polls.length === 0 && (
         <p className="mt-8 text-sm text-muted-foreground">Nothing to answer right now.</p>
       )}
 

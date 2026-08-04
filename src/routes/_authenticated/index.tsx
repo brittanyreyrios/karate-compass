@@ -174,6 +174,9 @@ function Dashboard() {
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
 
+  // Delayed + minimum-duration so the skeleton never appears for one frame.
+  const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
+
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
   const daysToTest = useMemo(() => {

@@ -152,9 +152,9 @@ function LeaderboardPage() {
         aria-labelledby={slug ? `lb-tab-${slug}` : undefined}
         tabIndex={0}
       >
-        {q.isLoading && <LeaderboardSkeleton />}
+        {showSkeleton && <LeaderboardSkeleton />}
 
-        {!q.isLoading && rows.length === 0 && (
+        {!showSkeleton && !q.isLoading && rows.length === 0 && (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
             <p className="mt-4 text-sm text-muted-foreground">
