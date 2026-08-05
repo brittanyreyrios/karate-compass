@@ -182,6 +182,8 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "belts", label: "Belt Systems" },
   { value: "guidelines", label: "Dojo Point Guidelines" },
   { value: "announcements", label: "Post Announcement" },
+  { value: "manage-announcements", label: "Manage Announcements" },
+
 ];
 
 function AdminPage() {
