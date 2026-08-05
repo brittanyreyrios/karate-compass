@@ -1234,6 +1234,8 @@ type ClassSchedule = {
   class_name: string;
   next_test_date: string | null;
   location: string | null;
+  /** The announcement posted for this class's testing date, if any. */
+  test_announcement_id: string | null;
   updated_at: string;
 };
 
@@ -1247,12 +1249,13 @@ function ClassSchedulesTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_schedules")
-        .select("id, class_name, next_test_date, location, updated_at")
+        .select("id, class_name, next_test_date, location, test_announcement_id, updated_at")
         .order("class_name");
       if (error) throw error;
       return (data ?? []) as ClassSchedule[];
     },
   });
+
 
   const addClass = useMutation({
     mutationFn: async () => {
