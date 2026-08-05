@@ -47,6 +47,23 @@ export function youTubeThumbnail(id: string): string {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
+/**
+ * Intrinsic sizes of the two thumbnails we use. `mqdefault` (320×180) is plenty
+ * for a full-width card on a phone; `hqdefault` (480×360) is only fetched once the
+ * layout is wide enough to show it, so a phone downloads roughly a third of the
+ * bytes. Both are 16:9 once cropped, and the <img> carries explicit dimensions so
+ * the card reserves its space before the image lands.
+ */
+export const THUMBNAIL_WIDTH = 480;
+export const THUMBNAIL_HEIGHT = 270;
+
+export function youTubeThumbnailSrcSet(id: string): string {
+  return [
+    `https://i.ytimg.com/vi/${id}/mqdefault.jpg 320w`,
+    `https://i.ytimg.com/vi/${id}/hqdefault.jpg 480w`,
+  ].join(", ");
+}
+
 export function youTubeEmbedSrc(id: string, autoplay = true): string {
   return `https://www.youtube-nocookie.com/embed/${id}${autoplay ? "?autoplay=1" : ""}`;
 }

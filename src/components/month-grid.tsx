@@ -59,35 +59,11 @@ export function MonthGrid({
 
   const todayKey = toDateKey(new Date());
   const selectedKey = toDateKey(selected);
-  const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-
-  const shiftMonth = (delta: number) =>
-    onMonthChange(new Date(month.getFullYear(), month.getMonth() + delta, 1));
 
   return (
     <div className="rounded-2xl border border-border bg-card p-2 sm:p-4">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11"
-          aria-label="Previous month"
-          onClick={() => shiftMonth(-1)}
-        >
-          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-        </Button>
-        <h2 aria-live="polite" className="truncate text-center font-display text-base font-bold uppercase tracking-wide sm:text-lg">
-          {monthLabel}
-        </h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11"
-          aria-label="Next month"
-          onClick={() => shiftMonth(1)}
-        >
-          <ChevronRight className="h-5 w-5" aria-hidden="true" />
-        </Button>
+      <div>
+        <MonthNav month={month} onMonthChange={onMonthChange} />
       </div>
 
       <div className="mt-2 grid grid-cols-7 gap-1" role="row">
@@ -162,6 +138,53 @@ export function MonthGrid({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+
+/**
+ * The one month header pattern, shared by the month grid and the list view so the
+ * two views cannot drift apart: 44px targets, real aria-labels, and an
+ * aria-live heading so a screen reader announces the month as it changes.
+ */
+export function MonthNav({
+  month,
+  onMonthChange,
+}: {
+  month: Date;
+  onMonthChange: (d: Date) => void;
+}) {
+  const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const shiftMonth = (delta: number) =>
+    onMonthChange(new Date(month.getFullYear(), month.getMonth() + delta, 1));
+
+  return (
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-11 w-11"
+        aria-label="Previous month"
+        onClick={() => shiftMonth(-1)}
+      >
+        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+      </Button>
+      <h2
+        aria-live="polite"
+        className="truncate text-center font-display text-base font-bold uppercase tracking-wide sm:text-lg"
+      >
+        {monthLabel}
+      </h2>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-11 w-11"
+        aria-label="Next month"
+        onClick={() => shiftMonth(1)}
+      >
+        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+      </Button>
     </div>
   );
 }

@@ -878,6 +878,28 @@ export type Database = {
     }
     Functions: {
       check_invite_code: { Args: { _code: string }; Returns: boolean }
+      get_curriculum_for_all_children: {
+        Args: never
+        Returns: {
+          belt_rank_id: string
+          belt_rank_id_student: string
+          category: string
+          curriculum_tier: string
+          first_name: string
+          group_label: string
+          id: string
+          is_current: boolean
+          notes: string
+          rank_name: string
+          sort_order: number
+          student_created_at: string
+          student_id: string
+          technique: string
+          video_seconds: number
+          video_title: string
+          video_youtube_id: string
+        }[]
+      }
       get_curriculum_for_student: {
         Args: { _student_id: string }
         Returns: {
@@ -935,6 +957,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      next_curriculum_sort_order: {
+        Args: { _belt_rank_id: string; _curriculum_tier: string }
+        Returns: number
       }
       resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
     }

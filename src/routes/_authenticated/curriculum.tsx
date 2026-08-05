@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, PlayCircle, ScrollText } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BeltChip } from "@/components/belt-chip";
 import { VideoFacade } from "@/components/video-facade";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { beltLabelStyle } from "@/lib/belt-colors";
+import { formatRuntime } from "@/lib/youtube";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
 import { CurriculumSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
@@ -44,81 +46,88 @@ type CurriculumItem = {
   video_seconds: number | null;
 };
 
+type ChildRow = CurriculumItem & {
+  student_id: string;
+  first_name: string;
+  belt_rank_id_student: string | null;
+  student_created_at: string;
+};
 
 
 function Curriculum() {
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
 
-  const studentsQ = useQuery({
-    queryKey: ["students-mine"],
+  /**
+   * ONE round trip for the whole page. get_curriculum_for_all_children resolves
+   * the parent from auth.uid() server-side and applies exactly the same
+   * entitlement rules as get_curriculum_for_student — the rank, the belt system
+   * and the tier ceiling are all read in the database, never sent from the
+   * browser, so the full library still never reaches the client. Previously this
+   * was a waterfall: mount → fetch children → N× fetch curriculum.
+   */
+  const childrenQ = useQuery({
+    queryKey: ["curriculum-for-children"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("students")
-        .select("id, first_name, current_belt, belt_rank_id")
-        .order("created_at");
+      const { data, error } = await supabase.rpc("get_curriculum_for_all_children");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as ChildRow[];
     },
   });
 
-  const students = studentsQ.data ?? [];
   const ranks = ranksQ.data ?? [];
   const systems = systemsQ.data ?? [];
 
-  // Entitlement is resolved on the server: get_curriculum_for_student verifies
-  // the caller owns the student, reads the rank server-side and returns only the
-  // entitled rows — the full library never reaches the browser.
-  const itemsQ = useQuery({
-    queryKey: ["curriculum-for-students", students.map((s) => s.id).join(",")],
-    enabled: students.length > 0,
-    queryFn: async () => {
-      const entries = await Promise.all(
-        students.map(async (s) => {
-          const { data, error } = await supabase.rpc("get_curriculum_for_student", {
-            _student_id: s.id,
-          });
-          if (error) throw error;
-          return [s.id, (data ?? []) as CurriculumItem[]] as const;
-        }),
-      );
-      return new Map(entries);
-    },
-  });
-
-  const rawLoading = studentsQ.isLoading || ranksQ.isLoading || (students.length > 0 && itemsQ.isLoading);
+  const rawLoading = childrenQ.isLoading || ranksQ.isLoading;
   const loading = useDelayedLoading(rawLoading);
 
-  const perChild = students.map((s) => {
-    const rank = ranks.find((r) => r.id === s.belt_rank_id);
+  // Rows arrive grouped per child (student created_at, then the RPC's ordering
+  // contract), so a single arrival-order pass preserves both groupings.
+  const perChild: {
+    studentId: string;
+    firstName: string;
+    rankId: string | null;
+    rows: ChildRow[];
+  }[] = [];
+  for (const row of childrenQ.data ?? []) {
+    const last = perChild[perChild.length - 1];
+    if (last && last.studentId === row.student_id) last.rows.push(row);
+    else
+      perChild.push({
+        studentId: row.student_id,
+        firstName: row.first_name,
+        rankId: row.belt_rank_id_student,
+        rows: [row],
+      });
+  }
+
+  const sections = perChild.map(({ studentId, firstName, rankId, rows }) => {
+    const rank = ranks.find((r) => r.id === rankId);
     const system = systems.find((sys) => sys.id === rank?.system_id);
-    const entitled = itemsQ.data?.get(s.id) ?? [];
     // "Dojo Basics" is the beginner tier-wide material — etiquette and
     // fundamentals every student is held to, at every belt. It is pulled out of
     // the rank/earned buckets FIRST so each item renders exactly once.
-    const basics = entitled.filter(
-      (i) => i.belt_rank_id === null && i.curriculum_tier === "beginner",
-    );
+    const basics = rows.filter((i) => i.belt_rank_id === null && i.curriculum_tier === "beginner");
     const basicIds = new Set(basics.map((i) => i.id));
-    const rest = entitled.filter((i) => !basicIds.has(i.id));
+    const rest = rows.filter((i) => !basicIds.has(i.id));
     const current = rest.filter((i) => i.is_current);
-    // The RPC already orders earned material newest-rank-first with tier-wide
-    // groups last, so grouping in arrival order preserves that.
     const earnedGroups: { label: string; items: CurriculumItem[] }[] = [];
     for (const item of rest.filter((i) => !i.is_current)) {
       const last = earnedGroups[earnedGroups.length - 1];
       if (last && last.label === item.group_label) last.items.push(item);
       else earnedGroups.push({ label: item.group_label, items: [item] });
     }
-    return { student: s, rank, system, basics, current, earnedGroups };
+    return { studentId, firstName, rank, system, basics, current, earnedGroups };
   });
-
-
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header>
-        <div className="text-xs uppercase tracking-[0.3em] text-primary">Technique library</div>
+        {/* Wide tracking belongs on large display type only — below ~14px it reads
+            as thin and spreads a short label across the page. */}
+        <div className="text-xs font-semibold uppercase tracking-wider text-primary">
+          Technique library
+        </div>
         <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
           Belt <span className="text-gradient-red">Curriculum</span>
         </h1>
@@ -131,20 +140,22 @@ function Curriculum() {
 
       {loading && <CurriculumSkeleton />}
 
-      {!loading && students.length === 0 && (
+      {!loading && sections.length === 0 && (
         <EmptyCard
           title="No students linked yet"
           body="Ask a Tiger's Den admin to link your child to your account and their curriculum will appear here."
         />
       )}
 
-      {!loading && perChild.length > 0 && (
-        <div className="mt-10 space-y-10">
-          {perChild.map(({ student, rank, system, basics, current, earnedGroups }) => (
-            <section key={student.id} className="rounded-2xl border border-border bg-card p-6">
+      {!loading && sections.length > 0 && (
+        <div className="mt-10 space-y-12">
+          {sections.map(({ studentId, firstName, rank, system, basics, current, earnedGroups }) => (
+            <section key={studentId} className="rounded-2xl border border-border bg-card p-5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="font-display text-2xl font-bold uppercase">{student.first_name}</h2>
+                  <h2 className="font-display text-2xl font-bold uppercase sm:text-3xl">
+                    {firstName}
+                  </h2>
                   <div className="mt-2">
                     {rank ? (
                       <BeltChip
@@ -171,69 +182,39 @@ function Curriculum() {
                     </Badge>
                   )}
                   {/* Current-rank count only — it must not inflate as a student advances. */}
-                  <div className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">
+                  <div className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {count(current.length, "requirement")} at this rank
                   </div>
                 </div>
               </div>
 
               {basics.length > 0 && (
-                <div className="mt-8 rounded-xl border border-border bg-background/40 p-4">
-                  <h3 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                    Dojo Basics
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-10">
+                  <SectionHeading>Dojo Basics</SectionHeading>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Etiquette and fundamentals — for every student, at every belt.
                   </p>
-                  <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {basics.map((t, i) => (
-                      <RequirementCard key={t.id} item={t} index={i} />
-                    ))}
-                  </ul>
+                  <RequirementList items={basics} />
                 </div>
               )}
 
-              <h3 className="mt-8 font-display text-sm font-bold uppercase tracking-[0.2em] text-primary">
-                Working on now
-              </h3>
-
-              {current.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Nothing published for this rank yet. Ask at the front desk for the printed requirement
-                  sheet in the meantime.
-                </p>
-              ) : (
-                <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {current.map((t, i) => (
-                    <RequirementCard key={t.id} item={t} index={i} />
-                  ))}
-                </ul>
-              )}
+              <div className="mt-10">
+                <SectionHeading accent>Working on now</SectionHeading>
+                {current.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Nothing published for this rank yet. Ask at the front desk for the printed
+                    requirement sheet in the meantime.
+                  </p>
+                ) : (
+                  <RequirementList items={current} />
+                )}
+              </div>
 
               {earnedGroups.length > 0 && (
-                <details className="mt-8 rounded-xl border border-border bg-background/60">
-                  <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
-                    Everything {student.first_name} has earned so far
-                  </summary>
-                  <div className="space-y-6 border-t border-border px-4 py-4">
-                    {earnedGroups.map((group) => (
-                      <div key={group.label}>
-                        <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                          {group.label}
-                        </h4>
-                        <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {group.items.map((t, i) => (
-                            <RequirementCard key={t.id} item={t} index={i} />
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </details>
+                <EarnedAccordion firstName={firstName} groups={earnedGroups} />
               )}
             </section>
           ))}
-
         </div>
       )}
 
@@ -246,43 +227,127 @@ function Curriculum() {
   );
 }
 
+/** Section level: clearly larger than the technique names it labels. */
+function SectionHeading({
+  children,
+  accent = false,
+}: {
+  children: React.ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <h3
+      className={`font-display text-xl font-bold uppercase tracking-wide sm:text-2xl ${
+        accent ? "text-primary" : ""
+      }`}
+    >
+      {children}
+    </h3>
+  );
+}
+
+/**
+ * Library layout: two wide columns on desktop, one on a phone, and `items-start`
+ * so a short text-only requirement is allowed to stay short instead of being
+ * stretched to match the video card beside it.
+ */
+function RequirementList({ items }: { items: CurriculumItem[] }) {
+  return (
+    <ul className="mt-5 grid items-start gap-x-6 gap-y-8 sm:grid-cols-2">
+      {items.map((item, i) => (
+        <RequirementCard key={item.id} item={item} index={i} />
+      ))}
+    </ul>
+  );
+}
+
 function RequirementCard({ item, index }: { item: CurriculumItem; index: number }) {
+  const runtime = formatRuntime(item.video_seconds);
+  const position = String(index + 1).padStart(2, "0");
+  // Metadata line, YouTube style: quieter than the title, one line, not stacked.
+  const meta = [item.category, runtime, item.group_label].filter(Boolean) as string[];
+
+  if (item.video_youtube_id) {
+    return (
+      <li>
+        {/* No card border: the thumbnail already defines the shape. */}
+        <VideoFacade
+          videoId={item.video_youtube_id}
+          technique={item.technique}
+          videoSeconds={item.video_seconds}
+          variant="cover"
+        />
+        <div className="mt-3">
+          <h4 className="text-lg font-bold leading-snug sm:text-xl">
+            <span className="mr-2 tabular-nums font-semibold text-muted-foreground">{position}</span>
+            {item.technique}
+          </h4>
+          {meta.length > 0 && (
+            <p className="mt-1 truncate text-sm text-muted-foreground">{meta.join(" · ")}</p>
+          )}
+          {/* Notes carry real instruction, so they sit at full foreground. */}
+          {item.notes && <p className="mt-2 text-sm leading-relaxed">{item.notes}</p>}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li className="rounded-xl border border-border bg-background p-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <span className="min-w-0 font-semibold">{item.technique}</span>
-            {item.video_youtube_id && (
-              <PlayCircle
-                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-                aria-label="Has a video"
-              />
-            )}
-          </div>
-          {item.category && (
-            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-              {item.category}
-            </div>
-          )}
-          {item.notes && <p className="mt-2 text-sm text-muted-foreground">{item.notes}</p>}
-          {item.video_youtube_id && (
-            <VideoFacade
-              videoId={item.video_youtube_id}
-              technique={item.technique}
-              videoTitle={item.video_title}
-              videoSeconds={item.video_seconds}
-            />
-          )}
-        </div>
-      </div>
+      <h4 className="text-base font-bold leading-snug sm:text-lg">
+        <span className="mr-2 tabular-nums font-semibold text-muted-foreground">{position}</span>
+        {item.technique}
+      </h4>
+      {item.category && <p className="mt-1 text-sm text-muted-foreground">{item.category}</p>}
+      {item.notes && <p className="mt-2 text-sm leading-relaxed">{item.notes}</p>}
     </li>
   );
 }
 
+/**
+ * The earned library is rendered ONLY once opened. A <details> keeps its children
+ * in the DOM whether open or not, so a brown belt would otherwise build every
+ * requirement — and every thumbnail <img> — from every rank below them before
+ * anything became visible. The summary keeps the item count so nothing looks
+ * missing while collapsed.
+ */
+function EarnedAccordion({
+  firstName,
+  groups,
+}: {
+  firstName: string;
+  groups: { label: string; items: CurriculumItem[] }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+
+  return (
+    <details
+      className="mt-10 rounded-xl border border-border bg-background/60"
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-base font-semibold">
+        Everything {firstName} has earned so far
+        <span className="ml-2 text-sm font-medium text-muted-foreground">
+          ({count(total, "requirement")})
+        </span>
+      </summary>
+      {open && (
+        <div className="space-y-8 border-t border-border px-4 py-5">
+          {groups.map((group) => (
+            <div key={group.label}>
+              <h4 className="font-display text-base font-bold uppercase tracking-wide sm:text-lg">
+                {group.label}
+              </h4>
+              <RequirementList items={group.items} />
+            </div>
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
 
 
 function EmptyCard({ title, body }: { title: string; body: string }) {

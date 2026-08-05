@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
-import { formatRuntime, youTubeEmbedSrc, youTubeThumbnail } from "@/lib/youtube";
+import {
+  THUMBNAIL_HEIGHT,
+  THUMBNAIL_WIDTH,
+  formatRuntime,
+  youTubeEmbedSrc,
+  youTubeThumbnail,
+  youTubeThumbnailSrcSet,
+} from "@/lib/youtube";
 
 /**
  * Click-to-load facade. Until a family actually presses play, the only thing
@@ -14,18 +21,29 @@ export function VideoFacade({
   technique,
   videoTitle,
   videoSeconds,
+  variant = "inset",
 }: {
   videoId: string;
   technique: string;
   videoTitle?: string | null;
   videoSeconds?: number | null;
+  /**
+   * "cover" is the library layout: the thumbnail IS the top of the card, full
+   * width, with no border or margin of its own — the single biggest reduction in
+   * nested outlines on the curriculum page.
+   */
+  variant?: "inset" | "cover";
 }) {
   const [playing, setPlaying] = useState(false);
   const runtime = formatRuntime(videoSeconds);
+  const frame =
+    variant === "cover"
+      ? "block aspect-video w-full overflow-hidden rounded-xl bg-black"
+      : "block aspect-video w-full overflow-hidden rounded-lg border border-border bg-black mt-3";
 
   if (playing) {
     return (
-      <div className="mt-3 aspect-video overflow-hidden rounded-lg border border-border bg-black">
+      <div className={frame}>
         <iframe
           src={youTubeEmbedSrc(videoId)}
           title={videoTitle?.trim() || technique}
@@ -43,12 +61,17 @@ export function VideoFacade({
       type="button"
       onClick={() => setPlaying(true)}
       aria-label={`Play video: ${technique}`}
-      className="group relative mt-3 block aspect-video w-full overflow-hidden rounded-lg border border-border bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className={`group relative ${frame} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
     >
       <img
         src={youTubeThumbnail(videoId)}
+        srcSet={youTubeThumbnailSrcSet(videoId)}
+        sizes="(max-width: 640px) 100vw, 480px"
+        width={THUMBNAIL_WIDTH}
+        height={THUMBNAIL_HEIGHT}
         alt=""
         loading="lazy"
+        decoding="async"
         className="h-full w-full object-cover opacity-85 transition-opacity group-hover:opacity-100"
       />
       <span className="absolute inset-0 grid place-items-center">

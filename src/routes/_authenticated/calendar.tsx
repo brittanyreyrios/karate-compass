@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, List, MapPin, Users, Clock, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { MonthGrid } from "@/components/month-grid";
+import { MonthGrid, MonthNav } from "@/components/month-grid";
 import { CalendarSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import {
@@ -160,10 +160,17 @@ function CalendarPage() {
   const loading = useDelayedLoading(rawLoading);
 
   const todayKey = toDateKey(today);
+  /**
+   * List view is scoped to the SELECTED MONTH, past dates included — it shares the
+   * `month` state with the grid, so switching views never jumps you somewhere
+   * else, and last season is reachable from the default view.
+   */
+  const monthPrefix = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
   const agenda = useMemo(
-    () => groupByDate(items.filter((i) => i.dateKey >= todayKey)).slice(0, 30),
-    [items, todayKey],
+    () => groupByDate(items.filter((i) => i.dateKey.startsWith(monthPrefix))),
+    [items, monthPrefix],
   );
+  const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   const selectedKey = toDateKey(selected);
   const selectedItems = items.filter((i) => i.dateKey === selectedKey);
@@ -239,10 +246,12 @@ function CalendarPage() {
       )}
 
       {!loading && view === "list" && (
-        <section className="mt-6 space-y-6" aria-label="Upcoming schedule">
+        <section className="mt-6 space-y-6" aria-label="Monthly schedule">
+          <MonthNav month={month} onMonthChange={setMonth} />
+
           {agenda.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Nothing special coming up — regular classes run as normal.
+              Nothing special in {monthLabel} — regular classes run as normal.
             </p>
           )}
 
