@@ -297,6 +297,10 @@ function AdminPage() {
             <TournamentManager />
           </div>
         </TabsContent>
+        <TabsContent value="manage-announcements" className="mt-6">
+          <AnnouncementsManageTab />
+        </TabsContent>
+
       </Tabs>
 
     </div>
