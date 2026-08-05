@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy, Video, VideoOff } from "lucide-react";
+import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy, Video, VideoOff, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -442,7 +442,8 @@ export function CurriculumAdminTab() {
       const { data, error } = await supabase
         .from("curriculum_items")
         .select("*")
-        .order("sort_order");
+        .order("sort_order")
+        .order("created_at");
       if (error) throw error;
       return (data ?? []) as CurriculumItem[];
     },
@@ -485,7 +486,19 @@ export function CurriculumAdminTab() {
       if (seconds !== null && (!Number.isFinite(seconds) || seconds <= 0)) {
         throw new Error("Video length must be a number of minutes, e.g. 1.5");
       }
+      // A new requirement belongs at the END of its own group, not at position 0.
+      // The next value is computed server-side (SELECT … FOR UPDATE) so two admins
+      // adding at the same moment cannot both claim the same slot.
+      const { data: nextOrder, error: orderErr } = await supabase.rpc(
+        "next_curriculum_sort_order",
+        {
+          _belt_rank_id: target === "rank" ? rankId : null,
+          _curriculum_tier: target === "tier" ? tier : null,
+        },
+      );
+      if (orderErr) throw orderErr;
       const { error } = await supabase.from("curriculum_items").insert({
+        sort_order: nextOrder ?? 0,
         technique: technique.trim(),
         category: category.trim() || null,
         notes: notes.trim() || null,
@@ -538,12 +551,49 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Reordering is GROUP-SCOPED: the caller only ever hands us two adjacent rows
+   * from the same rendered group (one rank, or one tier), so an item can never
+   * drift into another rank's list. Both rows' sort_order values are swapped and
+   * written in ONE round trip; on failure we refetch so the screen can never show
+   * an order the database does not have.
+   */
+  const reorder = useMutation({
+    mutationFn: async ({ a, b }: { a: CurriculumItem; b: CurriculumItem }) => {
+      const { error } = await supabase.from("curriculum_items").upsert([
+        { ...a, sort_order: b.sort_order },
+        { ...b, sort_order: a.sort_order },
+      ]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Could not save the new order: ${e.message}`);
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+    },
+  });
+
   const legacy = items.filter((i) => !i.belt_rank_id && !i.curriculum_tier);
 
-  const ItemRow = ({ it }: { it: CurriculumItem }) => (
+  /**
+   * `group` is the ordered list this row lives in. Up/Down are plain buttons with
+   * real labels and 44px targets — the whole reorder is keyboard- and screen
+   * reader-operable without any drag interaction.
+   */
+  const ItemRow = ({ it, group }: { it: CurriculumItem; group: CurriculumItem[] }) => {
+    const index = group.findIndex((g) => g.id === it.id);
+    const prev = index > 0 ? group[index - 1] : undefined;
+    const next = index >= 0 && index < group.length - 1 ? group[index + 1] : undefined;
+    return (
     <li className="rounded-lg border border-border bg-background/50 px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
+          <span className="mr-2 text-xs font-semibold tabular-nums text-muted-foreground">
+            {String(index + 1).padStart(2, "0")}
+          </span>
           <span className="text-sm font-medium">{it.technique}</span>
           {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
           {it.video_youtube_id && (
@@ -554,14 +604,37 @@ export function CurriculumAdminTab() {
             </Badge>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Delete requirement ${it.technique}`}
-          onClick={() => removeItem.mutate(it.id)}
-        >
-          <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
-        </Button>
+        <div className="flex shrink-0 items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11"
+            aria-label={`Move ${it.technique} up`}
+            disabled={!prev || reorder.isPending}
+            onClick={() => prev && reorder.mutate({ a: it, b: prev })}
+          >
+            <ChevronUp className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11"
+            aria-label={`Move ${it.technique} down`}
+            disabled={!next || reorder.isPending}
+            onClick={() => next && reorder.mutate({ a: it, b: next })}
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11"
+            aria-label={`Delete requirement ${it.technique}`}
+            onClick={() => removeItem.mutate(it.id)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
       <ItemVideoEditor
         item={it}
@@ -569,7 +642,8 @@ export function CurriculumAdminTab() {
         onSave={(patch) => saveVideo.mutate({ id: it.id, ...patch })}
       />
     </li>
-  );
+    );
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
@@ -700,7 +774,7 @@ export function CurriculumAdminTab() {
               </h3>
               <span className="text-xs text-muted-foreground">{list.length} requirements</span>
             </div>
-            {list.length > 0 && <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} />)}</ul>}
+            {list.length > 0 && <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} group={list} />)}</ul>}
           </div>
         ))}
 
@@ -724,7 +798,7 @@ export function CurriculumAdminTab() {
                   {system?.name} · {list.length} requirements
                 </span>
               </div>
-              <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} />)}</ul>
+              <ul className="mt-3 space-y-2">{list.map((it) => <ItemRow key={it.id} it={it} group={list} />)}</ul>
             </div>
           );
         })}
@@ -736,7 +810,7 @@ export function CurriculumAdminTab() {
               These rows predate the three belt systems and are not shown to any family. Delete and
               re-add them against a tier or a rank.
             </p>
-            <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} />)}</ul>
+            <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} group={legacy} />)}</ul>
           </div>
         )}
       </div>
