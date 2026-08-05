@@ -58,6 +58,19 @@ export type HolidayRow = {
 };
 
 /**
+ * A belt test is *derived* from class_schedules.next_test_date — the single
+ * source of truth — rather than mirrored into an events row. Moving a date
+ * therefore moves the calendar entry, and a stale entry is impossible.
+ */
+export type TestRow = {
+  id: string;
+  class_name: string;
+  next_test_date: string;
+  location: string | null;
+};
+
+
+/**
  * One chip recipe, seven hues.
  *
  * Every type carries its own token pair (solid tinted surface + paired
@@ -112,7 +125,7 @@ export function dateFromKey(key: string): Date {
 export type CalendarItem = {
   key: string;
   dateKey: string;
-  kind: "closure" | "event" | "tournament";
+  kind: "closure" | "event" | "tournament" | "testing";
   title: string;
   timeLabel: string | null;
   sortMinutes: number;
@@ -138,9 +151,48 @@ export function buildCalendarItems(options: {
   holidays: HolidayRow[];
   events: DojoEvent[];
   tournaments?: TournamentRow[];
+  tests?: TestRow[];
 }): CalendarItem[] {
-  const { holidays, events, tournaments = [] } = options;
+  const { holidays, events, tournaments = [], tests = [] } = options;
   const items: CalendarItem[] = [];
+
+  // Belt tests are grouped by DATE, not by class. With 12 classes, a shared
+  // testing day would otherwise draw twelve identical chips and bury everything
+  // else on that day; the classes themselves are listed in the day detail.
+  const testsByDate = new Map<string, TestRow[]>();
+  for (const t of tests) {
+    const bucket = testsByDate.get(t.next_test_date);
+    if (bucket) bucket.push(t);
+    else testsByDate.set(t.next_test_date, [t]);
+  }
+  for (const [dateKey, rows] of testsByDate) {
+    const classes = rows.map((r) => r.class_name).sort();
+    // Locations only appear if the classes actually carry one, and only when
+    // they agree — we never invent or guess a testing venue.
+    const locations = [...new Set(rows.map((r) => r.location).filter(Boolean))] as string[];
+    items.push({
+      key: `testing-${dateKey}`,
+      dateKey,
+      kind: "testing",
+      title: "Belt Testing",
+      // No time is stored on next_test_date, so none is shown.
+      timeLabel: null,
+      sortMinutes: -1,
+      location: locations.length === 1 ? locations[0]! : null,
+      audienceLabel: classes.length === 1 ? classes[0]! : `${classes.length} classes`,
+      description: `Testing: ${classes.join(", ")}.`,
+      eventType: "testing",
+      cancelled: false,
+      cancelNote: null,
+      dayLabel: null,
+      venue: null,
+      address: null,
+      registrationDeadline: null,
+      eventUrl: null,
+    });
+  }
+
+
 
   // A closure is the one schedule-related thing that will make a parent drive to
   // a locked door, so it stays on the calendar as an item in its own right.

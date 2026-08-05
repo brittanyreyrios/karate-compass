@@ -32,8 +32,9 @@ const PATTERN_WORD: Record<string, string> = {
   camo: "camo belt with a colored stripe",
 };
 
-/** Geometry is fixed in a 48×24 viewBox; only the rendered width changes. */
-const SIZES = { sm: "h-3 w-6", md: "h-4 w-9" } as const;
+/** Geometry is fixed in a 48×26 viewBox; only the rendered width changes. */
+const SIZES = { sm: "h-[13px] w-6", md: "h-5 w-9" } as const;
+
 
 export function BeltSwatch({
   name,
@@ -58,7 +59,7 @@ export function BeltSwatch({
     <svg
       role="img"
       aria-label={label}
-      viewBox="0 0 48 24"
+      viewBox="0 0 48 26"
       className={`inline-block shrink-0 ${SIZES[size]}`}
       preserveAspectRatio="xMidYMid meet"
     >
@@ -74,34 +75,36 @@ export function BeltSwatch({
         </defs>
       )}
 
-      {/* Tails, drawn first so the knot sits on top of them. */}
-      <g stroke="rgba(0,0,0,0.55)" strokeWidth="0.75">
-        <rect x="19" y="14" width="4.5" height="9" rx="1" fill={bandFill} />
-        <rect x="24.5" y="14" width="4.5" height="7.5" rx="1" fill={bandFill} />
+      {/*
+        A thin light outline on every part — including the near-black and deep
+        brown belts — so the shape separates from the dark card instead of
+        dissolving into it. Kept at 0.6 so it does not become the loudest thing
+        in a 24px-wide icon.
+      */}
+      <g stroke="rgba(255,255,255,0.72)" strokeWidth="0.6" strokeLinejoin="round">
+        {/* Tails: long enough to hang, and tapered so they read as fabric
+            rather than as two square notches under the knot. */}
+        <path d="M19.6 13 L23.4 13 L22.6 24.6 Q21.5 25.6 20.4 24.6 Z" fill={bandFill} />
+        <path d="M24.8 13 L28.6 13 L27.9 22.6 Q26.7 23.5 25.6 22.6 Z" fill={bandFill} />
         {striped && (
           <>
-            <rect x="19" y="16.5" width="4.5" height="2" fill={accent} stroke="none" />
-            <rect x="24.5" y="16.5" width="4.5" height="2" fill={accent} stroke="none" />
+            <rect x="20" y="16.5" width="3" height="2.2" fill={accent} stroke="none" />
+            <rect x="25.2" y="16.5" width="3" height="2.2" fill={accent} stroke="none" />
           </>
         )}
-      </g>
 
-      {/* Band across the full width. */}
-      <g stroke="rgba(0,0,0,0.55)" strokeWidth="0.75">
-        <rect x="0.5" y="6.5" width="47" height="9" rx="2" fill={bandFill} />
-        {striped && (
-          <rect x="1" y="9.5" width="46" height="3" fill={accent} stroke="none" />
-        )}
-      </g>
+        {/* Band across the full width. */}
+        <rect x="0.5" y="6.5" width="47" height="8.5" rx="2.5" fill={bandFill} />
+        {striped && <rect x="1" y="9.5" width="46" height="2.8" fill={accent} stroke="none" />}
 
-      {/* Knot. */}
-      <g stroke="rgba(0,0,0,0.6)" strokeWidth="0.75">
-        <rect x="17.5" y="5" width="13" height="12" rx="2.5" fill={bandFill} />
-        {striped && <rect x="18" y="9.5" width="12" height="3" fill={accent} stroke="none" />}
+        {/* Knot: a soft rounded bundle, a touch taller and wider than the band. */}
+        <rect x="16.8" y="4.6" width="14.4" height="12.8" rx="6" fill={bandFill} />
+        {striped && <rect x="17.4" y="9.5" width="13.2" height="2.8" fill={accent} stroke="none" />}
       </g>
     </svg>
   );
 }
+
 
 export function BeltChip({
   showLabel = true,
