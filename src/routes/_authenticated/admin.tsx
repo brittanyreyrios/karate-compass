@@ -1490,7 +1490,11 @@ function ClassScheduleRow({
     ? Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 86400000))
     : null;
 
-  const dirty = date !== (schedule.next_test_date ?? "") || post !== !!schedule.test_announcement_id;
+  // With no date there is nothing to post, so the checkbox alone is not a change.
+  const dirty =
+    date !== (schedule.next_test_date ?? "") ||
+    (date !== "" && post !== !!schedule.test_announcement_id);
+
 
   return (
     <div className="rounded-xl border border-border bg-background p-4">
