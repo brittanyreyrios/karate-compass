@@ -109,21 +109,43 @@ export function useCalendarData(month: Date) {
     },
   });
 
+  /**
+   * Belt tests are derived from class_schedules.next_test_date — the column the
+   * Class Schedules & Testing tab already writes — so the calendar can never
+   * hold a stale entry for a test that was moved.
+   */
+  const testsQ = useQuery({
+    queryKey: ["calendar-tests", fromKey, toKey],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("class_schedules")
+        .select("id, class_name, next_test_date, location")
+        .not("next_test_date", "is", null)
+        .gte("next_test_date", fromKey)
+        .lte("next_test_date", toKey)
+        .order("next_test_date");
+      return (data ?? []) as TestRow[];
+    },
+  });
+
   const items = useMemo(
     () =>
       buildCalendarItems({
         holidays: holidaysQ.data ?? [],
         events: eventsQ.data ?? [],
         tournaments: tournamentsQ.data ?? [],
+        tests: testsQ.data ?? [],
       }),
-    [holidaysQ.data, eventsQ.data, tournamentsQ.data],
+    [holidaysQ.data, eventsQ.data, tournamentsQ.data, testsQ.data],
   );
 
   return {
     items,
-    loading: holidaysQ.isLoading || eventsQ.isLoading || tournamentsQ.isLoading,
+    loading:
+      holidaysQ.isLoading || eventsQ.isLoading || tournamentsQ.isLoading || testsQ.isLoading,
   };
 }
+
 
 
 function CalendarPage() {
