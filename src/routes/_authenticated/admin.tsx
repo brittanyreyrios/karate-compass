@@ -1356,6 +1356,13 @@ function ClassScheduleRow({
   const qc = useQueryClient();
   const [date, setDate] = useState(schedule.next_test_date ?? "");
   const [location, setLocation] = useState(schedule.location ?? "");
+  // Ticked by default: a testing date staff bother to set is news.
+  const [post, setPost] = useState(true);
+
+  useEffect(() => {
+    setPost(schedule.test_announcement_id ? true : true);
+  }, [schedule.test_announcement_id]);
+
 
   useEffect(() => {
     setDate(schedule.next_test_date ?? "");
