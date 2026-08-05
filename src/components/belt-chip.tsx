@@ -32,8 +32,9 @@ const PATTERN_WORD: Record<string, string> = {
   camo: "camo belt with a colored stripe",
 };
 
-/** Geometry is fixed in a 48×24 viewBox; only the rendered width changes. */
-const SIZES = { sm: "h-3 w-6", md: "h-4 w-9" } as const;
+/** Geometry is fixed in a 48×26 viewBox; only the rendered width changes. */
+const SIZES = { sm: "h-[13px] w-6", md: "h-5 w-9" } as const;
+
 
 export function BeltSwatch({
   name,
