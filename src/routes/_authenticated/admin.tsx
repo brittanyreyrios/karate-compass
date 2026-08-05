@@ -1662,28 +1662,37 @@ function CsvImporter() {
   const ranksQ = useBeltRanks();
   const allRanks = ranksQ.data ?? [];
   const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
+  const [rows, setRows] = useState<CsvRow[]>([]);
+  const [fileName, setFileName] = useState<string>("");
+  const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
   /**
-   * Match a CSV belt value against every rank in all three systems, and return
-   * *all* candidates. Several camo short_names are identical to solid rank names
-   * ("Purple" is both Camo Purple and Solid Purple), so picking a winner would
-   * silently file a roster of eight-year-olds into the camo system. Ambiguity is
-   * reported, never resolved.
+   * A Kicksite export says "Purple", which is a rank name in more than one belt
+   * system — and a roster is imported one class at a time, so staff always know
+   * which system the batch belongs to. Choosing it up front turns the ambiguity
+   * into an answer instead of a warning; "" keeps the old all-systems behaviour.
+   */
+  const [systemId, setSystemId] = useState<string>("");
+  const [results, setResults] = useState<ImportResult[]>([]);
+  const [importing, setImporting] = useState(false);
+
+  /**
+   * Match a CSV belt value against the ranks of the chosen system (or all three
+   * when none is chosen) and return *all* candidates. Several camo short_names
+   * are identical to solid rank names ("Purple" is both Camo Purple and Solid
+   * Purple), so picking a winner across systems would silently file a roster of
+   * eight-year-olds into the camo system. Within one system an exact `name`
+   * match wins over a `short_name` match; anything still ambiguous is reported,
+   * never guessed.
    */
   const findRanks = (belt: string) => {
     const needle = belt.trim().toLowerCase();
     if (!needle) return [];
-    return allRanks.filter(
-      (r) =>
-        r.name.trim().toLowerCase() === needle ||
-        (r.short_name ?? "").trim().toLowerCase() === needle,
-    );
+    const pool = systemId ? allRanks.filter((r) => r.system_id === systemId) : allRanks;
+    const byName = pool.filter((r) => r.name.trim().toLowerCase() === needle);
+    if (byName.length > 0) return byName;
+    return pool.filter((r) => (r.short_name ?? "").trim().toLowerCase() === needle);
   };
 
-  const [rows, setRows] = useState<CsvRow[]>([]);
-  const [fileName, setFileName] = useState<string>("");
-  const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
-  const [results, setResults] = useState<ImportResult[]>([]);
-  const [importing, setImporting] = useState(false);
 
   const onFile = async (file: File) => {
     setFileName(file.name);
