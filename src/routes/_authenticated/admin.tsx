@@ -1840,14 +1840,32 @@ function CsvImporter() {
         </label>
 
         <div>
-          <Label>Assign every imported student to</Label>
+          <Label htmlFor="csv-class">Assign every imported student to</Label>
           <Select value={assignedClass} onValueChange={setAssignedClass}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="csv-class" className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
               {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
+
+        <div>
+          <Label htmlFor="csv-system">Belt system for this batch</Label>
+          <Select value={systemId || "any"} onValueChange={(v) => setSystemId(v === "any" ? "" : v)}>
+            <SelectTrigger id="csv-system" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Match across all systems</SelectItem>
+              {(systemsQ.data ?? []).map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A belt named &ldquo;Purple&rdquo; exists in more than one system. Pick the system this
+            roster belongs to and belts are matched only within it.
+          </p>
+        </div>
+
       </div>
 
       {rows.length > 0 && (
