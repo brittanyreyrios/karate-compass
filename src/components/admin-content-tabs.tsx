@@ -491,9 +491,11 @@ export function CurriculumAdminTab() {
       // adding at the same moment cannot both claim the same slot.
       const { data: nextOrder, error: orderErr } = await supabase.rpc(
         "next_curriculum_sort_order",
+        // The generated types type both args as non-null; the SQL function takes
+        // NULL for whichever target is not in play.
         {
-          _belt_rank_id: target === "rank" ? rankId : null,
-          _curriculum_tier: target === "tier" ? tier : null,
+          _belt_rank_id: (target === "rank" ? rankId : null) as string,
+          _curriculum_tier: (target === "tier" ? tier : null) as string,
         },
       );
       if (orderErr) throw orderErr;
