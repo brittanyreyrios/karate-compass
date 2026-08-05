@@ -125,7 +125,7 @@ export function dateFromKey(key: string): Date {
 export type CalendarItem = {
   key: string;
   dateKey: string;
-  kind: "closure" | "event" | "tournament";
+  kind: "closure" | "event" | "tournament" | "testing";
   title: string;
   timeLabel: string | null;
   sortMinutes: number;
