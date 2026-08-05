@@ -20,6 +20,8 @@ import {
   type DojoEvent,
   type HolidayRow,
   type TournamentRow,
+  type TestRow,
+
 } from "@/lib/calendar-data";
 
 
