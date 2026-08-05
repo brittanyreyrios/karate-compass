@@ -58,6 +58,19 @@ export type HolidayRow = {
 };
 
 /**
+ * A belt test is *derived* from class_schedules.next_test_date — the single
+ * source of truth — rather than mirrored into an events row. Moving a date
+ * therefore moves the calendar entry, and a stale entry is impossible.
+ */
+export type TestRow = {
+  id: string;
+  class_name: string;
+  next_test_date: string;
+  location: string | null;
+};
+
+
+/**
  * One chip recipe, seven hues.
  *
  * Every type carries its own token pair (solid tinted surface + paired
