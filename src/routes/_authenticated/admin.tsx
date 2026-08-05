@@ -1390,27 +1390,92 @@ function ClassScheduleRow({
   };
 
 
+  /**
+   * The testing date is the single source of truth: the calendar derives its
+   * Belt Testing chip straight from class_schedules.next_test_date, so nothing
+   * has to be mirrored. The optional announcement, by contrast, IS a row — so
+   * it is tracked by test_announcement_id and edited in place, never re-posted.
+   */
   const save = useMutation({
     mutationFn: async () => {
-      if (!date) throw new Error("Pick a date first.");
+      const nextDate = date === "" ? null : date;
+
       const { error: schedErr } = await supabase
         .from("class_schedules")
-        .update({ next_test_date: date })
+        .update({ next_test_date: nextDate })
         .eq("id", schedule.id);
       if (schedErr) throw schedErr;
 
       const { error: stuErr, count } = await supabase
         .from("students")
-        .update({ next_test_date: date }, { count: "exact" })
+        .update({ next_test_date: nextDate }, { count: "exact" })
         .eq("class_name", schedule.class_name);
       if (stuErr) throw stuErr;
-      return count ?? 0;
+
+      // Announcement lifecycle. Clearing the date, or unticking the box, means
+      // the announcement is wrong — so it goes, rather than lingering.
+      const wantAnnouncement = nextDate !== null && post;
+      const existing = schedule.test_announcement_id;
+
+      if (!wantAnnouncement && existing) {
+        const { error } = await supabase.from("announcements").delete().eq("id", existing);
+        if (error) throw error;
+        const { error: clearErr } = await supabase
+          .from("class_schedules")
+          .update({ test_announcement_id: null })
+          .eq("id", schedule.id);
+        if (clearErr) throw clearErr;
+      } else if (wantAnnouncement) {
+        const pretty = new Date(`${nextDate}T12:00:00`).toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+        // Only real values: the class name, the date, and the room if one is set.
+        const fields = {
+          category: "school_news" as const,
+          title: `Belt testing — ${schedule.class_name}`,
+          body:
+            `${schedule.class_name} tests on ${pretty}.` +
+            (schedule.location ? ` Location: ${schedule.location}.` : "") +
+            ` Ask your instructor on the mat for what your child needs to show.`,
+          event_date: nextDate,
+          location: schedule.location,
+        };
+
+        if (existing) {
+          const { error } = await supabase.from("announcements").update(fields).eq("id", existing);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase
+            .from("announcements")
+            .insert(fields)
+            .select("id")
+            .single();
+          if (error) throw error;
+          const { error: linkErr } = await supabase
+            .from("class_schedules")
+            .update({ test_announcement_id: data.id })
+            .eq("id", schedule.id);
+          if (linkErr) throw linkErr;
+        }
+      }
+
+      return { count: count ?? 0, cleared: nextDate === null };
     },
-    onSuccess: (count) => {
-      toast.success(`Testing date pushed to ${count} student${count === 1 ? "" : "s"} in ${schedule.class_name}`);
+    onSuccess: ({ count, cleared }) => {
+      toast.success(
+        cleared
+          ? `Testing date cleared for ${schedule.class_name} (${count} student${count === 1 ? "" : "s"})`
+          : `Testing date pushed to ${count} student${count === 1 ? "" : "s"} in ${schedule.class_name}`,
+      );
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
       qc.invalidateQueries({ queryKey: ["admin-students"] });
       qc.invalidateQueries({ queryKey: ["students-mine"] });
+      qc.invalidateQueries({ queryKey: ["announcements"] });
+      qc.invalidateQueries({ queryKey: ["admin-announcements"] });
+      qc.invalidateQueries({ queryKey: ["calendar-tests"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1418,6 +1483,8 @@ function ClassScheduleRow({
   const daysAway = date
     ? Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 86400000))
     : null;
+
+  const dirty = date !== (schedule.next_test_date ?? "") || post !== !!schedule.test_announcement_id;
 
   return (
     <div className="rounded-xl border border-border bg-background p-4">
@@ -1427,6 +1494,7 @@ function ClassScheduleRow({
           {schedule.next_test_date
             ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
             : "No test scheduled"}
+          {schedule.test_announcement_id && " · announcement posted"}
         </div>
       </div>
 
@@ -1440,6 +1508,9 @@ function ClassScheduleRow({
             onChange={(e) => setDate(e.target.value)}
             className="mt-1 h-11 w-full"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Clear the date to remove this class from the calendar.
+          </p>
         </div>
         <div className="min-w-0">
           <Label className="text-xs" htmlFor={`location-${schedule.id}`}>Location / room</Label>
@@ -1454,10 +1525,28 @@ function ClassScheduleRow({
         </div>
       </div>
 
+      <label
+        className="mt-3 flex items-start gap-2 text-sm"
+        htmlFor={`post-announcement-${schedule.id}`}
+      >
+        <Checkbox
+          id={`post-announcement-${schedule.id}`}
+          checked={post}
+          onCheckedChange={(v) => setPost(v === true)}
+          className="mt-0.5"
+        />
+        <span>
+          Also post an announcement
+          <span className="block text-xs text-muted-foreground">
+            One School News post per class, updated in place when the date moves — never a duplicate.
+          </span>
+        </span>
+      </label>
+
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <Button
           className="h-11 w-full bg-gradient-red sm:w-auto"
-          disabled={save.isPending || !date || date === (schedule.next_test_date ?? "")}
+          disabled={save.isPending || !dirty}
           onClick={() => save.mutate()}
         >
           <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save & push"}
@@ -1475,6 +1564,7 @@ function ClassScheduleRow({
   );
 
 }
+
 
 /* ---------- CSV IMPORTER ---------- */
 
