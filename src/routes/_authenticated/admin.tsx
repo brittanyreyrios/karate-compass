@@ -62,6 +62,8 @@ import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
+import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
+
 import {
   ConsentAttentionItem,
   PhotoConsentBanner,
