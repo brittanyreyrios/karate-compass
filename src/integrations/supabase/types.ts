@@ -224,6 +224,7 @@ export type Database = {
           id: string
           location: string | null
           next_test_date: string | null
+          test_announcement_id: string | null
           time_end: string | null
           time_start: string | null
           updated_at: string
@@ -235,6 +236,7 @@ export type Database = {
           id?: string
           location?: string | null
           next_test_date?: string | null
+          test_announcement_id?: string | null
           time_end?: string | null
           time_start?: string | null
           updated_at?: string
@@ -246,11 +248,20 @@ export type Database = {
           id?: string
           location?: string | null
           next_test_date?: string | null
+          test_announcement_id?: string | null
           time_end?: string | null
           time_start?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "class_schedules_test_announcement_id_fkey"
+            columns: ["test_announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       curriculum_items: {
         Row: {
