@@ -1242,13 +1242,18 @@ function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onS
 
 /* ---------- CLASS SCHEDULES & TESTING ---------- */
 
-const MAX_CLASSES = 11;
+/**
+ * There is deliberately NO cap on the number of classes: nothing in the database
+ * constrains it, and the old hard-coded 11 was already exceeded by the real
+ * school, which blocked adding while doing nothing about what existed.
+ */
 
 type ClassSchedule = {
   id: string;
   class_name: string;
   next_test_date: string | null;
   location: string | null;
+  is_teen_adult: boolean;
   /** The announcement posted for this class's testing date, if any. */
   test_announcement_id: string | null;
   updated_at: string;
@@ -1264,21 +1269,38 @@ function ClassSchedulesTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_schedules")
-        .select("id, class_name, next_test_date, location, test_announcement_id, updated_at")
+        .select(
+          "id, class_name, next_test_date, location, is_teen_adult, test_announcement_id, updated_at",
+        )
         .order("class_name");
       if (error) throw error;
       return (data ?? []) as ClassSchedule[];
     },
   });
 
+  /**
+   * Students link to classes by a class_name text match, not a foreign key, so a
+   * class reading 0 students is that mismatch showing itself. The count uses the
+   * same normalised comparison as division_of(), so it can never disagree with
+   * which students actually pick up the teen/adult flag.
+   */
+  const countsQ = useQuery({
+    queryKey: ["class-student-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("class_student_counts");
+      if (error) throw error;
+      const map = new Map<string, number>();
+      for (const r of (data ?? []) as { class_name: string; student_count: number }[]) {
+        map.set(r.class_name, r.student_count);
+      }
+      return map;
+    },
+  });
 
   const addClass = useMutation({
     mutationFn: async () => {
       const name = newName.trim();
       if (!name) throw new Error("Enter a class name.");
-      if ((schedulesQ.data ?? []).length >= MAX_CLASSES) {
-        throw new Error(`Maximum of ${MAX_CLASSES} classes reached.`);
-      }
       const { error } = await supabase
         .from("class_schedules")
         .insert({ class_name: name });
@@ -1288,6 +1310,7 @@ function ClassSchedulesTab() {
       toast.success("Class added");
       setNewName("");
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["class-student-counts"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1300,6 +1323,7 @@ function ClassSchedulesTab() {
     onSuccess: () => {
       toast.success("Class removed");
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["class-student-counts"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1320,7 +1344,7 @@ function ClassSchedulesTab() {
             </p>
           </div>
           <Badge variant="outline" className="border-primary/40 text-primary">
-            {list.length} / {MAX_CLASSES} classes
+            {list.length} {list.length === 1 ? "class" : "classes"}
           </Badge>
         </div>
 
@@ -1335,13 +1359,12 @@ function ClassSchedulesTab() {
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Adults BJJ, Competition Team…"
               className="mt-1"
-              disabled={list.length >= MAX_CLASSES}
             />
           </div>
           <Button
             type="submit"
             className="bg-gradient-red"
-            disabled={addClass.isPending || list.length >= MAX_CLASSES}
+            disabled={addClass.isPending}
           >
             <Plus className="mr-1 h-4 w-4" /> Add class
           </Button>
@@ -1353,7 +1376,12 @@ function ClassSchedulesTab() {
             <p className="text-sm text-muted-foreground">No classes yet. Add one above to get started.</p>
           )}
           {list.map((c) => (
-            <ClassScheduleRow key={c.id} schedule={c} onRemove={() => removeClass.mutate(c.id)} />
+            <ClassScheduleRow
+              key={c.id}
+              schedule={c}
+              studentCount={countsQ.data?.get(c.class_name) ?? null}
+              onRemove={() => removeClass.mutate(c.id)}
+            />
           ))}
         </div>
       </div>
@@ -1361,11 +1389,14 @@ function ClassSchedulesTab() {
   );
 }
 
+
 function ClassScheduleRow({
   schedule,
+  studentCount,
   onRemove,
 }: {
   schedule: ClassSchedule;
+  studentCount: number | null;
   onRemove: () => void;
 }) {
   const qc = useQueryClient();
@@ -1373,6 +1404,28 @@ function ClassScheduleRow({
   const [location, setLocation] = useState(schedule.location ?? "");
   // Ticked by default: a testing date staff bother to set is news.
   const [post, setPost] = useState(true);
+
+  /**
+   * Teen/adult classes drive the Teen & Adults leaderboard division — class beats
+   * belt, because teens and adults here hold solid belts too. Saved immediately;
+   * it is one boolean with nothing to batch it with.
+   */
+  const saveTeenAdult = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ is_teen_adult: next })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["my-division"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
 
@@ -1511,15 +1564,49 @@ function ClassScheduleRow({
 
   return (
     <div className="rounded-xl border border-border bg-background p-4">
-      <div className="min-w-0">
-        <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {schedule.next_test_date
-            ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
-            : "No test scheduled"}
-          {schedule.test_announcement_id && " · announcement posted"}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {schedule.next_test_date
+              ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
+              : "No test scheduled"}
+            {schedule.test_announcement_id && " · announcement posted"}
+          </div>
+          <div className="mt-1 text-xs">
+            {studentCount === null ? (
+              <span className="text-muted-foreground">Counting students…</span>
+            ) : studentCount === 0 ? (
+              <span className="text-destructive-foreground">
+                0 students match this class name — check the spelling against the roster
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                {studentCount} student{studentCount === 1 ? "" : "s"} matched
+              </span>
+            )}
+          </div>
         </div>
+
+        <label
+          className="flex items-center gap-2 text-sm"
+          htmlFor={`teen-adult-${schedule.id}`}
+        >
+          <Checkbox
+            id={`teen-adult-${schedule.id}`}
+            checked={schedule.is_teen_adult}
+            onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
+            disabled={saveTeenAdult.isPending}
+          />
+          <span>
+            Teen / adult class
+            <span className="block text-xs text-muted-foreground">
+              Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+            </span>
+          </span>
+        </label>
       </div>
+
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="min-w-0">
