@@ -114,14 +114,12 @@ export function BeltSwatch({
         {striped && <path d={STRAP_A_MID} fill="none" stroke={accent} strokeWidth="3" />}
 
         {/*
-          Knot: one squarish bundle over the crossing plus a short tail. The real
-          knot's loops and folds turn to mud at icon size, so it is simplified on
-          purpose — only the silhouette survives.
+          Knot: one squarish bundle over the crossing. The real knot's loops and
+          folds turn to mud at icon size, so it is simplified on purpose — only
+          the silhouette survives. There is deliberately NO tail hanging below
+          the knot; if one is ever re-added, its accent stripe must come with it.
         */}
-        <path d="M45 26 L56 26 L54.8 42 Q50 44.6 46.2 42 Z" fill={bandFill} />
-        {striped && (
-          <rect x="46" y="31" width="8.6" height="3" fill={accent} stroke="none" rx="0.6" />
-        )}
+
 
         <rect x="40" y="9" width="20" height="23" rx="4.5" fill={bandFill} />
         {striped && <rect x="41" y="19" width="18" height="3.4" fill={accent} stroke="none" />}
