@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SchoolSettingsTab } from "@/components/admin-settings-tab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -185,6 +186,7 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "guidelines", label: "Dojo Point Guidelines" },
   { value: "announcements", label: "Post Announcement" },
   { value: "manage-announcements", label: "Manage Announcements" },
+  { value: "settings", label: "School Settings" },
 
 ];
 
@@ -303,6 +305,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="manage-announcements" className="mt-6">
           <AnnouncementsManageTab />
+        </TabsContent>
+        <TabsContent value="settings" className="mt-6">
+          <SchoolSettingsTab />
         </TabsContent>
 
       </Tabs>

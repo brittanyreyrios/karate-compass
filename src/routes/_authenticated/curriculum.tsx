@@ -75,31 +75,55 @@ function Curriculum() {
     },
   });
 
+  /**
+   * Section Z: the RPC keeps `WHERE k.belt_rank_id IS NOT NULL` — it is the
+   * entitlement boundary and stays untouched — which means a child with no rank
+   * yet returns zero rows and used to vanish from this page entirely. The roster
+   * therefore comes from its own students query, dispatched in the same render
+   * (neither query gates the other), and curriculum rows are attached to it
+   * client-side. A rankless child now renders their own section with the
+   * "nothing published yet" copy instead of disappearing.
+   */
+  const studentsQ = useQuery({
+    queryKey: ["students-mine-curriculum"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, first_name, belt_rank_id, created_at")
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []) as {
+        id: string;
+        first_name: string;
+        belt_rank_id: string | null;
+        created_at: string;
+      }[];
+    },
+  });
+
   const ranks = ranksQ.data ?? [];
   const systems = systemsQ.data ?? [];
 
-  const rawLoading = childrenQ.isLoading || ranksQ.isLoading;
+  const rawLoading = childrenQ.isLoading || studentsQ.isLoading || ranksQ.isLoading;
   const loading = useDelayedLoading(rawLoading);
 
   // Rows arrive grouped per child (student created_at, then the RPC's ordering
-  // contract), so a single arrival-order pass preserves both groupings.
-  const perChild: {
-    studentId: string;
-    firstName: string;
-    rankId: string | null;
-    rows: ChildRow[];
-  }[] = [];
+  // contract), so appending in arrival order preserves the RPC's ordering inside
+  // each child's bucket.
+  const rowsByStudent = new Map<string, ChildRow[]>();
   for (const row of childrenQ.data ?? []) {
-    const last = perChild[perChild.length - 1];
-    if (last && last.studentId === row.student_id) last.rows.push(row);
-    else
-      perChild.push({
-        studentId: row.student_id,
-        firstName: row.first_name,
-        rankId: row.belt_rank_id_student,
-        rows: [row],
-      });
+    const bucket = rowsByStudent.get(row.student_id);
+    if (bucket) bucket.push(row);
+    else rowsByStudent.set(row.student_id, [row]);
   }
+
+  // The roster drives the sections, so every child gets one — ranked or not.
+  const perChild = (studentsQ.data ?? []).map((s) => ({
+    studentId: s.id,
+    firstName: s.first_name,
+    rankId: s.belt_rank_id,
+    rows: rowsByStudent.get(s.id) ?? [],
+  }));
 
   const sections = perChild.map(({ studentId, firstName, rankId, rows }) => {
     const rank = ranks.find((r) => r.id === rankId);

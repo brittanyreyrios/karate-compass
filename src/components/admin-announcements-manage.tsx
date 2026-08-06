@@ -54,9 +54,13 @@ type AnnouncementRow = {
  */
 type Reference = { kind: "event" | "test"; label: string };
 
-function useAnnouncements(category: string, before: string) {
+/** AB2: the admin archive is paginated too — it grows forever. */
+const ADMIN_PAGE_SIZE = 25;
+
+function useAnnouncements(category: string, before: string, limit: number) {
   return useQuery({
-    queryKey: ["admin-announcements", category, before],
+    queryKey: ["admin-announcements", category, before, limit],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       let q = supabase
         .from("announcements")
@@ -64,6 +68,7 @@ function useAnnouncements(category: string, before: string) {
         .order("created_at", { ascending: false });
       if (category !== "all") q = q.eq("category", category);
       if (before) q = q.lt("created_at", `${before}T00:00:00`);
+      q = q.limit(limit);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as AnnouncementRow[];
@@ -133,8 +138,10 @@ export function AnnouncementsManageTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<AnnouncementRow[] | null>(null);
 
-  const listQ = useAnnouncements(category, before);
+  const [limit, setLimit] = useState(ADMIN_PAGE_SIZE);
+  const listQ = useAnnouncements(category, before, limit);
   const rows = listQ.data ?? [];
+  const hasMore = rows.length >= limit;
   const refsQ = useReferences(rows.map((r) => r.id));
 
   const selectedRows = useMemo(() => rows.filter((r) => selected.has(r.id)), [rows, selected]);
@@ -258,6 +265,16 @@ export function AnnouncementsManageTab() {
               onSaved={invalidate}
             />
           ))}
+          {hasMore && (
+            <Button
+              variant="outline"
+              className="mt-2 justify-self-center"
+              onClick={() => setLimit((n) => n + ADMIN_PAGE_SIZE)}
+              disabled={listQ.isFetching}
+            >
+              {listQ.isFetching ? "Loading…" : "Load older announcements"}
+            </Button>
+          )}
         </div>
       </div>
 

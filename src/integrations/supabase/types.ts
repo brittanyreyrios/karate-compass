@@ -74,6 +74,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       attendance_events: {
         Row: {
           created_at: string
@@ -754,6 +772,29 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      review_prompt_dismissals: {
+        Row: {
+          dismissed_at: string
+          profile_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          profile_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_prompt_dismissals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_change_events: {
         Row: {
