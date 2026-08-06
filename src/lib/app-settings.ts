@@ -38,13 +38,26 @@ export function useSetAppSetting(key: string) {
 /**
  * Only a real, absolute http(s) link is ever surfaced to parents — a blank or
  * half-pasted setting must hide the card rather than render a dead button.
+ *
+ * "Parses as a URL" is not enough: a placeholder such as
+ * `…/writereview?placeid=` parses fine and points nowhere, which is exactly how
+ * a fabricated value once reached every parent's dashboard. So a URL carrying an
+ * empty query-parameter value is rejected too. Deliberately NOT a Google-URL
+ * validator: the short `https://g.page/r/<id>/review` form has no query string
+ * at all and must keep passing.
  */
 export function isUsableUrl(value: string | null | undefined) {
   if (!value) return false;
   try {
     const u = new URL(value.trim());
-    return u.protocol === "https:" || u.protocol === "http:";
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    if (!u.hostname) return false;
+    for (const [, v] of u.searchParams) {
+      if (v.trim() === "") return false;
+    }
+    return true;
   } catch {
     return false;
   }
 }
+
