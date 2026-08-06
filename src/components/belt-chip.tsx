@@ -23,9 +23,10 @@ export type BeltChipProps = {
   systemName?: string | null;
   /** Render the rank name next to the icon. */
   showLabel?: boolean;
-  size?: "sm" | "md";
+  size?: "ladder" | "sm" | "md";
   className?: string;
 };
+
 
 const PATTERN_WORD: Record<string, string> = {
   solid: "solid belt",
@@ -37,8 +38,17 @@ const PATTERN_WORD: Record<string, string> = {
  * Geometry is fixed in a 100×46 viewBox; only the rendered width changes. Both
  * sizes are double what they were — the old 24px chip was too small for the
  * pattern (the whole reason the icon exists) to be legible at all.
+ *
+ * `ladder` exists for the eight-step progress strip on the dashboard: eight 48px
+ * swatches do not fit inside a padded card on a 360px phone, so it steps down on
+ * narrow screens and becomes identical to `sm` from the sm: breakpoint up.
  */
-const SIZES = { sm: "h-[22px] w-12", md: "h-[33px] w-[72px]" } as const;
+const SIZES = {
+  ladder: "h-[16px] w-[34px] sm:h-[22px] sm:w-12",
+  sm: "h-[22px] w-12",
+  md: "h-[33px] w-[72px]",
+} as const;
+
 
 /**
  * Straps are deliberately shallow — the reference belt lies almost flat across

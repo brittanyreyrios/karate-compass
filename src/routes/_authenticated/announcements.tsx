@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDateOnly, formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({
@@ -54,7 +55,7 @@ function Announcements() {
    * school posted more. It now fetches a page at a time, newest first, and the
    * parent asks for older ones.
    */
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["announcements", "feed", limit],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -102,7 +103,10 @@ function Announcements() {
           </div>
           <div className="mt-4 space-y-4">
             {showSkeleton && <ListSkeleton rows={2} height="h-40" label="Loading school news" />}
-            {!showSkeleton && !isLoading && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
+            {!showSkeleton && isError && (
+              <QueryErrorState what="the school news" onRetry={() => refetch()} />
+            )}
+            {!showSkeleton && !isLoading && !isError && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
             {news.map((n, i) => (
               <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${i === 0 ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
                 {i === 0 && (
@@ -128,7 +132,10 @@ function Announcements() {
           </div>
           <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
             {showSkeleton && <ListSkeleton rows={2} height="h-48" label="Loading tournaments" />}
-            {!showSkeleton && !isLoading && tournaments.length === 0 && <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
+            {!showSkeleton && isError && (
+              <QueryErrorState what="the tournament schedule" onRetry={() => refetch()} />
+            )}
+            {!showSkeleton && !isLoading && !isError && tournaments.length === 0 && <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
             {tournaments.map((t) => {
               const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
               return (

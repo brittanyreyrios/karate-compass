@@ -8,6 +8,7 @@ import { BeltSwatch } from "@/components/belt-chip";
 import { beltLabelStyle } from "@/lib/belt-colors";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -89,7 +90,7 @@ function LeaderboardPage() {
     },
   });
 
-  const showSkeleton = useDelayedLoading(q.isLoading);
+  const showSkeleton = useDelayedLoading(q.isLoading || divisionsQ.isLoading);
 
   useEffect(() => {
     const ch = supabase
@@ -191,7 +192,20 @@ function LeaderboardPage() {
 
         {showSkeleton && <LeaderboardSkeleton />}
 
-        {!showSkeleton && !q.isLoading && rows.length === 0 && (
+        {/* A failed divisions read leaves no board to query at all, so it has to
+            surface here too — otherwise the page just looks empty. */}
+        {!showSkeleton && (q.isError || divisionsQ.isError) && (
+          <QueryErrorState
+            className="mt-10"
+            what="the leaderboard"
+            onRetry={() => {
+              void divisionsQ.refetch();
+              void q.refetch();
+            }}
+          />
+        )}
+
+        {!showSkeleton && !q.isLoading && !q.isError && !divisionsQ.isError && rows.length === 0 && (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
             <p className="mt-4 text-sm text-muted-foreground">

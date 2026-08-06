@@ -33,6 +33,7 @@ import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { GoogleReviewCard } from "@/components/google-review-card";
+import { QueryErrorState } from "@/components/query-error";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
@@ -208,6 +209,24 @@ function Dashboard() {
   }
 
 
+  /*
+    A failed roster/profile read must NOT fall through to "no students linked" —
+    that is a different fact and a parent would act on it differently.
+  */
+  if (studentsQ.isError || profileQ.isError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <QueryErrorState
+          what="your family dashboard"
+          onRetry={() => {
+            void studentsQ.refetch();
+            void profileQ.refetch();
+          }}
+        />
+      </div>
+    );
+  }
+
   if (!student) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
@@ -277,12 +296,12 @@ function Dashboard() {
             <div className="h-3 w-full overflow-hidden rounded-full bg-secondary/60">
               <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progress?.pct ?? 0}%` }} />
             </div>
-            <div className="mt-4 flex justify-between">
+            <div className="mt-4 flex min-w-0 justify-between gap-1 sm:gap-2">
               {(progress?.ladder ?? []).map((belt, i) => {
                 const reached = i <= (progress?.currentIndex ?? -1);
                 const current = i === progress?.currentIndex;
                 return (
-                  <div key={belt.id} className="flex flex-col items-center gap-2">
+                  <div key={belt.id} className="flex min-w-0 flex-col items-center gap-2">
                     <span
                       className={`inline-block transition-all ${current ? "scale-125" : reached ? "" : "opacity-40"}`}
                     >
@@ -292,8 +311,9 @@ function Dashboard() {
                         colorPrimary={belt.color_primary}
                         colorAccent={belt.color_accent}
                         systemName={system?.name ?? null}
-                        size="sm"
+                        size="ladder"
                       />
+
                     </span>
                     <span className={`hidden text-xs font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
                       {belt.short_name ?? belt.name}
@@ -384,7 +404,13 @@ function Dashboard() {
               View all <ChevronRight className="ml-1 h-3 w-3" />
             </Button>
           </div>
-          {news.length === 0 ? (
+          {announcementsQ.isError ? (
+            <QueryErrorState
+              className="mt-4"
+              what="the latest school news"
+              onRetry={() => announcementsQ.refetch()}
+            />
+          ) : news.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">No news posted yet.</p>
           ) : (
             <ul className="mt-4 space-y-3">

@@ -6,6 +6,7 @@ import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
@@ -77,7 +78,11 @@ function Gallery() {
 
       {showSkeleton && <CardGridSkeleton label="Loading albums" />}
 
-      {!showSkeleton && !albumsQ.isLoading && albums.length === 0 && (
+      {albumsQ.isError && (
+        <QueryErrorState className="mt-8" what="the photo albums" onRetry={() => albumsQ.refetch()} />
+      )}
+
+      {!showSkeleton && !albumsQ.isLoading && !albumsQ.isError && albums.length === 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
           <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
           <h2 className="mt-4 font-display text-lg font-bold uppercase">No albums published yet</h2>

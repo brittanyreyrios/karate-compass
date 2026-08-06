@@ -608,7 +608,7 @@ function AttendanceTab() {
           return (
             <div
               key={s.id}
-              className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+              className={`flex flex-col gap-3 rounded-xl border p-3 transition-all sm:flex-row sm:items-center ${
                 presentActive
                   ? "border-primary bg-primary/5 shadow-red-glow"
                   : risk || "border-border bg-background"
@@ -626,7 +626,10 @@ function AttendanceTab() {
                   <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
               </div>
-              <div className="flex flex-col items-stretch gap-1">
+              {/* The 48px belt swatch plus a 223px button column no longer fits one
+                  row on a phone, so the controls sit under the name below sm:. */}
+              <div className="flex shrink-0 flex-col items-stretch gap-1">
+
                 <Button
                   size="lg"
                   onClick={() => checkIn.mutate(s)}

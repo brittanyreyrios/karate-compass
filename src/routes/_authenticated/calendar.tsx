@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MonthGrid, MonthNav } from "@/components/month-grid";
 import { CalendarSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 import {
   CHIP_BASE,
   EVENT_TYPE_META,
@@ -62,11 +63,12 @@ export function useCalendarData(month: Date) {
   const holidaysQ = useQuery({
     queryKey: ["calendar-holidays", fromKey, toKey],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("class_holidays")
         .select("id, class_name, holiday_date, note")
         .gte("holiday_date", fromKey)
         .lte("holiday_date", toKey);
+      if (error) throw error;
       return (data ?? []) as HolidayRow[];
     },
   });
@@ -74,7 +76,7 @@ export function useCalendarData(month: Date) {
   const eventsQ = useQuery({
     queryKey: ["calendar-events", fromKey, toKey],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .select(
           "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id",
@@ -83,6 +85,7 @@ export function useCalendarData(month: Date) {
         .gte("starts_at", `${fromKey}T00:00:00Z`)
         .lte("starts_at", `${toKey}T23:59:59Z`)
         .order("starts_at");
+      if (error) throw error;
       return (data ?? []) as DojoEvent[];
     },
   });
@@ -97,7 +100,7 @@ export function useCalendarData(month: Date) {
   const tournamentsQ = useQuery({
     queryKey: ["calendar-tournaments", fromKey, toKey],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("announcements")
         .select(
           "id, title, body, discipline, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url",
@@ -107,6 +110,7 @@ export function useCalendarData(month: Date) {
         .lte("event_date", toKey)
         .or(`event_end_date.gte.${fromKey},and(event_end_date.is.null,event_date.gte.${fromKey})`)
         .order("event_date");
+      if (error) throw error;
       return (data ?? []) as TournamentRow[];
     },
   });
@@ -119,13 +123,14 @@ export function useCalendarData(month: Date) {
   const testsQ = useQuery({
     queryKey: ["calendar-tests", fromKey, toKey],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("class_schedules")
         .select("id, class_name, next_test_date, location")
         .not("next_test_date", "is", null)
         .gte("next_test_date", fromKey)
         .lte("next_test_date", toKey)
         .order("next_test_date");
+      if (error) throw error;
       return (data ?? []) as TestRow[];
     },
   });
@@ -145,6 +150,13 @@ export function useCalendarData(month: Date) {
     items,
     loading:
       holidaysQ.isLoading || eventsQ.isLoading || tournamentsQ.isLoading || testsQ.isLoading,
+    failed: holidaysQ.isError || eventsQ.isError || tournamentsQ.isError || testsQ.isError,
+    retry: () => {
+      void holidaysQ.refetch();
+      void eventsQ.refetch();
+      void tournamentsQ.refetch();
+      void testsQ.refetch();
+    },
   };
 }
 
@@ -156,7 +168,7 @@ function CalendarPage() {
   const [selected, setSelected] = useState<Date>(today);
   const [view, setView] = useState<"list" | "month">("list");
 
-  const { items, loading: rawLoading } = useCalendarData(month);
+  const { items, loading: rawLoading, failed, retry } = useCalendarData(month);
   const loading = useDelayedLoading(rawLoading);
 
   const todayKey = toDateKey(today);
@@ -232,7 +244,11 @@ function CalendarPage() {
 
       {loading && <CalendarSkeleton />}
 
-      {!loading && view === "month" && (
+      {!loading && failed && (
+        <QueryErrorState className="mt-6" what="the calendar" onRetry={retry} />
+      )}
+
+      {!loading && !failed && view === "month" && (
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <MonthGrid
             month={month}
@@ -245,7 +261,7 @@ function CalendarPage() {
         </div>
       )}
 
-      {!loading && view === "list" && (
+      {!loading && !failed && view === "list" && (
         <section className="mt-6 space-y-6" aria-label="Monthly schedule">
           <MonthNav month={month} onMonthChange={setMonth} />
 

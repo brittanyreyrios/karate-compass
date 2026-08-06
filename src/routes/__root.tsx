@@ -132,7 +132,7 @@ function RootComponent() {
       <SidebarProvider>
         <div className="flex min-h-dvh w-full bg-background">
           <AppSidebar />
-          <div className="flex flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md">
               <SidebarTrigger className="text-foreground" />
               <div className="h-4 w-px bg-border" />
@@ -140,7 +140,7 @@ function RootComponent() {
                 Tiger's Den Martial Arts &amp; Fitness · Parent Portal
               </span>
             </header>
-            <main className="flex-1"><Outlet /></main>
+            <main className="min-w-0 flex-1"><Outlet /></main>
             <footer className="border-t border-border px-4 py-6">
               <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>© {new Date().getFullYear()} Tiger's Den Martial Arts &amp; Fitness</span>

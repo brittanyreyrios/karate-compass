@@ -12,6 +12,7 @@ import { formatRuntime } from "@/lib/youtube";
 import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "@/lib/belts";
 import { CurriculumSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
@@ -105,6 +106,12 @@ function Curriculum() {
   const systems = systemsQ.data ?? [];
 
   const rawLoading = childrenQ.isLoading || studentsQ.isLoading || ranksQ.isLoading;
+  const failedToLoad = childrenQ.isError || studentsQ.isError || ranksQ.isError;
+  const retryAll = () => {
+    void childrenQ.refetch();
+    void studentsQ.refetch();
+    void ranksQ.refetch();
+  };
   const loading = useDelayedLoading(rawLoading);
 
   // Rows arrive grouped per child (student created_at, then the RPC's ordering
@@ -164,14 +171,18 @@ function Curriculum() {
 
       {loading && <CurriculumSkeleton />}
 
-      {!loading && sections.length === 0 && (
+      {!loading && failedToLoad && (
+        <QueryErrorState className="mt-10" what="your child's curriculum" onRetry={retryAll} />
+      )}
+
+      {!loading && !failedToLoad && sections.length === 0 && (
         <EmptyCard
           title="No students linked yet"
           body="Ask a Tiger's Den admin to link your child to your account and their curriculum will appear here."
         />
       )}
 
-      {!loading && sections.length > 0 && (
+      {!loading && !failedToLoad && sections.length > 0 && (
         <div className="mt-10 space-y-12">
           {sections.map(({ studentId, firstName, rank, system, basics, current, earnedGroups }) => (
             <section key={studentId} className="rounded-2xl border border-border bg-card p-5 sm:p-6">
