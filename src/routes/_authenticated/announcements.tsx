@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Trophy, MapPin, Calendar, Pin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateOnly, formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
@@ -37,15 +38,37 @@ type Announcement = {
   created_at: string;
 };
 
+const ANNOUNCEMENT_COLUMNS =
+  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
+
+/** One page of announcements. The archive grows forever; the feed must not. */
+const PAGE_SIZE = 20;
+
 function Announcements() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: ["announcements"],
+  const [limit, setLimit] = useState(PAGE_SIZE);
+
+  /**
+   * AB2: paginated and column-explicit. This page used to pull every
+   * announcement ever posted with select("*"), so every visit got heavier as the
+   * school posted more. It now fetches a page at a time, newest first, and the
+   * parent asks for older ones.
+   */
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["announcements", "feed", limit],
     queryFn: async () => {
-      const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("announcements")
+        .select(ANNOUNCEMENT_COLUMNS)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
       return (data ?? []) as Announcement[];
     },
+    placeholderData: (prev) => prev,
   });
+
+  const hasMore = (data?.length ?? 0) >= limit;
 
   const showSkeleton = useDelayedLoading(isLoading);
 
@@ -143,6 +166,18 @@ function Announcements() {
           </ol>
         </section>
       </div>
+
+      {hasMore && (
+        <div className="mt-10 flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setLimit((n) => n + PAGE_SIZE)}
+            disabled={isFetching}
+          >
+            {isFetching ? "Loading…" : "Show older announcements"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
