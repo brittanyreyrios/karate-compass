@@ -61,7 +61,12 @@ export function GoogleReviewCard({ profileId }: { profileId: string | null | und
         <X className="h-4 w-4" aria-hidden="true" />
       </Button>
 
-      <div className="flex flex-wrap items-center gap-5 pr-10">
+      {/*
+        Stacked on a phone, horizontal only when there is room. flex-wrap alone is
+        not enough here: the middle column is flex-1 min-w-0, so it shrinks toward
+        zero instead of forcing a wrap and every word ends up on its own line.
+      */}
+      <div className="flex flex-col items-start gap-4 pr-10 sm:flex-row sm:items-center sm:gap-5">
         <span
           className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary"
           aria-hidden="true"
@@ -78,12 +83,13 @@ export function GoogleReviewCard({ profileId }: { profileId: string | null | und
             give.
           </p>
         </div>
-        <Button asChild className="shrink-0">
+        <Button asChild className="w-full shrink-0 sm:w-auto">
           <a href={url!} target="_blank" rel="noreferrer">
             Write a review <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
           </a>
         </Button>
       </div>
+
     </section>
   );
 }

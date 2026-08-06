@@ -277,12 +277,12 @@ function Dashboard() {
             <div className="h-3 w-full overflow-hidden rounded-full bg-secondary/60">
               <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progress?.pct ?? 0}%` }} />
             </div>
-            <div className="mt-4 flex justify-between">
+            <div className="mt-4 flex min-w-0 justify-between gap-1 sm:gap-2">
               {(progress?.ladder ?? []).map((belt, i) => {
                 const reached = i <= (progress?.currentIndex ?? -1);
                 const current = i === progress?.currentIndex;
                 return (
-                  <div key={belt.id} className="flex flex-col items-center gap-2">
+                  <div key={belt.id} className="flex min-w-0 flex-col items-center gap-2">
                     <span
                       className={`inline-block transition-all ${current ? "scale-125" : reached ? "" : "opacity-40"}`}
                     >
@@ -292,8 +292,9 @@ function Dashboard() {
                         colorPrimary={belt.color_primary}
                         colorAccent={belt.color_accent}
                         systemName={system?.name ?? null}
-                        size="sm"
+                        size="ladder"
                       />
+
                     </span>
                     <span className={`hidden text-xs font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
                       {belt.short_name ?? belt.name}
