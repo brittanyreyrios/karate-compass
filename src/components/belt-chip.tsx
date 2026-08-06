@@ -40,14 +40,20 @@ const PATTERN_WORD: Record<string, string> = {
  */
 const SIZES = { sm: "h-[22px] w-12", md: "h-[33px] w-[72px]" } as const;
 
-/** Upper-left edge sweeping down across the centre to the lower-right edge. */
+/**
+ * Straps are deliberately shallow — the reference belt lies almost flat across
+ * the body, so a steep diagonal turns the icon into a bow tie. Each strap runs
+ * the full width, tapering from a wide cuff at the outer edge to a narrower
+ * waist at the crossing.
+ */
 const STRAP_A =
-  "M2 6 C24 12 44 17 62 22 C77 26 89 31 98 36 L98 45 C86 40 73 35 59 31 C41 26 20 21 2 16 Z";
-const STRAP_A_MID = "M2 11 C24 17 44 22 62 27 C77 31 89 36 98 41";
-/** Mirror image: upper-right edge down to the lower-left edge. */
+  "M2 5 C26 8 46 14 66 21 C78 25 88 29 98 33 L98 44 C87 39 77 35 64 30 C45 23 25 17 2 15 Z";
+const STRAP_A_MID = "M2 10 C26 13 46 19 66 26 C78 30 88 34 98 38";
+/** Mirror image: upper-right edge sweeping down to the lower-left edge. */
 const STRAP_B =
-  "M98 6 C76 12 56 17 38 22 C23 26 11 31 2 36 L2 45 C14 40 27 35 41 31 C59 26 80 21 98 16 Z";
-const STRAP_B_MID = "M98 11 C76 17 56 22 38 27 C23 31 11 36 2 41";
+  "M98 5 C74 8 54 14 34 21 C22 25 12 29 2 33 L2 44 C13 39 23 35 36 30 C55 23 75 17 98 15 Z";
+const STRAP_B_MID = "M98 10 C74 13 54 19 34 26 C22 30 12 34 2 38";
+
 
 export function BeltSwatch({
   name,
