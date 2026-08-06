@@ -6,9 +6,10 @@ import type { BeltPattern } from "@/lib/belts";
  * and a solid purple belt are different ranks with different curriculum, and
  * that distinction is the whole point of the three-system model.
  *
- * It is drawn as an actual belt seen head-on: a horizontal band, a knot at the
- * centre, and two short tails hanging below it. A vertical colour block read as
- * "a swatch"; a tied belt reads as a rank.
+ * Geometry is drawn against a real belt photo: two tapered straps crossing in an
+ * X, with a compact knot sitting over the crossing point. The knot is
+ * deliberately simplified — at icon size the loops and folds of a real knot turn
+ * to mud, so it reads as one rounded bundle instead.
  *
  * Accessibility: the full rank name (plus system, when supplied) is exposed via
  * aria-label, and the pattern is also spelled out in words so it is never
@@ -32,9 +33,21 @@ const PATTERN_WORD: Record<string, string> = {
   camo: "camo belt with a colored stripe",
 };
 
-/** Geometry is fixed in a 48×26 viewBox; only the rendered width changes. */
-const SIZES = { sm: "h-[13px] w-6", md: "h-5 w-9" } as const;
+/**
+ * Geometry is fixed in a 100×46 viewBox; only the rendered width changes. Both
+ * sizes are double what they were — the old 24px chip was too small for the
+ * pattern (the whole reason the icon exists) to be legible at all.
+ */
+const SIZES = { sm: "h-[22px] w-12", md: "h-[33px] w-[72px]" } as const;
 
+/** Upper-left edge sweeping down across the centre to the lower-right edge. */
+const STRAP_A =
+  "M2 6 C24 12 44 17 62 22 C77 26 89 31 98 36 L98 45 C86 40 73 35 59 31 C41 26 20 21 2 16 Z";
+const STRAP_A_MID = "M2 11 C24 17 44 22 62 27 C77 31 89 36 98 41";
+/** Mirror image: upper-right edge down to the lower-left edge. */
+const STRAP_B =
+  "M98 6 C76 12 56 17 38 22 C23 26 11 31 2 36 L2 45 C14 40 27 35 41 31 C59 26 80 21 98 16 Z";
+const STRAP_B_MID = "M98 11 C76 17 56 22 38 27 C23 31 11 36 2 41";
 
 export function BeltSwatch({
   name,
@@ -59,7 +72,7 @@ export function BeltSwatch({
     <svg
       role="img"
       aria-label={label}
-      viewBox="0 0 48 26"
+      viewBox="0 0 100 46"
       className={`inline-block shrink-0 ${SIZES[size]}`}
       preserveAspectRatio="xMidYMid meet"
     >
@@ -76,35 +89,36 @@ export function BeltSwatch({
       )}
 
       {/*
-        A thin light outline on every part — including the near-black and deep
-        brown belts — so the shape separates from the dark card instead of
-        dissolving into it. Kept at 0.6 so it does not become the loudest thing
-        in a 24px-wide icon.
+        A light outline on every part — including the near-black and deep brown
+        belts — so the shape separates from the dark card instead of dissolving
+        into it. Near-opaque and 1.3 wide in a 100-unit box, which is a much
+        firmer edge than the old hairline.
       */}
-      <g stroke="rgba(255,255,255,0.72)" strokeWidth="0.6" strokeLinejoin="round">
-        {/* Tails: long enough to hang, and tapered so they read as fabric
-            rather than as two square notches under the knot. */}
-        <path d="M19.6 13 L23.4 13 L22.6 24.6 Q21.5 25.6 20.4 24.6 Z" fill={bandFill} />
-        <path d="M24.8 13 L28.6 13 L27.9 22.6 Q26.7 23.5 25.6 22.6 Z" fill={bandFill} />
+      <g
+        stroke="rgba(255,255,255,0.92)"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        {/* Back strap first, so the front strap and the knot overlap it. */}
+        <path d={STRAP_B} fill={bandFill} />
+        {striped && <path d={STRAP_B_MID} fill="none" stroke={accent} strokeWidth="3" />}
+
+        <path d={STRAP_A} fill={bandFill} />
+        {striped && <path d={STRAP_A_MID} fill="none" stroke={accent} strokeWidth="3" />}
+
+        {/* Knot: one rounded bundle over the crossing, plus a short tail. */}
+        <path d="M46 24 L57 24 L55.6 41 Q50.5 44 46.8 41 Z" fill={bandFill} />
         {striped && (
-          <>
-            <rect x="20" y="16.5" width="3" height="2.2" fill={accent} stroke="none" />
-            <rect x="25.2" y="16.5" width="3" height="2.2" fill={accent} stroke="none" />
-          </>
+          <rect x="47" y="30" width="8.4" height="3" fill={accent} stroke="none" rx="0.6" />
         )}
 
-        {/* Band across the full width. */}
-        <rect x="0.5" y="6.5" width="47" height="8.5" rx="2.5" fill={bandFill} />
-        {striped && <rect x="1" y="9.5" width="46" height="2.8" fill={accent} stroke="none" />}
-
-        {/* Knot: a soft rounded bundle, a touch taller and wider than the band. */}
-        <rect x="16.8" y="4.6" width="14.4" height="12.8" rx="6" fill={bandFill} />
-        {striped && <rect x="17.4" y="9.5" width="13.2" height="2.8" fill={accent} stroke="none" />}
+        <rect x="38" y="12" width="24" height="17" rx="7" fill={bandFill} />
+        {striped && <rect x="39" y="19" width="22" height="3.2" fill={accent} stroke="none" />}
       </g>
     </svg>
   );
 }
-
 
 export function BeltChip({
   showLabel = true,
