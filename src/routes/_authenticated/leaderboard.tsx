@@ -113,7 +113,7 @@ function LeaderboardPage() {
   const onTabKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End") return;
     e.preventDefault();
-    const last = systems.length - 1;
+    const last = divisions.length - 1;
     const next =
       e.key === "ArrowRight"
         ? index === last
@@ -126,10 +126,10 @@ function LeaderboardPage() {
           : e.key === "Home"
             ? 0
             : last;
-    const target = systems[next];
+    const target = divisions[next];
     if (target) {
-      setActiveSlug(target.slug);
-      document.getElementById(`lb-tab-${target.slug}`)?.focus();
+      setActiveKey(target.key);
+      document.getElementById(`lb-tab-${target.key}`)?.focus();
     }
   };
 
@@ -143,7 +143,7 @@ function LeaderboardPage() {
           Dojo <span className="text-gradient-red">Leaderboard</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Top 10 by Dojo Points earned this month, with a separate board for each belt system.
+          Top 10 by Dojo Points earned this month, with a separate board for each training division.
         </p>
         <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground">
           Leaderboard resets on the 1st of each month. Your all-time points are on your dashboard and
@@ -151,42 +151,44 @@ function LeaderboardPage() {
         </p>
       </header>
 
+      {/* Five tabs will not wrap comfortably at 360px, so the strip scrolls. */}
       <div
         role="tablist"
-        aria-label="Belt system leaderboards"
-        className="mt-8 flex flex-wrap justify-center gap-2"
+        aria-label="Division leaderboards"
+        className="-mx-4 mt-8 flex snap-x gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0"
       >
-        {systems.map((s, i) => {
-          const selected = s.slug === slug;
+        {divisions.map((d, i) => {
+          const selected = d.key === divisionKey;
           return (
             <button
-              key={s.slug}
-              id={`lb-tab-${s.slug}`}
+              key={d.key}
+              id={`lb-tab-${d.key}`}
               role="tab"
               type="button"
               aria-selected={selected}
-              aria-controls={`lb-panel-${s.slug}`}
+              aria-controls={`lb-panel-${d.key}`}
               tabIndex={selected ? 0 : -1}
-              onClick={() => setActiveSlug(s.slug)}
+              onClick={() => setActiveKey(d.key)}
               onKeyDown={(e) => onTabKeyDown(e, i)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
+              className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
                 selected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
-              {s.name}
+              {d.name}
             </button>
           );
         })}
       </div>
 
       <div
-        id={slug ? `lb-panel-${slug}` : undefined}
+        id={divisionKey ? `lb-panel-${divisionKey}` : undefined}
         role="tabpanel"
-        aria-labelledby={slug ? `lb-tab-${slug}` : undefined}
+        aria-labelledby={divisionKey ? `lb-tab-${divisionKey}` : undefined}
         tabIndex={0}
       >
+
         {showSkeleton && <LeaderboardSkeleton />}
 
         {!showSkeleton && !q.isLoading && rows.length === 0 && (
