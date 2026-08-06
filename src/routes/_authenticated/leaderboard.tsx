@@ -8,6 +8,7 @@ import { BeltSwatch } from "@/components/belt-chip";
 import { beltLabelStyle } from "@/lib/belt-colors";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { QueryErrorState } from "@/components/query-error";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -191,7 +192,11 @@ function LeaderboardPage() {
 
         {showSkeleton && <LeaderboardSkeleton />}
 
-        {!showSkeleton && !q.isLoading && rows.length === 0 && (
+        {!showSkeleton && q.isError && (
+          <QueryErrorState className="mt-10" what="the leaderboard" onRetry={() => q.refetch()} />
+        )}
+
+        {!showSkeleton && !q.isLoading && !q.isError && rows.length === 0 && (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
             <p className="mt-4 text-sm text-muted-foreground">

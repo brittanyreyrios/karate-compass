@@ -33,6 +33,7 @@ import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { GoogleReviewCard } from "@/components/google-review-card";
+import { QueryErrorState } from "@/components/query-error";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
@@ -207,6 +208,24 @@ function Dashboard() {
     return <DashboardSkeleton />;
   }
 
+
+  /*
+    A failed roster/profile read must NOT fall through to "no students linked" —
+    that is a different fact and a parent would act on it differently.
+  */
+  if (studentsQ.isError || profileQ.isError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <QueryErrorState
+          what="your family dashboard"
+          onRetry={() => {
+            void studentsQ.refetch();
+            void profileQ.refetch();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (!student) {
     return (
@@ -385,7 +404,13 @@ function Dashboard() {
               View all <ChevronRight className="ml-1 h-3 w-3" />
             </Button>
           </div>
-          {news.length === 0 ? (
+          {announcementsQ.isError ? (
+            <QueryErrorState
+              className="mt-4"
+              what="the latest school news"
+              onRetry={() => announcementsQ.refetch()}
+            />
+          ) : news.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">No news posted yet.</p>
           ) : (
             <ul className="mt-4 space-y-3">
