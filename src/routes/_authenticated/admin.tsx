@@ -1564,15 +1564,49 @@ function ClassScheduleRow({
 
   return (
     <div className="rounded-xl border border-border bg-background p-4">
-      <div className="min-w-0">
-        <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {schedule.next_test_date
-            ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
-            : "No test scheduled"}
-          {schedule.test_announcement_id && " · announcement posted"}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {schedule.next_test_date
+              ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
+              : "No test scheduled"}
+            {schedule.test_announcement_id && " · announcement posted"}
+          </div>
+          <div className="mt-1 text-xs">
+            {studentCount === null ? (
+              <span className="text-muted-foreground">Counting students…</span>
+            ) : studentCount === 0 ? (
+              <span className="text-destructive-foreground">
+                0 students match this class name — check the spelling against the roster
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                {studentCount} student{studentCount === 1 ? "" : "s"} matched
+              </span>
+            )}
+          </div>
         </div>
+
+        <label
+          className="flex items-center gap-2 text-sm"
+          htmlFor={`teen-adult-${schedule.id}`}
+        >
+          <Checkbox
+            id={`teen-adult-${schedule.id}`}
+            checked={schedule.is_teen_adult}
+            onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
+            disabled={saveTeenAdult.isPending}
+          />
+          <span>
+            Teen / adult class
+            <span className="block text-xs text-muted-foreground">
+              Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+            </span>
+          </span>
+        </label>
       </div>
+
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="min-w-0">
