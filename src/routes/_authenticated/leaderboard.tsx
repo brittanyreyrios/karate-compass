@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BeltSwatch } from "@/components/belt-chip";
 import { beltLabelStyle } from "@/lib/belt-colors";
-import { useBeltSystems } from "@/lib/belts";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
@@ -17,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
       {
         name: "description",
         content:
-          "Monthly Dojo Point rankings at Tiger's Den, with a separate board for each belt system.",
+          "Monthly Dojo Point rankings at Tiger's Den, with a separate board for each training division.",
       },
     ],
   }),
@@ -37,25 +36,59 @@ type Row = {
   period_points: number;
 };
 
+type Division = { key: string; name: string; sort_order: number };
+
 function LeaderboardPage() {
   const qc = useQueryClient();
-  const systemsQ = useBeltSystems();
-  const systems = systemsQ.data ?? [];
-  const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const slug = activeSlug ?? systems[0]?.slug ?? null;
+
+  /**
+   * Labels and tab order come from leaderboard_divisions, but the authoritative
+   * set of division keys lives in the database function division_of() — adding a
+   * row to that table does not create a division.
+   */
+  const divisionsQ = useQuery({
+    queryKey: ["leaderboard-divisions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leaderboard_divisions")
+        .select("key, name, sort_order")
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as Division[];
+    },
+  });
+  const divisions = divisionsQ.data ?? [];
+
+  /** Which board is my own child on? Server-side; returns nothing about others. */
+  const myDivisionQ = useQuery({
+    queryKey: ["my-division"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_my_division");
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+  });
+
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const preferred =
+    myDivisionQ.data && divisions.some((d) => d.key === myDivisionQ.data)
+      ? myDivisionQ.data
+      : (divisions[0]?.key ?? null);
+  const divisionKey = activeKey ?? preferred;
 
   const q = useQuery({
-    queryKey: ["leaderboard", slug],
-    enabled: !!slug,
+    queryKey: ["leaderboard", divisionKey],
+    enabled: !!divisionKey,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_leaderboard", {
-        _system_slug: slug!,
+        _division: divisionKey!,
         _period: "month",
       });
       if (error) throw error;
       return (data ?? []) as Row[];
     },
   });
+
   const showSkeleton = useDelayedLoading(q.isLoading);
 
   useEffect(() => {
