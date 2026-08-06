@@ -240,6 +240,7 @@ export type Database = {
           created_at: string
           days: string | null
           id: string
+          is_teen_adult: boolean
           location: string | null
           next_test_date: string | null
           test_announcement_id: string | null
@@ -252,6 +253,7 @@ export type Database = {
           created_at?: string
           days?: string | null
           id?: string
+          is_teen_adult?: boolean
           location?: string | null
           next_test_date?: string | null
           test_announcement_id?: string | null
@@ -264,6 +266,7 @@ export type Database = {
           created_at?: string
           days?: string | null
           id?: string
+          is_teen_adult?: boolean
           location?: string | null
           next_test_date?: string | null
           test_announcement_id?: string | null
@@ -486,6 +489,27 @@ export type Database = {
           label?: string | null
           max_uses?: number
           used_count?: number
+        }
+        Relationships: []
+      }
+      leaderboard_divisions: {
+        Row: {
+          created_at: string
+          key: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          name: string
+          sort_order: number
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -919,6 +943,17 @@ export type Database = {
     }
     Functions: {
       check_invite_code: { Args: { _code: string }; Returns: boolean }
+      class_student_counts: {
+        Args: never
+        Returns: {
+          class_name: string
+          student_count: number
+        }[]
+      }
+      division_of: {
+        Args: { _belt_rank_id: string; _class_name: string }
+        Returns: string
+      }
       get_curriculum_for_all_children: {
         Args: never
         Returns: {
@@ -960,7 +995,7 @@ export type Database = {
         }[]
       }
       get_leaderboard: {
-        Args: { _period?: string; _system_slug: string }
+        Args: { _division: string; _period?: string }
         Returns: {
           class_name: string
           color_accent: string
@@ -974,6 +1009,7 @@ export type Database = {
           rank_short_name: string
         }[]
       }
+      get_my_division: { Args: never; Returns: string }
       get_poll_breakdown: {
         Args: { _poll_id: string }
         Returns: {
