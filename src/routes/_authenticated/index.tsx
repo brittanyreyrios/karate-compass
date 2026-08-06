@@ -32,6 +32,7 @@ import { plural, count } from "@/lib/plural";
 import { formatDateRange } from "@/lib/date-only";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { GoogleReviewCard } from "@/components/google-review-card";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
@@ -73,6 +74,9 @@ type Announcement = {
   created_at: string;
 };
 
+const DASHBOARD_ANNOUNCEMENT_COLUMNS =
+  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, created_at";
+
 function Dashboard() {
   const qc = useQueryClient();
 
@@ -81,7 +85,13 @@ function Dashboard() {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
-      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      // Explicit columns: the dashboard needs three fields, and select("*")
+      // dragged every future profile column across the wire with them.
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, family_name, subscription_status")
+        .eq("id", u.user.id)
+        .maybeSingle();
       return data;
     },
   });
@@ -95,13 +105,20 @@ function Dashboard() {
     },
   });
 
+  /**
+   * The dashboard only ever shows the four newest of each category, so it asks
+   * for a bounded slice of named columns instead of the whole table. Fetching
+   * every announcement ever posted to render eight cards got slower every term.
+   * Keyed under ["announcements", ...] so the shared invalidation still hits it.
+   */
   const announcementsQ = useQuery({
-    queryKey: ["announcements"],
+    queryKey: ["announcements", "dashboard"],
     queryFn: async () => {
       const { data } = await supabase
         .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select(DASHBOARD_ANNOUNCEMENT_COLUMNS)
+        .order("created_at", { ascending: false })
+        .limit(24);
       return (data ?? []) as Announcement[];
     },
   });
@@ -353,6 +370,8 @@ function Dashboard() {
         />
         <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={new Date(student.start_date).toLocaleDateString(undefined, { month: "short", year: "numeric" })} sub={`${yearsTraining} years on the mat`} />
       </section>
+
+      <GoogleReviewCard profileId={profileQ.data?.id} />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
