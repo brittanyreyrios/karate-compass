@@ -1392,9 +1392,11 @@ function ClassSchedulesTab() {
 
 function ClassScheduleRow({
   schedule,
+  studentCount,
   onRemove,
 }: {
   schedule: ClassSchedule;
+  studentCount: number | null;
   onRemove: () => void;
 }) {
   const qc = useQueryClient();
@@ -1402,6 +1404,28 @@ function ClassScheduleRow({
   const [location, setLocation] = useState(schedule.location ?? "");
   // Ticked by default: a testing date staff bother to set is news.
   const [post, setPost] = useState(true);
+
+  /**
+   * Teen/adult classes drive the Teen & Adults leaderboard division — class beats
+   * belt, because teens and adults here hold solid belts too. Saved immediately;
+   * it is one boolean with nothing to batch it with.
+   */
+  const saveTeenAdult = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ is_teen_adult: next })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["my-division"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
 
