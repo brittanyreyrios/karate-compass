@@ -9,6 +9,8 @@ import { formatDateOnly, formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
+import { useTournaments } from "@/lib/announcements";
+
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({
@@ -61,6 +63,7 @@ function Announcements() {
       const { data, error } = await supabase
         .from("announcements")
         .select(ANNOUNCEMENT_COLUMNS)
+        .eq("category", "school_news")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
@@ -68,6 +71,7 @@ function Announcements() {
     },
     placeholderData: (prev) => prev,
   });
+
 
   const hasMore = (data?.length ?? 0) >= limit;
 
@@ -83,8 +87,16 @@ function Announcements() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  const news = (data ?? []).filter((a) => a.category === "school_news");
-  const tournaments = (data ?? []).filter((a) => a.category === "tournament");
+  const news = data ?? [];
+  /**
+   * AN: tournaments come from their own server-ordered query. They are NOT
+   * filtered out of a shared feed and sorted here — see src/lib/announcements.ts
+   * for why a client-side sort of a paginated feed is silently wrong.
+   */
+  const tournamentsQ = useTournaments();
+  const tournaments = tournamentsQ.data ?? [];
+  const showTournamentSkeleton = useDelayedLoading(tournamentsQ.isLoading);
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
