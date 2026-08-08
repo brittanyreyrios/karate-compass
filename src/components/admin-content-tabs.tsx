@@ -554,6 +554,52 @@ export function CurriculumAdminTab() {
   });
 
   /**
+   * AO2 — moving an item to a different group MUST renumber it.
+   *
+   * sort_order is only meaningful within one group, so carrying the old number
+   * across drops the item into an arbitrary position in its new list — commonly
+   * position 0, i.e. ahead of material that is genuinely taught first. Worse, it
+   * collides with whatever already holds that number, and the tie is then broken
+   * alphabetically, which looks like the reorder arrows are broken.
+   *
+   * So a retarget claims a fresh end-of-list position from the same advisory-locked
+   * function a brand-new requirement uses, in the same update as the new target.
+   */
+  const retargetItem = useMutation({
+    mutationFn: async (next: {
+      id: string;
+      belt_rank_id: string | null;
+      curriculum_tier: CurriculumTier | null;
+    }) => {
+      const { data: nextOrder, error: orderErr } = await supabase.rpc(
+        "next_curriculum_sort_order",
+        {
+          _belt_rank_id: next.belt_rank_id as string,
+          _curriculum_tier: next.curriculum_tier as string,
+        },
+      );
+      if (orderErr) throw orderErr;
+      const { error } = await supabase
+        .from("curriculum_items")
+        .update({
+          belt_rank_id: next.belt_rank_id,
+          curriculum_tier: next.curriculum_tier,
+          sort_order: nextOrder ?? 0,
+        })
+        .eq("id", next.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Moved to the end of its new group.");
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-all"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+  /**
    * Reordering is GROUP-SCOPED: the caller only ever hands us two adjacent rows
    * from the same rendered group (one rank, or one tier), so an item can never
    * drift into another rank's list. Both rows' sort_order values are swapped and
