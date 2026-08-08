@@ -1466,85 +1466,40 @@ function ClassScheduleRow({
 
 
   /**
-   * The testing date is the single source of truth: the calendar derives its
-   * Belt Testing chip straight from class_schedules.next_test_date, so nothing
-   * has to be mirrored. The optional announcement, by contrast, IS a row — so
-   * it is tracked by test_announcement_id and edited in place, never re-posted.
+   * AO1 — one transaction, not five round trips.
+   *
+   * This used to be a sequence of separate requests: schedule update, student
+   * fan-out, then the announcement. Any failure part-way through left the
+   * database in a state no screen represents — e.g. the class showing a testing
+   * date its students do not have, or an announcement for a date that was
+   * cleared. set_class_test_date does all of it in a single statement, so it
+   * either all lands or none of it does.
+   *
+   * The testing date remains the single source of truth: the calendar derives
+   * its Belt Testing chip straight from class_schedules.next_test_date.
    */
   const save = useMutation({
     mutationFn: async () => {
-      const nextDate = date === "" ? null : date;
-
-      const { error: schedErr } = await supabase
-        .from("class_schedules")
-        .update({ next_test_date: nextDate })
-        .eq("id", schedule.id);
-      if (schedErr) throw schedErr;
-
-      const { error: stuErr, count } = await supabase
-        .from("students")
-        .update({ next_test_date: nextDate }, { count: "exact" })
-        .eq("class_name", schedule.class_name);
-      if (stuErr) throw stuErr;
-
-      // Announcement lifecycle. Clearing the date, or unticking the box, means
-      // the announcement is wrong — so it goes, rather than lingering.
-      const wantAnnouncement = nextDate !== null && post;
-      const existing = schedule.test_announcement_id;
-
-      if (!wantAnnouncement && existing) {
-        const { error } = await supabase.from("announcements").delete().eq("id", existing);
-        if (error) throw error;
-        const { error: clearErr } = await supabase
-          .from("class_schedules")
-          .update({ test_announcement_id: null })
-          .eq("id", schedule.id);
-        if (clearErr) throw clearErr;
-      } else if (wantAnnouncement) {
-        const pretty = new Date(`${nextDate}T12:00:00`).toLocaleDateString(undefined, {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        });
-        // Only real values: the class name, the date, and the room if one is set.
-        const fields = {
-          category: "school_news" as const,
-          title: `Belt testing — ${schedule.class_name}`,
-          body:
-            `${schedule.class_name} tests on ${pretty}.` +
-            (schedule.location ? ` Location: ${schedule.location}.` : "") +
-            ` Ask your instructor on the mat for what the student needs to show.`,
-          event_date: nextDate,
-          location: schedule.location,
-        };
-
-        if (existing) {
-          const { error } = await supabase.from("announcements").update(fields).eq("id", existing);
-          if (error) throw error;
-        } else {
-          const { data, error } = await supabase
-            .from("announcements")
-            .insert(fields)
-            .select("id")
-            .single();
-          if (error) throw error;
-          const { error: linkErr } = await supabase
-            .from("class_schedules")
-            .update({ test_announcement_id: data.id })
-            .eq("id", schedule.id);
-          if (linkErr) throw linkErr;
-        }
-      }
-
-      return { count: count ?? 0, cleared: nextDate === null };
+      const { data, error } = await supabase.rpc("set_class_test_date", {
+        _schedule_id: schedule.id,
+        _date: date === "" ? null : date,
+        _post_announcement: post,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        class_name: string;
+        students_updated: number;
+        announcement_action: string;
+        cleared: boolean;
+      };
     },
-    onSuccess: ({ count, cleared }) => {
+    onSuccess: ({ students_updated: count, cleared }) => {
       toast.success(
         cleared
           ? `Testing date cleared for ${schedule.class_name} (${count} student${count === 1 ? "" : "s"})`
           : `Testing date pushed to ${count} student${count === 1 ? "" : "s"} in ${schedule.class_name}`,
       );
+
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
       qc.invalidateQueries({ queryKey: ["admin-students"] });
       qc.invalidateQueries({ queryKey: ["students-mine"] });
