@@ -487,8 +487,8 @@ export function CurriculumAdminTab() {
         throw new Error("Video length must be a number of minutes, e.g. 1.5");
       }
       // A new requirement belongs at the END of its own group, not at position 0.
-      // The next value is computed server-side (SELECT … FOR UPDATE) so two admins
-      // adding at the same moment cannot both claim the same slot.
+      // The next value is computed server-side under a per-group advisory lock so
+      // two admins adding at the same moment cannot both claim the same slot.
       const { data: nextOrder, error: orderErr } = await supabase.rpc(
         "next_curriculum_sort_order",
         // The generated types type both args as non-null; the SQL function takes
