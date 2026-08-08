@@ -186,6 +186,7 @@ export type Database = {
           slug: string
           sort_order: number
           updated_at: string
+          uses_belts: boolean
         }
         Insert: {
           age_guidance?: string | null
@@ -195,6 +196,7 @@ export type Database = {
           slug: string
           sort_order?: number
           updated_at?: string
+          uses_belts?: boolean
         }
         Update: {
           age_guidance?: string | null
@@ -204,6 +206,7 @@ export type Database = {
           slug?: string
           sort_order?: number
           updated_at?: string
+          uses_belts?: boolean
         }
         Relationships: []
       }
@@ -515,6 +518,7 @@ export type Database = {
       }
       pending_student_imports: {
         Row: {
+          belt_rank_id: string | null
           class_name: string
           created_at: string
           current_belt: string
@@ -527,6 +531,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          belt_rank_id?: string | null
           class_name: string
           created_at?: string
           current_belt?: string
@@ -539,6 +544,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          belt_rank_id?: string | null
           class_name?: string
           created_at?: string
           current_belt?: string
@@ -550,7 +556,15 @@ export type Database = {
           start_date?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pending_student_imports_belt_rank_id_fkey"
+            columns: ["belt_rank_id"]
+            isOneToOne: false
+            referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photo_consent_events: {
         Row: {
@@ -942,6 +956,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_reassign_student: {
+        Args: { _new_parent_email: string; _student_id: string }
+        Returns: Json
+      }
       check_invite_code: { Args: { _code: string }; Returns: boolean }
       class_student_counts: {
         Args: never
@@ -1040,6 +1058,14 @@ export type Database = {
         Returns: number
       }
       resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
+      set_class_test_date: {
+        Args: {
+          _date: string
+          _post_announcement: boolean
+          _schedule_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "parent"
