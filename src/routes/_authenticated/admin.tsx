@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/select";
 import { CLASS_NAMES } from "@/lib/dojo-constants";
 import { BeltSwatch } from "@/components/belt-chip";
+import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";

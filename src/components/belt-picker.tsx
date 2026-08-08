@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BeltSwatch } from "@/components/belt-chip";
+import { LevelChip } from "@/components/level-chip";
 import { ranksOfSystem, useBeltRanks, useBeltSystems } from "@/lib/belts";
 
 /**
@@ -31,11 +32,16 @@ export function BeltPicker({
   const systems = systemsQ.data ?? [];
   const system = systems.find((s) => s.id === systemId);
   const ranks = ranksOfSystem(ranksQ.data, systemId ?? undefined);
+  // AK3: a beltless program has levels, not belts. Labels and the swatch both
+  // follow the system's own uses_belts flag, so a second beltless program needs
+  // only a database row.
+  const usesBelts = system ? system.uses_belts !== false : true;
+  const rankWord = usesBelts ? "Rank" : "Level";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-system`}>Belt system</Label>
+        <Label htmlFor={`${idPrefix}-system`}>Program</Label>
         <Select
           value={systemId ?? ""}
           onValueChange={(v) => onChange({ systemId: v, rankId: null })}
@@ -57,26 +63,30 @@ export function BeltPicker({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-rank`}>Rank</Label>
+        <Label htmlFor={`${idPrefix}-rank`}>{rankWord}</Label>
         <Select
           value={rankId ?? ""}
           disabled={!systemId}
           onValueChange={(v) => onChange({ systemId, rankId: v })}
         >
           <SelectTrigger id={`${idPrefix}-rank`}>
-            <SelectValue placeholder={systemId ? "Choose a rank" : "Pick a system first"} />
+            <SelectValue placeholder={systemId ? `Choose a ${rankWord.toLowerCase()}` : "Pick a program first"} />
           </SelectTrigger>
           <SelectContent>
             {ranks.map((r) => (
               <SelectItem key={r.id} value={r.id}>
                 <span className="flex items-center gap-2">
-                  <BeltSwatch
-                    name={r.name}
-                    pattern={r.pattern}
-                    colorPrimary={r.color_primary}
-                    colorAccent={r.color_accent}
-                    size="sm"
-                  />
+                  {usesBelts ? (
+                    <BeltSwatch
+                      name={r.name}
+                      pattern={r.pattern}
+                      colorPrimary={r.color_primary}
+                      colorAccent={r.color_accent}
+                      size="sm"
+                    />
+                  ) : (
+                    <LevelChip name={r.name} />
+                  )}
                   {r.name}
                 </span>
               </SelectItem>
@@ -84,7 +94,7 @@ export function BeltPicker({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          {ranks.length > 0 ? `${ranks.length} ranks in this system` : "\u00a0"}
+          {ranks.length > 0 ? `${ranks.length} ${rankWord.toLowerCase()}${ranks.length === 1 ? "" : "s"} in this program` : "\u00a0"}
         </p>
       </div>
     </div>
