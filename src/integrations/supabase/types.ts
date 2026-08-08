@@ -1025,6 +1025,7 @@ export type Database = {
           period_points: number
           rank_name: string
           rank_short_name: string
+          uses_belts: boolean
         }[]
       }
       get_my_division: { Args: never; Returns: string }
