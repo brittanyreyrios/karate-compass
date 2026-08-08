@@ -984,9 +984,91 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
+      <ReassignParentPanel student={student} onDone={onDone} />
     </div>
   );
 }
+
+/**
+ * AM — move a student to a different parent account.
+ *
+ * The whole move is one database function call: the student row is reassigned in
+ * place, so their belt rank, Dojo points, attendance and every logged point or
+ * attendance event follow them. Deleting and re-adding the student would lose all
+ * of that history, which is why there is no "remove and re-create" path here.
+ *
+ * The target account must already exist — a parent has to sign up with an invite
+ * code first, and inventing a profile row here would create an account nobody can
+ * log into. The function reports that case as a plain message rather than
+ * silently doing nothing.
+ */
+function ReassignParentPanel({ student, onDone }: { student: Student; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const move = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("admin_reassign_student", {
+        _student_id: student.id,
+        _new_parent_email: email.trim(),
+      });
+      if (error) throw error;
+      return data as unknown as { student_name: string; new_family_name: string };
+    },
+    onSuccess: (res) => {
+      toast.success(`${res.student_name} moved to the ${res.new_family_name} family`);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["students-mine"] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      setEmail("");
+      setOpen(false);
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      {!open ? (
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Users className="mr-1 h-3.5 w-3.5" /> Move to another parent
+        </Button>
+      ) : (
+        <div>
+          <Label className="text-xs" htmlFor={`move-${student.id}`}>
+            New parent's account email
+          </Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {student.first_name} keeps their rank, Dojo points and full attendance history. The
+            account must already exist.
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <Input
+              id={`move-${student.id}`}
+              type="email"
+              value={email}
+              placeholder="parent@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+              className="sm:flex-1"
+            />
+            <Button
+              variant="outline"
+              disabled={move.isPending || email.trim() === ""}
+              onClick={() => move.mutate()}
+            >
+              {move.isPending ? "Moving…" : "Move student"}
+            </Button>
+            <Button variant="ghost" onClick={() => { setOpen(false); setEmail(""); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /* ---------- ANNOUNCEMENTS ---------- */
 
