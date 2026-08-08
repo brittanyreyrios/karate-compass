@@ -297,6 +297,7 @@ function Dashboard() {
       </header>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-3">
+        {usesBelts ? (
         <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
           <div className="flex items-center justify-between">
             <div>
@@ -356,6 +357,29 @@ function Dashboard() {
             )}
           </div>
         </div>
+        ) : (
+          /* AK3: no belts in this program, so no ladder and no progress bar —
+             just the level the student currently holds. */
+          <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
+            <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {system?.name ?? "Program"}
+            </div>
+            <div className="mt-1 font-display text-2xl font-bold uppercase">
+              {student.first_name}'s Journey
+            </div>
+            <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Current level
+            </div>
+            <div className="mt-2 font-display text-4xl font-black uppercase text-gradient-red">
+              {rank?.name ?? student.current_belt}
+            </div>
+            <p className="mt-4 max-w-md text-sm text-muted-foreground">
+              This program is not ranked by belts. Your instructor will let you know when new
+              material is ready for you.
+            </p>
+          </div>
+        )}
+
 
 
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
