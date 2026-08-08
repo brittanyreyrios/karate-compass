@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { BookOpen, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LevelChip } from "@/components/level-chip";
 import { BeltChip } from "@/components/belt-chip";
 import { VideoFacade } from "@/components/video-facade";
 import { supabase } from "@/integrations/supabase/client";
@@ -192,7 +193,11 @@ function Curriculum() {
                     {firstName}
                   </h2>
                   <div className="mt-2">
-                    {rank ? (
+                    {rank && system?.uses_belts === false ? (
+                      /* AK3: a beltless program shows the level it actually
+                         awards, not a belt graphic it does not use. */
+                      <LevelChip name={rank.name} systemName={system.name} />
+                    ) : rank ? (
                       <BeltChip
                         name={rank.name}
                         pattern={rank.pattern}
@@ -202,13 +207,13 @@ function Curriculum() {
                       />
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        No belt rank assigned yet — ask an instructor to set it.
+                        No rank assigned yet — ask an instructor to set it.
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  {rank && (
+                  {rank && system?.uses_belts !== false && (
                     <Badge
                       variant="outline"
                       style={beltLabelStyle(rank.color_primary, rank.color_accent)}
