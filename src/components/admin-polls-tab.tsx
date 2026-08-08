@@ -118,7 +118,7 @@ export function PollsAdminTab() {
               id="poll-q"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Can your child attend SWAT team on the 14th?"
+              placeholder="Can your student attend SWAT team on the 14th?"
               className="mt-1"
             />
           </div>

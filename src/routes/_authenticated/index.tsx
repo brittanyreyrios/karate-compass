@@ -246,7 +246,7 @@ function Dashboard() {
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold uppercase">Welcome, {profileQ.data?.family_name ?? "Family"}</h1>
         <p className="mt-3 text-muted-foreground">
-          No students are linked to your account yet. Ask a Tiger's Den admin to link a student to your account — yourself, or your child — and their progress appears here.
+          No students are linked to your account yet. Ask a Tiger's Den admin to link a student to your account and their progress appears here.
         </p>
       </div>
     );

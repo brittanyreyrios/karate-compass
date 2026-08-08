@@ -1514,7 +1514,7 @@ function ClassScheduleRow({
           body:
             `${schedule.class_name} tests on ${pretty}.` +
             (schedule.location ? ` Location: ${schedule.location}.` : "") +
-            ` Ask your instructor on the mat for what your child needs to show.`,
+            ` Ask your instructor on the mat for what the student needs to show.`,
           event_date: nextDate,
           location: schedule.location,
         };
