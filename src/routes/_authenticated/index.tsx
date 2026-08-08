@@ -386,7 +386,7 @@ function Dashboard() {
           <div className="absolute -right-8 -top-8 opacity-10"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
           <div className="relative">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/80">
-              <Flame className="h-3 w-3" /> Next Belt Test
+              <Flame className="h-3 w-3" /> Next {usesBelts ? "Belt Test" : "Level Check"}
             </div>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
@@ -411,13 +411,16 @@ function Dashboard() {
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={<Trophy className="h-5 w-5" />}
-          label="Current Belt"
+          label={usesBelts ? "Current Belt" : "Current Level"}
           value={rank?.name ?? student.current_belt}
           sub={
             progress
               ? `${system?.name ?? "Belt system"} · step ${progress.step} of ${progress.total}`
-              : "No belt rank assigned yet"
+              : system
+                ? system.name
+                : `No ${noun.toLowerCase()} assigned yet`
           }
+
         />
         <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
         <StatCard
