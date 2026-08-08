@@ -124,6 +124,18 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     );
   }
+  // A beltless program (tai chi) gets a plain level chip — drawing a belt for a
+  // student who wears none would be a lie about what they hold.
+  if (system && system.uses_belts === false) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <LevelChip name={rank.name} systemName={system.name} />
+        <Badge variant="outline" className="border-border text-muted-foreground">
+          {system.name}
+        </Badge>
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5">
       <BeltSwatch
@@ -140,6 +152,7 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     </span>
   );
+
 };
 
 const ALL_CLASSES = "__all__";
