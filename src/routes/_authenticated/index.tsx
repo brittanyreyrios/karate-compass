@@ -485,8 +485,16 @@ function Dashboard() {
               <h2 className="font-display text-xl font-bold uppercase tracking-wide">Upcoming Tournaments</h2>
             </div>
           </div>
-          {tournaments.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">No tournaments scheduled.</p>
+          {tournamentsQ.isError ? (
+            <div className="mt-4">
+              <QueryErrorState
+                what="the tournament schedule"
+                onRetry={() => tournamentsQ.refetch()}
+              />
+            </div>
+          ) : tournaments.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No upcoming tournaments right now.</p>
+
           ) : (
             <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
               {tournaments.map((t) => {
