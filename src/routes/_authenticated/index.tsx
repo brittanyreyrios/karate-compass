@@ -24,7 +24,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BeltChip, BeltSwatch } from "@/components/belt-chip";
-import { computeBeltProgress, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { LevelChip } from "@/components/level-chip";
+import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { useTournaments } from "@/lib/announcements";
+
 import { CHIP_BASE, EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
 import { Link } from "@tanstack/react-router";
 
@@ -118,11 +121,21 @@ function Dashboard() {
       const { data } = await supabase
         .from("announcements")
         .select(DASHBOARD_ANNOUNCEMENT_COLUMNS)
+        .eq("category", "school_news")
         .order("created_at", { ascending: false })
-        .limit(24);
+        .limit(8);
       return (data ?? []) as Announcement[];
     },
   });
+
+  /**
+   * AN: tournaments are a separate, server-ordered query — soonest first, past
+   * events excluded. The old code filtered the shared newest-first feed and then
+   * sliced four, so an event happening next week could be cut entirely because
+   * four tournaments were posted after it.
+   */
+  const tournamentsQ = useTournaments(4);
+
 
   // Realtime: refresh on any student or announcement change
   useEffect(() => {
