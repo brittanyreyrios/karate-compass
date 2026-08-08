@@ -855,11 +855,57 @@ export function CurriculumAdminTab() {
           <div className="rounded-2xl border border-dashed border-border bg-card p-5">
             <h3 className="font-display text-lg font-bold uppercase tracking-wide">Untargeted (legacy)</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              These rows predate the three belt systems and are not shown to any family. Delete and
-              re-add them against a tier or a rank.
+              These rows are not shown to any family because they are not attached to a rank or a
+              tier. Point each one at a group below — it is renumbered to the end of that group, so
+              it never lands ahead of material taught earlier.
             </p>
-            <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} group={legacy} />)}</ul>
+            <ul className="mt-3 space-y-2">
+              {legacy.map((it) => (
+                <li key={it.id} className="rounded-xl border border-border bg-background p-2">
+                  <ItemRow it={it} group={legacy} />
+                  <div className="mt-2 flex flex-wrap items-center gap-2 px-1 pb-1">
+                    <Label className="text-xs" htmlFor={`retarget-${it.id}`}>
+                      Move to
+                    </Label>
+                    <Select
+                      disabled={retargetItem.isPending}
+                      onValueChange={(v) =>
+                        retargetItem.mutate(
+                          v.startsWith("tier:")
+                            ? {
+                                id: it.id,
+                                belt_rank_id: null,
+                                curriculum_tier: v.slice(5) as CurriculumTier,
+                              }
+                            : { id: it.id, belt_rank_id: v.slice(5), curriculum_tier: null },
+                        )
+                      }
+                    >
+                      <SelectTrigger id={`retarget-${it.id}`} className="h-9 w-64">
+                        <SelectValue placeholder="Choose a rank or tier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRICULUM_TIERS.map((t) => (
+                          <SelectItem key={t} value={`tier:${t}`}>
+                            All {TIER_LABELS[t]} students
+                          </SelectItem>
+                        ))}
+                        {ranks.map((r) => (
+                          <SelectItem key={r.id} value={`rank:${r.id}`}>
+                            {r.name}
+                            {systems.find((s) => s.id === r.system_id)
+                              ? ` · ${systems.find((s) => s.id === r.system_id)!.name}`
+                              : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
+
         )}
       </div>
     </div>
