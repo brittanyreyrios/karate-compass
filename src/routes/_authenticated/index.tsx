@@ -161,8 +161,9 @@ function Dashboard() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const student = students.find((s) => s.id === activeId) ?? students[0];
 
-  const news = (announcementsQ.data ?? []).filter((a) => a.category === "school_news").slice(0, 4);
-  const tournaments = (announcementsQ.data ?? []).filter((a) => a.category === "tournament").slice(0, 4);
+  const news = (announcementsQ.data ?? []).slice(0, 4);
+  const tournaments = tournamentsQ.data ?? [];
+
 
   // Yearly attendance log — counts only classes logged in the current calendar
   // year, so the number naturally resets every January 1st.
