@@ -15,7 +15,14 @@ export type BeltSystem = {
   name: string;
   age_guidance: string | null;
   sort_order: number;
+  /**
+   * Round 10 AK3: not every program has belts. Tai chi has levels, so the UI
+   * must not draw a belt graphic or say "belt" for it. Data-driven on purpose —
+   * a future beltless program needs no code change, only a row.
+   */
+  uses_belts: boolean;
 };
+
 
 export type BeltRank = {
   id: string;
@@ -45,13 +52,19 @@ export function useBeltSystems() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("belt_systems")
-        .select("id, slug, name, age_guidance, sort_order")
+        .select("id, slug, name, age_guidance, sort_order, uses_belts")
         .order("sort_order");
       if (error) throw error;
       return (data ?? []) as BeltSystem[];
     },
   });
 }
+
+/** "Belt" for a ranked system, "Level" for a beltless one (tai chi). */
+export function rankNoun(system: BeltSystem | undefined | null) {
+  return system && system.uses_belts === false ? "Level" : "Belt";
+}
+
 
 export function useBeltRanks() {
   return useQuery({
