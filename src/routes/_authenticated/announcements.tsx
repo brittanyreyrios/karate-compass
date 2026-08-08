@@ -143,11 +143,20 @@ function Announcements() {
             <h2 className="font-display text-xl font-bold uppercase tracking-wide">Upcoming Tournaments</h2>
           </div>
           <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
-            {showSkeleton && <ListSkeleton rows={2} height="h-48" label="Loading tournaments" />}
-            {!showSkeleton && isError && (
-              <QueryErrorState what="the tournament schedule" onRetry={() => refetch()} />
+            {showTournamentSkeleton && <ListSkeleton rows={2} height="h-48" label="Loading tournaments" />}
+            {!showTournamentSkeleton && tournamentsQ.isError && (
+              <QueryErrorState
+                what="the tournament schedule"
+                onRetry={() => tournamentsQ.refetch()}
+              />
             )}
-            {!showSkeleton && !isLoading && !isError && tournaments.length === 0 && <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
+            {!showTournamentSkeleton &&
+              !tournamentsQ.isLoading &&
+              !tournamentsQ.isError &&
+              tournaments.length === 0 && (
+                <p className="text-sm text-muted-foreground">No upcoming tournaments right now.</p>
+              )}
+
             {tournaments.map((t) => {
               const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
               return (
