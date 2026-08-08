@@ -254,12 +254,15 @@ function LeaderboardPage() {
                       {r.first_name} {r.last_initial}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <Badge
-                        variant="outline"
-                        style={beltLabelStyle(r.color_primary, r.color_accent)}
-                      >
-                        {r.rank_short_name}
-                      </Badge>
+                      {r.uses_belts !== false && (
+                        <Badge
+                          variant="outline"
+                          style={beltLabelStyle(r.color_primary, r.color_accent)}
+                        >
+                          {r.rank_short_name}
+                        </Badge>
+                      )}
+
                       <span>{r.class_name}</span>
                     </div>
                   </div>
