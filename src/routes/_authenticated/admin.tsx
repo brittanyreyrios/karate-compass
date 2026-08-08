@@ -1863,6 +1863,15 @@ function CsvImporter() {
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;
 
+        // CSV rows carry belt *text*, which may name a rank in more than one
+        // system. Resolved ONCE here, before the parked/linked split: a parked
+        // row must carry the same resolved rank a linked one would get, or the
+        // child arrives rankless whenever their parent signs up later (AL). The
+        // importer's system selector is honoured, so an ambiguous name like
+        // "Gold" resolves here even though the database function cannot.
+        const candidates = findRanks(belt);
+        const rank = candidates.length === 1 ? candidates[0] : undefined;
+
         if (!profile) {
           // Stage as unlinked so admins can spot typos in the audit view.
           const { error } = await supabase.from("pending_student_imports").insert({
@@ -1871,22 +1880,22 @@ function CsvImporter() {
             parent_email: email,
             class_name: assignedClass,
             current_belt: belt,
+            ...(rank ? { belt_rank_id: rank.id } : {}),
             ...(startDate ? { start_date: startDate } : {}),
           });
           if (error) throw error;
           out.push({
             student: name,
             status: "unlinked",
-            message: `Queued in audit — no parent account for ${email}`,
+            message: `Queued in audit — no parent account for ${email}${
+              rank ? "" : ` · belt "${belt}" unresolved, set it once they sign up`
+            }`,
           });
           continue;
         }
 
-        // CSV rows carry belt *text*, which may name a rank in any of the three
-        // systems. No match — or more than one match — means the student imports
-        // without a rank, reported as a warning, never as a clean success.
-        const candidates = findRanks(belt);
-        const rank = candidates.length === 1 ? candidates[0] : undefined;
+        // No match — or more than one match — means the student imports without a
+        // rank, reported as a warning, never as a clean success.
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
@@ -1894,6 +1903,7 @@ function CsvImporter() {
           class_name: assignedClass,
           current_belt: belt,
           ...(rank ? { belt_rank_id: rank.id } : {}),
+
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
