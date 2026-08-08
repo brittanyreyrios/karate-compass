@@ -246,7 +246,7 @@ function Dashboard() {
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold uppercase">Welcome, {profileQ.data?.family_name ?? "Family"}</h1>
         <p className="mt-3 text-muted-foreground">
-          No students are linked to your account yet. Ask a Tiger's Den admin to add your child so their progress appears here.
+          No students are linked to your account yet. Ask a Tiger's Den admin to link a student to your account — yourself, or your child — and their progress appears here.
         </p>
       </div>
     );
@@ -255,6 +255,13 @@ function Dashboard() {
   const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
   const progress = computeBeltProgress(system, ranksQ.data, student.belt_rank_id);
+  /**
+   * AK3: a program without belts (tai chi) has no ladder, so the progress panel
+   * is replaced entirely rather than shown at a meaningless 100%.
+   */
+  const usesBelts = system ? system.uses_belts !== false : true;
+  const noun = rankNoun(system);
+
 
 
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
