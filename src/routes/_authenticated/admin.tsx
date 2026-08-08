@@ -1480,11 +1480,14 @@ function ClassScheduleRow({
    */
   const save = useMutation({
     mutationFn: async () => {
+      // _date is a nullable date in the function; the generated arg type omits
+      // the null, so clearing the date needs the cast.
       const { data, error } = await supabase.rpc("set_class_test_date", {
         _schedule_id: schedule.id,
-        _date: date === "" ? null : date,
+        _date: (date === "" ? null : date) as unknown as string,
         _post_announcement: post,
       });
+
       if (error) throw error;
       return data as unknown as {
         class_name: string;
