@@ -132,6 +132,13 @@ export function computeBeltProgress(
   rankId: string | null | undefined,
 ): BeltProgress | null {
   if (!system || !ranks || !rankId) return null;
+  /**
+   * A beltless program has no ladder to progress along. A one-level system would
+   * render as a meaningless 100% bar, so there is deliberately no progress at
+   * all — the dashboard shows the level name instead.
+   */
+  if (system.uses_belts === false) return null;
+
   const ladder = ranksOfSystem(ranks, system.id);
   if (ladder.length === 0) return null;
   const currentIndex = ladder.findIndex((r) => r.id === rankId);
