@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/select";
 import { CLASS_NAMES } from "@/lib/dojo-constants";
 import { BeltSwatch } from "@/components/belt-chip";
+import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
@@ -124,6 +125,18 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     );
   }
+  // A beltless program (tai chi) gets a plain level chip — drawing a belt for a
+  // student who wears none would be a lie about what they hold.
+  if (system && system.uses_belts === false) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <LevelChip name={rank.name} systemName={system.name} />
+        <Badge variant="outline" className="border-border text-muted-foreground">
+          {system.name}
+        </Badge>
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5">
       <BeltSwatch
@@ -140,6 +153,7 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     </span>
   );
+
 };
 
 const ALL_CLASSES = "__all__";
@@ -984,9 +998,91 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           <Save className="mr-1 h-4 w-4" /> {save.isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
+      <ReassignParentPanel student={student} onDone={onDone} />
     </div>
   );
 }
+
+/**
+ * AM — move a student to a different parent account.
+ *
+ * The whole move is one database function call: the student row is reassigned in
+ * place, so their belt rank, Dojo points, attendance and every logged point or
+ * attendance event follow them. Deleting and re-adding the student would lose all
+ * of that history, which is why there is no "remove and re-create" path here.
+ *
+ * The target account must already exist — a parent has to sign up with an invite
+ * code first, and inventing a profile row here would create an account nobody can
+ * log into. The function reports that case as a plain message rather than
+ * silently doing nothing.
+ */
+function ReassignParentPanel({ student, onDone }: { student: Student; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const move = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("admin_reassign_student", {
+        _student_id: student.id,
+        _new_parent_email: email.trim(),
+      });
+      if (error) throw error;
+      return data as unknown as { student_name: string; new_family_name: string };
+    },
+    onSuccess: (res) => {
+      toast.success(`${res.student_name} moved to the ${res.new_family_name} family`);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["students-mine"] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      setEmail("");
+      setOpen(false);
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      {!open ? (
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Users className="mr-1 h-3.5 w-3.5" /> Move to another parent
+        </Button>
+      ) : (
+        <div>
+          <Label className="text-xs" htmlFor={`move-${student.id}`}>
+            New parent's account email
+          </Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {student.first_name} keeps their rank, Dojo points and full attendance history. The
+            account must already exist.
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <Input
+              id={`move-${student.id}`}
+              type="email"
+              value={email}
+              placeholder="parent@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+              className="sm:flex-1"
+            />
+            <Button
+              variant="outline"
+              disabled={move.isPending || email.trim() === ""}
+              onClick={() => move.mutate()}
+            >
+              {move.isPending ? "Moving…" : "Move student"}
+            </Button>
+            <Button variant="ghost" onClick={() => { setOpen(false); setEmail(""); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /* ---------- ANNOUNCEMENTS ---------- */
 
@@ -1466,85 +1562,43 @@ function ClassScheduleRow({
 
 
   /**
-   * The testing date is the single source of truth: the calendar derives its
-   * Belt Testing chip straight from class_schedules.next_test_date, so nothing
-   * has to be mirrored. The optional announcement, by contrast, IS a row — so
-   * it is tracked by test_announcement_id and edited in place, never re-posted.
+   * AO1 — one transaction, not five round trips.
+   *
+   * This used to be a sequence of separate requests: schedule update, student
+   * fan-out, then the announcement. Any failure part-way through left the
+   * database in a state no screen represents — e.g. the class showing a testing
+   * date its students do not have, or an announcement for a date that was
+   * cleared. set_class_test_date does all of it in a single statement, so it
+   * either all lands or none of it does.
+   *
+   * The testing date remains the single source of truth: the calendar derives
+   * its Belt Testing chip straight from class_schedules.next_test_date.
    */
   const save = useMutation({
     mutationFn: async () => {
-      const nextDate = date === "" ? null : date;
+      // _date is a nullable date in the function; the generated arg type omits
+      // the null, so clearing the date needs the cast.
+      const { data, error } = await supabase.rpc("set_class_test_date", {
+        _schedule_id: schedule.id,
+        _date: (date === "" ? null : date) as unknown as string,
+        _post_announcement: post,
+      });
 
-      const { error: schedErr } = await supabase
-        .from("class_schedules")
-        .update({ next_test_date: nextDate })
-        .eq("id", schedule.id);
-      if (schedErr) throw schedErr;
-
-      const { error: stuErr, count } = await supabase
-        .from("students")
-        .update({ next_test_date: nextDate }, { count: "exact" })
-        .eq("class_name", schedule.class_name);
-      if (stuErr) throw stuErr;
-
-      // Announcement lifecycle. Clearing the date, or unticking the box, means
-      // the announcement is wrong — so it goes, rather than lingering.
-      const wantAnnouncement = nextDate !== null && post;
-      const existing = schedule.test_announcement_id;
-
-      if (!wantAnnouncement && existing) {
-        const { error } = await supabase.from("announcements").delete().eq("id", existing);
-        if (error) throw error;
-        const { error: clearErr } = await supabase
-          .from("class_schedules")
-          .update({ test_announcement_id: null })
-          .eq("id", schedule.id);
-        if (clearErr) throw clearErr;
-      } else if (wantAnnouncement) {
-        const pretty = new Date(`${nextDate}T12:00:00`).toLocaleDateString(undefined, {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        });
-        // Only real values: the class name, the date, and the room if one is set.
-        const fields = {
-          category: "school_news" as const,
-          title: `Belt testing — ${schedule.class_name}`,
-          body:
-            `${schedule.class_name} tests on ${pretty}.` +
-            (schedule.location ? ` Location: ${schedule.location}.` : "") +
-            ` Ask your instructor on the mat for what your child needs to show.`,
-          event_date: nextDate,
-          location: schedule.location,
-        };
-
-        if (existing) {
-          const { error } = await supabase.from("announcements").update(fields).eq("id", existing);
-          if (error) throw error;
-        } else {
-          const { data, error } = await supabase
-            .from("announcements")
-            .insert(fields)
-            .select("id")
-            .single();
-          if (error) throw error;
-          const { error: linkErr } = await supabase
-            .from("class_schedules")
-            .update({ test_announcement_id: data.id })
-            .eq("id", schedule.id);
-          if (linkErr) throw linkErr;
-        }
-      }
-
-      return { count: count ?? 0, cleared: nextDate === null };
+      if (error) throw error;
+      return data as unknown as {
+        class_name: string;
+        students_updated: number;
+        announcement_action: string;
+        cleared: boolean;
+      };
     },
-    onSuccess: ({ count, cleared }) => {
+    onSuccess: ({ students_updated: count, cleared }) => {
       toast.success(
         cleared
           ? `Testing date cleared for ${schedule.class_name} (${count} student${count === 1 ? "" : "s"})`
           : `Testing date pushed to ${count} student${count === 1 ? "" : "s"} in ${schedule.class_name}`,
       );
+
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
       qc.invalidateQueries({ queryKey: ["admin-students"] });
       qc.invalidateQueries({ queryKey: ["students-mine"] });
@@ -1823,6 +1877,15 @@ function CsvImporter() {
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;
 
+        // CSV rows carry belt *text*, which may name a rank in more than one
+        // system. Resolved ONCE here, before the parked/linked split: a parked
+        // row must carry the same resolved rank a linked one would get, or the
+        // child arrives rankless whenever their parent signs up later (AL). The
+        // importer's system selector is honoured, so an ambiguous name like
+        // "Gold" resolves here even though the database function cannot.
+        const candidates = findRanks(belt);
+        const rank = candidates.length === 1 ? candidates[0] : undefined;
+
         if (!profile) {
           // Stage as unlinked so admins can spot typos in the audit view.
           const { error } = await supabase.from("pending_student_imports").insert({
@@ -1831,22 +1894,22 @@ function CsvImporter() {
             parent_email: email,
             class_name: assignedClass,
             current_belt: belt,
+            ...(rank ? { belt_rank_id: rank.id } : {}),
             ...(startDate ? { start_date: startDate } : {}),
           });
           if (error) throw error;
           out.push({
             student: name,
             status: "unlinked",
-            message: `Queued in audit — no parent account for ${email}`,
+            message: `Queued in audit — no parent account for ${email}${
+              rank ? "" : ` · belt "${belt}" unresolved, set it once they sign up`
+            }`,
           });
           continue;
         }
 
-        // CSV rows carry belt *text*, which may name a rank in any of the three
-        // systems. No match — or more than one match — means the student imports
-        // without a rank, reported as a warning, never as a clean success.
-        const candidates = findRanks(belt);
-        const rank = candidates.length === 1 ? candidates[0] : undefined;
+        // No match — or more than one match — means the student imports without a
+        // rank, reported as a warning, never as a clean success.
         const payload = {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
@@ -1854,6 +1917,7 @@ function CsvImporter() {
           class_name: assignedClass,
           current_belt: belt,
           ...(rank ? { belt_rank_id: rank.id } : {}),
+
           ...(startDate ? { start_date: startDate } : {}),
         };
         const { error } = await supabase.from("students").insert(payload);
@@ -2111,6 +2175,7 @@ type PendingImport = {
   parent_email: string;
   class_name: string;
   current_belt: string;
+  belt_rank_id: string | null;
   start_date: string | null;
   created_at: string;
 };
@@ -2122,7 +2187,7 @@ function UnlinkedAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pending_student_imports")
-        .select("id, first_name, last_name, parent_email, class_name, current_belt, start_date, created_at")
+        .select("id, first_name, last_name, parent_email, class_name, current_belt, belt_rank_id, start_date, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as PendingImport[];
@@ -2142,6 +2207,10 @@ function UnlinkedAudit() {
         last_name: row.last_name,
         class_name: row.class_name,
         current_belt: row.current_belt,
+        // AL: the rank was resolved at import time and parked on the row, so a
+        // manual retry-link must carry it across too — otherwise the two link
+        // paths disagree and only the manual one produces a rankless student.
+        belt_rank_id: row.belt_rank_id,
         ...(row.start_date ? { start_date: row.start_date } : {}),
       });
       if (insErr) throw insErr;

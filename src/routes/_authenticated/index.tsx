@@ -24,7 +24,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BeltChip, BeltSwatch } from "@/components/belt-chip";
-import { computeBeltProgress, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { LevelChip } from "@/components/level-chip";
+import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { useTournaments } from "@/lib/announcements";
+
 import { CHIP_BASE, EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
 import { Link } from "@tanstack/react-router";
 
@@ -118,11 +121,21 @@ function Dashboard() {
       const { data } = await supabase
         .from("announcements")
         .select(DASHBOARD_ANNOUNCEMENT_COLUMNS)
+        .eq("category", "school_news")
         .order("created_at", { ascending: false })
-        .limit(24);
+        .limit(8);
       return (data ?? []) as Announcement[];
     },
   });
+
+  /**
+   * AN: tournaments are a separate, server-ordered query — soonest first, past
+   * events excluded. The old code filtered the shared newest-first feed and then
+   * sliced four, so an event happening next week could be cut entirely because
+   * four tournaments were posted after it.
+   */
+  const tournamentsQ = useTournaments(4);
+
 
   // Realtime: refresh on any student or announcement change
   useEffect(() => {
@@ -148,8 +161,9 @@ function Dashboard() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const student = students.find((s) => s.id === activeId) ?? students[0];
 
-  const news = (announcementsQ.data ?? []).filter((a) => a.category === "school_news").slice(0, 4);
-  const tournaments = (announcementsQ.data ?? []).filter((a) => a.category === "tournament").slice(0, 4);
+  const news = (announcementsQ.data ?? []).slice(0, 4);
+  const tournaments = tournamentsQ.data ?? [];
+
 
   // Yearly attendance log — counts only classes logged in the current calendar
   // year, so the number naturally resets every January 1st.
@@ -232,7 +246,7 @@ function Dashboard() {
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold uppercase">Welcome, {profileQ.data?.family_name ?? "Family"}</h1>
         <p className="mt-3 text-muted-foreground">
-          No students are linked to your account yet. Ask a Tiger's Den admin to add your child so their progress appears here.
+          No students are linked to your account yet. Ask a Tiger's Den admin to link a student to your account and their progress appears here.
         </p>
       </div>
     );
@@ -241,6 +255,13 @@ function Dashboard() {
   const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
   const progress = computeBeltProgress(system, ranksQ.data, student.belt_rank_id);
+  /**
+   * AK3: a program without belts (tai chi) has no ladder, so the progress panel
+   * is replaced entirely rather than shown at a meaningless 100%.
+   */
+  const usesBelts = system ? system.uses_belts !== false : true;
+  const noun = rankNoun(system);
+
 
 
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
@@ -276,6 +297,7 @@ function Dashboard() {
       </header>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-3">
+        {usesBelts ? (
         <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
           <div className="flex items-center justify-between">
             <div>
@@ -335,13 +357,36 @@ function Dashboard() {
             )}
           </div>
         </div>
+        ) : (
+          /* AK3: no belts in this program, so no ladder and no progress bar —
+             just the level the student currently holds. */
+          <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
+            <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {system?.name ?? "Program"}
+            </div>
+            <div className="mt-1 font-display text-2xl font-bold uppercase">
+              {student.first_name}'s Journey
+            </div>
+            <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Current level
+            </div>
+            <div className="mt-2 font-display text-4xl font-black uppercase text-gradient-red">
+              {rank?.name ?? student.current_belt}
+            </div>
+            <p className="mt-4 max-w-md text-sm text-muted-foreground">
+              This program is not ranked by belts. Your instructor will let you know when new
+              material is ready for you.
+            </p>
+          </div>
+        )}
+
 
 
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
           <div className="absolute -right-8 -top-8 opacity-10"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
           <div className="relative">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/80">
-              <Flame className="h-3 w-3" /> Next Belt Test
+              <Flame className="h-3 w-3" /> Next {usesBelts ? "Belt Test" : "Level Check"}
             </div>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
@@ -366,13 +411,16 @@ function Dashboard() {
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={<Trophy className="h-5 w-5" />}
-          label="Current Belt"
+          label={usesBelts ? "Current Belt" : "Current Level"}
           value={rank?.name ?? student.current_belt}
           sub={
             progress
               ? `${system?.name ?? "Belt system"} · step ${progress.step} of ${progress.total}`
-              : "No belt rank assigned yet"
+              : system
+                ? system.name
+                : `No ${noun.toLowerCase()} assigned yet`
           }
+
         />
         <StatCard icon={<Users className="h-5 w-5" />} label="Class" value={student.class_name} sub="enrolled program" />
         <StatCard
@@ -437,8 +485,16 @@ function Dashboard() {
               <h2 className="font-display text-xl font-bold uppercase tracking-wide">Upcoming Tournaments</h2>
             </div>
           </div>
-          {tournaments.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">No tournaments scheduled.</p>
+          {tournamentsQ.isError ? (
+            <div className="mt-4">
+              <QueryErrorState
+                what="the tournament schedule"
+                onRetry={() => tournamentsQ.refetch()}
+              />
+            </div>
+          ) : tournaments.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No upcoming tournaments right now.</p>
+
           ) : (
             <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
               {tournaments.map((t) => {

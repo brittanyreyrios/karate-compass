@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { BookOpen, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LevelChip } from "@/components/level-chip";
 import { BeltChip } from "@/components/belt-chip";
 import { VideoFacade } from "@/components/video-facade";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/curriculum")({
       {
         name: "description",
         content:
-          "The technique requirements for your child's exact belt rank at Tiger's Den Martial Arts & Fitness.",
+          "The technique requirements for each student's exact rank at Tiger's Den Martial Arts & Fitness.",
       },
     ],
   }),
@@ -163,8 +164,8 @@ function Curriculum() {
           Belt <span className="text-gradient-red">Curriculum</span>
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Requirements for your child's exact rank, published by Tiger's Den instructors. Each of our
-          three belt systems has its own material, so what you see below is only what your child is
+          Requirements for each student's exact rank, published by Tiger's Den instructors. Every
+          program has its own material, so what you see below is only what the selected student is
           currently working on.
         </p>
       </header>
@@ -172,13 +173,13 @@ function Curriculum() {
       {loading && <CurriculumSkeleton />}
 
       {!loading && failedToLoad && (
-        <QueryErrorState className="mt-10" what="your child's curriculum" onRetry={retryAll} />
+        <QueryErrorState className="mt-10" what="the curriculum" onRetry={retryAll} />
       )}
 
       {!loading && !failedToLoad && sections.length === 0 && (
         <EmptyCard
           title="No students linked yet"
-          body="Ask a Tiger's Den admin to link your child to your account and their curriculum will appear here."
+          body="Ask a Tiger's Den admin to link a student to your account and their curriculum will appear here."
         />
       )}
 
@@ -192,7 +193,11 @@ function Curriculum() {
                     {firstName}
                   </h2>
                   <div className="mt-2">
-                    {rank ? (
+                    {rank && system?.uses_belts === false ? (
+                      /* AK3: a beltless program shows the level it actually
+                         awards, not a belt graphic it does not use. */
+                      <LevelChip name={rank.name} systemName={system.name} />
+                    ) : rank ? (
                       <BeltChip
                         name={rank.name}
                         pattern={rank.pattern}
@@ -202,13 +207,13 @@ function Curriculum() {
                       />
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        No belt rank assigned yet — ask an instructor to set it.
+                        No rank assigned yet — ask an instructor to set it.
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  {rank && (
+                  {rank && system?.uses_belts !== false && (
                     <Badge
                       variant="outline"
                       style={beltLabelStyle(rank.color_primary, rank.color_accent)}

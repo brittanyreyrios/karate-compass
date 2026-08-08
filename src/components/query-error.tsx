@@ -31,7 +31,7 @@ export function QueryErrorState({
       />
       <p className="mx-auto mt-3 max-w-sm text-sm text-muted-foreground">
         We couldn't load {what} just now. This is a connection problem, not missing
-        information — your child's records are safe.
+        information — your family's records are safe.
       </p>
       <Button variant="outline" className="mt-4" onClick={onRetry}>
         <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" /> Try again

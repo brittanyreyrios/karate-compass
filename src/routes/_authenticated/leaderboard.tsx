@@ -5,6 +5,7 @@ import { Trophy, Medal, Award, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { BeltSwatch } from "@/components/belt-chip";
+import { LevelChip } from "@/components/level-chip";
 import { beltLabelStyle } from "@/lib/belt-colors";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
@@ -35,6 +36,12 @@ type Row = {
   color_accent: string | null;
   class_name: string;
   period_points: number;
+  /**
+   * AK: tai chi students share the Teen & Adults board with belted students, so
+   * one row can be beltless while its neighbour is not. The flag comes from the
+   * student's own program rather than being inferred from a class name.
+   */
+  uses_belts: boolean;
 };
 
 type Division = { key: string; name: string; sort_order: number };
@@ -232,23 +239,30 @@ function LeaderboardPage() {
                     <span className="sr-only">Rank </span>
                     {i + 4}
                   </div>
-                  <BeltSwatch
-                    name={r.rank_name}
-                    pattern={r.pattern}
-                    colorPrimary={r.color_primary}
-                    colorAccent={r.color_accent}
-                  />
+                  {r.uses_belts === false ? (
+                    <LevelChip name={r.rank_short_name || r.rank_name} />
+                  ) : (
+                    <BeltSwatch
+                      name={r.rank_name}
+                      pattern={r.pattern}
+                      colorPrimary={r.color_primary}
+                      colorAccent={r.color_accent}
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">
                       {r.first_name} {r.last_initial}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <Badge
-                        variant="outline"
-                        style={beltLabelStyle(r.color_primary, r.color_accent)}
-                      >
-                        {r.rank_short_name}
-                      </Badge>
+                      {r.uses_belts !== false && (
+                        <Badge
+                          variant="outline"
+                          style={beltLabelStyle(r.color_primary, r.color_accent)}
+                        >
+                          {r.rank_short_name}
+                        </Badge>
+                      )}
+
                       <span>{r.class_name}</span>
                     </div>
                   </div>
@@ -316,17 +330,23 @@ function PodiumCard({
         {row.first_name} {row.last_initial}
       </div>
       <div className="mt-3 flex justify-center">
-        <BeltSwatch
-          name={row.rank_name}
-          pattern={row.pattern}
-          colorPrimary={row.color_primary}
-          colorAccent={row.color_accent}
-        />
+        {row.uses_belts === false ? (
+          <LevelChip name={row.rank_name} />
+        ) : (
+          <BeltSwatch
+            name={row.rank_name}
+            pattern={row.pattern}
+            colorPrimary={row.color_primary}
+            colorAccent={row.color_accent}
+          />
+        )}
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline" style={beltLabelStyle(row.color_primary, row.color_accent)}>
-          {row.rank_name}
-        </Badge>
+        {row.uses_belts !== false && (
+          <Badge variant="outline" style={beltLabelStyle(row.color_primary, row.color_accent)}>
+            {row.rank_name}
+          </Badge>
+        )}
         <span>{row.class_name}</span>
       </div>
       <div className="mt-5">

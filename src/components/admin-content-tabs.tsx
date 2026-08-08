@@ -554,6 +554,52 @@ export function CurriculumAdminTab() {
   });
 
   /**
+   * AO2 — moving an item to a different group MUST renumber it.
+   *
+   * sort_order is only meaningful within one group, so carrying the old number
+   * across drops the item into an arbitrary position in its new list — commonly
+   * position 0, i.e. ahead of material that is genuinely taught first. Worse, it
+   * collides with whatever already holds that number, and the tie is then broken
+   * alphabetically, which looks like the reorder arrows are broken.
+   *
+   * So a retarget claims a fresh end-of-list position from the same advisory-locked
+   * function a brand-new requirement uses, in the same update as the new target.
+   */
+  const retargetItem = useMutation({
+    mutationFn: async (next: {
+      id: string;
+      belt_rank_id: string | null;
+      curriculum_tier: CurriculumTier | null;
+    }) => {
+      const { data: nextOrder, error: orderErr } = await supabase.rpc(
+        "next_curriculum_sort_order",
+        {
+          _belt_rank_id: next.belt_rank_id as string,
+          _curriculum_tier: next.curriculum_tier as string,
+        },
+      );
+      if (orderErr) throw orderErr;
+      const { error } = await supabase
+        .from("curriculum_items")
+        .update({
+          belt_rank_id: next.belt_rank_id,
+          curriculum_tier: next.curriculum_tier,
+          sort_order: nextOrder ?? 0,
+        })
+        .eq("id", next.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Moved to the end of its new group.");
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-all"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+  /**
    * Reordering is GROUP-SCOPED: the caller only ever hands us two adjacent rows
    * from the same rendered group (one rank, or one tier), so an item can never
    * drift into another rank's list. Both rows' sort_order values are swapped and
@@ -809,11 +855,57 @@ export function CurriculumAdminTab() {
           <div className="rounded-2xl border border-dashed border-border bg-card p-5">
             <h3 className="font-display text-lg font-bold uppercase tracking-wide">Untargeted (legacy)</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              These rows predate the three belt systems and are not shown to any family. Delete and
-              re-add them against a tier or a rank.
+              These rows are not shown to any family because they are not attached to a rank or a
+              tier. Point each one at a group below — it is renumbered to the end of that group, so
+              it never lands ahead of material taught earlier.
             </p>
-            <ul className="mt-3 space-y-2">{legacy.map((it) => <ItemRow key={it.id} it={it} group={legacy} />)}</ul>
+            <ul className="mt-3 space-y-2">
+              {legacy.map((it) => (
+                <li key={it.id} className="rounded-xl border border-border bg-background p-2">
+                  <ItemRow it={it} group={legacy} />
+                  <div className="mt-2 flex flex-wrap items-center gap-2 px-1 pb-1">
+                    <Label className="text-xs" htmlFor={`retarget-${it.id}`}>
+                      Move to
+                    </Label>
+                    <Select
+                      disabled={retargetItem.isPending}
+                      onValueChange={(v) =>
+                        retargetItem.mutate(
+                          v.startsWith("tier:")
+                            ? {
+                                id: it.id,
+                                belt_rank_id: null,
+                                curriculum_tier: v.slice(5) as CurriculumTier,
+                              }
+                            : { id: it.id, belt_rank_id: v.slice(5), curriculum_tier: null },
+                        )
+                      }
+                    >
+                      <SelectTrigger id={`retarget-${it.id}`} className="h-9 w-64">
+                        <SelectValue placeholder="Choose a rank or tier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRICULUM_TIERS.map((t) => (
+                          <SelectItem key={t} value={`tier:${t}`}>
+                            All {TIER_LABELS[t]} students
+                          </SelectItem>
+                        ))}
+                        {ranks.map((r) => (
+                          <SelectItem key={r.id} value={`rank:${r.id}`}>
+                            {r.name}
+                            {systems.find((s) => s.id === r.system_id)
+                              ? ` · ${systems.find((s) => s.id === r.system_id)!.name}`
+                              : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
+
         )}
       </div>
     </div>
