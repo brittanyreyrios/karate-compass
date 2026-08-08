@@ -2161,6 +2161,7 @@ type PendingImport = {
   parent_email: string;
   class_name: string;
   current_belt: string;
+  belt_rank_id: string | null;
   start_date: string | null;
   created_at: string;
 };
@@ -2172,7 +2173,7 @@ function UnlinkedAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pending_student_imports")
-        .select("id, first_name, last_name, parent_email, class_name, current_belt, start_date, created_at")
+        .select("id, first_name, last_name, parent_email, class_name, current_belt, belt_rank_id, start_date, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as PendingImport[];
@@ -2192,6 +2193,10 @@ function UnlinkedAudit() {
         last_name: row.last_name,
         class_name: row.class_name,
         current_belt: row.current_belt,
+        // AL: the rank was resolved at import time and parked on the row, so a
+        // manual retry-link must carry it across too — otherwise the two link
+        // paths disagree and only the manual one produces a rankless student.
+        belt_rank_id: row.belt_rank_id,
         ...(row.start_date ? { start_date: row.start_date } : {}),
       });
       if (insErr) throw insErr;
