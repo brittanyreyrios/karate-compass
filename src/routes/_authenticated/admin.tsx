@@ -633,7 +633,10 @@ function AttendanceTab() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Two columns, not three: the card's width comes from this grid, not the
+          viewport, and ~320px cards starve the name/badge row. */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+
         {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {!studentsQ.isLoading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground">No students in this view. Adjust the filter or add students in Manage Students.</p>
