@@ -74,11 +74,11 @@ const BAND_R = "M56 11 C68 11 84 9 98 6 L98 16 C84 19 68 21 56 21 Z";
 const BAND_R_MID = "M56 16 C68 16 84 14 98 11";
 
 /** Left tail: falls from under the knot, drifting modestly left. */
-const TAIL_L = "M45 24 C42 33 39 42 35 51 L43 53 C46 43 49 33 51 25 Z";
-const TAIL_L_MID = "M48 26 C45 35 42 43 39 51.5";
+const TAIL_L = "M46 24 C43 33 40 42 36 51 L46 54 C49 43 51 33 52 25 Z";
+const TAIL_L_MID = "M49 26 C46 35 44 43 41 52";
 /** Right tail: mirrored, and deliberately a touch shorter — tails never hang even. */
-const TAIL_R = "M55 24 C58 32 61 40 64 48 L56 50.5 C54 41 51 32 49 25 Z";
-const TAIL_R_MID = "M52 26 C55 34 58 41 60 48.5";
+const TAIL_R = "M54 24 C57 32 60 40 63 48 L53 51.5 C52 41 49 32 48 25 Z";
+const TAIL_R_MID = "M51 26 C54 34 56 41 58 49";
 
 
 export function BeltSwatch({
