@@ -176,12 +176,20 @@ function FollowUpBadge({ n }: { n: number }) {
   const cls = lvl === "alert"
     ? "border-red-500/60 bg-red-500/20 text-red-100"
     : "border-yellow-400/60 bg-yellow-400/20 text-yellow-100";
+  // The full phrasing wrapped to three lines inside a ~320px card, so only the
+  // count is drawn. Nothing is lost: the sentence lives in aria-label + title.
+  const full = `Follow up needed · ${n} ${n === 1 ? "absence" : "absences"}`;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}>
-      <AlertTriangle className="h-3 w-3" /> Follow Up Needed · {n} absences
+    <span
+      aria-label={full}
+      title={full}
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}
+    >
+      <AlertTriangle className="h-3 w-3" aria-hidden="true" /> {n} {n === 1 ? "absence" : "absences"}
     </span>
   );
 }
+
 
 
 /** Single source of truth for the tab strip and its mobile <Select> twin. */
