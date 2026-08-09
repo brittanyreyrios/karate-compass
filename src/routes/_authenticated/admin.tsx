@@ -113,7 +113,20 @@ type Student = {
  * Belt badge for staff screens: renders the real pattern (solid / stripe / camo)
  * and names the system so nobody confuses Camo Purple with Solid Purple.
  */
-function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback: string }) {
+function AdminBeltBadge({
+  rankId,
+  fallback,
+  dense = false,
+}: {
+  rankId: string | null;
+  fallback: string;
+  /**
+   * Dense views (attendance cards, roster rows) are ~320-480px wide, where
+   * "Purple · Solid Belt" wrapped to three lines. `short_name` exists for
+   * exactly this; the full name plus system stays in the title.
+   */
+  dense?: boolean;
+}) {
   const ranksQ = useBeltRanks();
   const systemsQ = useBeltSystems();
   const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
@@ -125,20 +138,23 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     );
   }
+  const full = `${rank.name}${system ? ` · ${system.name}` : ""}`;
   // A beltless program (tai chi) gets a plain level chip — drawing a belt for a
   // student who wears none would be a lie about what they hold.
   if (system && system.uses_belts === false) {
     return (
       <span className="inline-flex items-center gap-1.5">
         <LevelChip name={rank.name} systemName={system.name} />
-        <Badge variant="outline" className="border-border text-muted-foreground">
-          {system.name}
-        </Badge>
+        {!dense && (
+          <Badge variant="outline" className="border-border text-muted-foreground">
+            {system.name}
+          </Badge>
+        )}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5" title={full}>
       <BeltSwatch
         name={rank.name}
         pattern={rank.pattern}
@@ -147,12 +163,12 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
         systemName={system?.name ?? null}
         size="sm"
       />
-      <Badge variant="outline" className="border-primary/40 text-primary">
-        {rank.name}
-        {system ? ` · ${system.name}` : ""}
+      <Badge variant="outline" className="whitespace-nowrap border-primary/40 text-primary" title={full}>
+        {dense ? (rank.short_name ?? rank.name) : full}
       </Badge>
     </span>
   );
+
 
 };
 
