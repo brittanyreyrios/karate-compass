@@ -35,34 +35,50 @@ const PATTERN_WORD: Record<string, string> = {
 };
 
 /**
- * Geometry is fixed in a 100×46 viewBox; only the rendered width changes. Both
- * sizes are double what they were — the old 24px chip was too small for the
- * pattern (the whole reason the icon exists) to be legible at all.
+ * Geometry is fixed in a 100×62 viewBox; only the rendered width changes.
  *
- * `ladder` exists for the eight-step progress strip on the dashboard: eight 48px
- * swatches do not fit inside a padded card on a 360px phone, so it steps down on
- * narrow screens and becomes identical to `sm` from the sm: breakpoint up.
+ * Round 11: the viewBox grew from 46 to 62 units tall because the tails now
+ * hang below the knot instead of radiating out of it — and every entry in SIZES
+ * was re-derived from the same 100:62 ratio in the same edit, so nothing
+ * squashes.
+ *
+ * `ladder` exists for the eight-step progress strip on the dashboard: eight
+ * full-size swatches do not fit inside a padded card on a 360px phone, so it
+ * steps down on narrow screens and becomes identical to `sm` from sm: up.
  */
 const SIZES = {
-  ladder: "h-[16px] w-[34px] sm:h-[22px] sm:w-12",
-  sm: "h-[22px] w-12",
-  md: "h-[33px] w-[72px]",
+  ladder: "h-[21px] w-[34px] sm:h-[30px] sm:w-12",
+  sm: "h-[30px] w-12",
+  md: "h-[45px] w-[72px]",
 } as const;
 
 
 /**
- * Straps are deliberately shallow — the reference belt lies almost flat across
- * the body, so a steep diagonal turns the icon into a bow tie. Each strap runs
- * the full width, tapering from a wide cuff at the outer edge to a narrower
- * waist at the crossing.
+ * Round 11 — the icon is a *band plus two hanging tails*, not two crossing
+ * straps. Two full-width diagonals crossing at the centre give four arms of
+ * similar length at similar angles radiating from a body, which is a spider.
+ * The reference photo shows two different things instead:
+ *
+ *  - the band around the waist: wide, near level, reaching the full width,
+ *    tapering to angled cut ends;
+ *  - the tails: steep, narrow, dropping to roughly three-quarters of the
+ *    height while drifting outward only a little.
+ *
+ * Keeping the band level and the tails steep is the whole trick. If a tail's
+ * horizontal travel ever approaches its vertical travel it reads as a leg
+ * again — here it is ~14 across against ~23 down, comfortably steeper than 45°.
  */
-const STRAP_A =
-  "M2 5 C26 8 46 14 66 21 C78 25 88 29 98 33 L98 44 C87 39 77 35 64 30 C45 23 25 17 2 15 Z";
-const STRAP_A_MID = "M2 10 C26 13 46 19 66 26 C78 30 88 34 98 38";
-/** Mirror image: upper-right edge sweeping down to the lower-left edge. */
-const STRAP_B =
-  "M98 5 C74 8 54 14 34 21 C22 25 12 29 2 33 L2 44 C13 39 23 35 36 30 C55 23 75 17 98 15 Z";
-const STRAP_B_MID = "M98 10 C74 13 54 19 34 26 C22 30 12 34 2 38";
+const BAND_L = "M44 11 C32 11 16 9 2 6 L2 16 C16 19 32 21 44 21 Z";
+const BAND_L_MID = "M44 16 C32 16 16 14 2 11";
+const BAND_R = "M56 11 C68 11 84 9 98 6 L98 16 C84 19 68 21 56 21 Z";
+const BAND_R_MID = "M56 16 C68 16 84 14 98 11";
+
+/** Left tail: falls from under the knot, drifting modestly left. */
+const TAIL_L = "M44 24 C40 32 35 39 30 46 L38 49 C43 41 48 33 52 25 Z";
+const TAIL_L_MID = "M48 25.5 C44 33 39 40 34 47.5";
+/** Right tail: mirrored, and deliberately a touch shorter — tails never hang even. */
+const TAIL_R = "M56 24 C60 31 64 38 68 43.5 L60 46.5 C56 39 51 32 48 25 Z";
+const TAIL_R_MID = "M52 25.5 C56 32 60 38 64 44.5";
 
 
 export function BeltSwatch({
@@ -88,7 +104,7 @@ export function BeltSwatch({
     <svg
       role="img"
       aria-label={label}
-      viewBox="0 0 100 46"
+      viewBox="0 0 100 62"
       className={`inline-block shrink-0 ${SIZES[size]}`}
       preserveAspectRatio="xMidYMid meet"
     >
@@ -116,28 +132,28 @@ export function BeltSwatch({
         strokeLinejoin="round"
         strokeLinecap="round"
       >
-        {/* Back strap first, so the front strap and the knot overlap it. */}
-        <path d={STRAP_B} fill={bandFill} />
-        {striped && <path d={STRAP_B_MID} fill="none" stroke={accent} strokeWidth="3" />}
+        {/* Tails first, then the band, then the knot on top of both. */}
+        <path d={TAIL_L} fill={bandFill} />
+        {striped && <path d={TAIL_L_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
+        <path d={TAIL_R} fill={bandFill} />
+        {striped && <path d={TAIL_R_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
 
-        <path d={STRAP_A} fill={bandFill} />
-        {striped && <path d={STRAP_A_MID} fill="none" stroke={accent} strokeWidth="3" />}
+        <path d={BAND_L} fill={bandFill} />
+        {striped && <path d={BAND_L_MID} fill="none" stroke={accent} strokeWidth="2.6" />}
+        <path d={BAND_R} fill={bandFill} />
+        {striped && <path d={BAND_R_MID} fill="none" stroke={accent} strokeWidth="2.6" />}
 
         {/*
-          Knot: one squarish bundle over the crossing. The real knot's loops and
-          folds turn to mud at icon size, so it is simplified on purpose — only
-          the silhouette survives. There is deliberately NO tail hanging below
-          the knot; if one is ever re-added, its accent stripe must come with it.
+          Knot: one rounded bundle over the junction. The real knot's loops and
+          folds turn to mud at icon size, so only the silhouette survives.
         */}
-
-
-        <rect x="40" y="9" width="20" height="23" rx="4.5" fill={bandFill} />
-        {striped && <rect x="41" y="19" width="18" height="3.4" fill={accent} stroke="none" />}
-
+        <rect x="40" y="8" width="20" height="21" rx="5.5" fill={bandFill} />
+        {striped && <rect x="41" y="17" width="18" height="3" fill={accent} stroke="none" />}
       </g>
     </svg>
   );
 }
+
 
 export function BeltChip({
   showLabel = true,
