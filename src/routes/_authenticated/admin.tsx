@@ -915,7 +915,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
+          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
