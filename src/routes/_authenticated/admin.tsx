@@ -113,7 +113,20 @@ type Student = {
  * Belt badge for staff screens: renders the real pattern (solid / stripe / camo)
  * and names the system so nobody confuses Camo Purple with Solid Purple.
  */
-function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback: string }) {
+function AdminBeltBadge({
+  rankId,
+  fallback,
+  dense = false,
+}: {
+  rankId: string | null;
+  fallback: string;
+  /**
+   * Dense views (attendance cards, roster rows) are ~320-480px wide, where
+   * "Purple · Solid Belt" wrapped to three lines. `short_name` exists for
+   * exactly this; the full name plus system stays in the title.
+   */
+  dense?: boolean;
+}) {
   const ranksQ = useBeltRanks();
   const systemsQ = useBeltSystems();
   const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
@@ -125,20 +138,23 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
       </Badge>
     );
   }
+  const full = `${rank.name}${system ? ` · ${system.name}` : ""}`;
   // A beltless program (tai chi) gets a plain level chip — drawing a belt for a
   // student who wears none would be a lie about what they hold.
   if (system && system.uses_belts === false) {
     return (
       <span className="inline-flex items-center gap-1.5">
         <LevelChip name={rank.name} systemName={system.name} />
-        <Badge variant="outline" className="border-border text-muted-foreground">
-          {system.name}
-        </Badge>
+        {!dense && (
+          <Badge variant="outline" className="border-border text-muted-foreground">
+            {system.name}
+          </Badge>
+        )}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5" title={full}>
       <BeltSwatch
         name={rank.name}
         pattern={rank.pattern}
@@ -147,12 +163,12 @@ function AdminBeltBadge({ rankId, fallback }: { rankId: string | null; fallback:
         systemName={system?.name ?? null}
         size="sm"
       />
-      <Badge variant="outline" className="border-primary/40 text-primary">
-        {rank.name}
-        {system ? ` · ${system.name}` : ""}
+      <Badge variant="outline" className="whitespace-nowrap border-primary/40 text-primary" title={full}>
+        {dense ? (rank.short_name ?? rank.name) : full}
       </Badge>
     </span>
   );
+
 
 };
 
@@ -176,12 +192,20 @@ function FollowUpBadge({ n }: { n: number }) {
   const cls = lvl === "alert"
     ? "border-red-500/60 bg-red-500/20 text-red-100"
     : "border-yellow-400/60 bg-yellow-400/20 text-yellow-100";
+  // The full phrasing wrapped to three lines inside a ~320px card, so only the
+  // count is drawn. Nothing is lost: the sentence lives in aria-label + title.
+  const full = `Follow up needed · ${n} ${n === 1 ? "absence" : "absences"}`;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}>
-      <AlertTriangle className="h-3 w-3" /> Follow Up Needed · {n} absences
+    <span
+      aria-label={full}
+      title={full}
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-widest ${cls}`}
+    >
+      <AlertTriangle className="h-3 w-3" aria-hidden="true" /> {n} {n === 1 ? "absence" : "absences"}
     </span>
   );
 }
+
 
 
 /** Single source of truth for the tab strip and its mobile <Select> twin. */
@@ -609,7 +633,10 @@ function AttendanceTab() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Two columns, not three: the card's width comes from this grid, not the
+          viewport, and ~320px cards starve the name/badge row. */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+
         {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {!studentsQ.isLoading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground">No students in this view. Adjust the filter or add students in Manage Students.</p>
@@ -622,7 +649,7 @@ function AttendanceTab() {
           return (
             <div
               key={s.id}
-              className={`flex flex-col gap-3 rounded-xl border p-3 transition-all sm:flex-row sm:items-center ${
+              className={`flex flex-col gap-3 rounded-xl border p-3 transition-all ${
                 presentActive
                   ? "border-primary bg-primary/5 shadow-red-glow"
                   : risk || "border-border bg-background"
@@ -635,14 +662,16 @@ function AttendanceTab() {
                   {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} />
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />
                   <Badge variant="outline">{s.class_name}</Badge>
                   <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
               </div>
-              {/* The 48px belt swatch plus a 223px button column no longer fits one
-                  row on a phone, so the controls sit under the name below sm:. */}
+              {/* Controls always sit under the name. The card's width is set by
+                  the grid, not the viewport, so a viewport breakpoint here would
+                  turn the card horizontal exactly as it gets narrower. */}
               <div className="flex shrink-0 flex-col items-stretch gap-1">
+
 
                 <Button
                   size="lg"
@@ -886,7 +915,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <FollowUpBadge n={student.consecutive_absences} />
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} />
+          <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
