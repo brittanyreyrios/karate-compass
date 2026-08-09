@@ -649,7 +649,7 @@ function AttendanceTab() {
           return (
             <div
               key={s.id}
-              className={`flex flex-col gap-3 rounded-xl border p-3 transition-all sm:flex-row sm:items-center ${
+              className={`flex flex-col gap-3 rounded-xl border p-3 transition-all ${
                 presentActive
                   ? "border-primary bg-primary/5 shadow-red-glow"
                   : risk || "border-border bg-background"
@@ -662,14 +662,16 @@ function AttendanceTab() {
                   {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} />
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />
                   <Badge variant="outline">{s.class_name}</Badge>
                   <span>{s.attendance_count} classes · {s.points} pts</span>
                 </div>
               </div>
-              {/* The 48px belt swatch plus a 223px button column no longer fits one
-                  row on a phone, so the controls sit under the name below sm:. */}
+              {/* Controls always sit under the name. The card's width is set by
+                  the grid, not the viewport, so a viewport breakpoint here would
+                  turn the card horizontal exactly as it gets narrower. */}
               <div className="flex shrink-0 flex-col items-stretch gap-1">
+
 
                 <Button
                   size="lg"
