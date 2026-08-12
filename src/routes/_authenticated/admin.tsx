@@ -1445,6 +1445,8 @@ type ClassSchedule = {
   next_test_date: string | null;
   location: string | null;
   is_teen_adult: boolean;
+  /** AT2 — which programme this class belongs to, set by hand, never inferred. */
+  program_id: string | null;
   /** The announcement posted for this class's testing date, if any. */
   test_announcement_id: string | null;
   updated_at: string;
