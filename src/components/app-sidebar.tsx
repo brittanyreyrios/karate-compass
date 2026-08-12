@@ -53,6 +53,15 @@ export function AppSidebar() {
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
 
+  /**
+   * AU2 — the Technique Library tab only exists for families the server says are
+   * entitled to something. A karate-only family never sees an empty shell; the
+   * entitlement decision is made in SQL, not here.
+   */
+  const libraryQ = useTechniqueLibrary();
+  const hasLibrary = (libraryQ.data ?? []).length > 0;
+  const navItems = items.filter((i) => i.url !== "/techniques" || hasLibrary);
+
   const handleSignOut = async () => {
     await qc.cancelQueries();
     qc.clear();
