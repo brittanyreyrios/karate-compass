@@ -71,6 +71,7 @@ import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
+import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
@@ -338,6 +339,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="curriculum" className="mt-6">
           <CurriculumAdminTab />
+        </TabsContent>
+        <TabsContent value="techniques" className="mt-6">
+          <TechniqueLibraryAdminTab />
         </TabsContent>
         <TabsContent value="belts" className="mt-6">
           <BeltSystemsAdminTab />
