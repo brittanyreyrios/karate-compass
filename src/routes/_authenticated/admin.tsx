@@ -71,6 +71,7 @@ import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
 import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
+import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
@@ -229,6 +230,7 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "qr", label: "Signup QR" },
   { value: "gallery", label: "Media Gallery" },
   { value: "curriculum", label: "Belt Curriculum" },
+  { value: "techniques", label: "Technique Library" },
   { value: "belts", label: "Belt Systems" },
   { value: "guidelines", label: "Dojo Point Guidelines" },
   { value: "announcements", label: "Post Announcement" },
@@ -337,6 +339,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="curriculum" className="mt-6">
           <CurriculumAdminTab />
+        </TabsContent>
+        <TabsContent value="techniques" className="mt-6">
+          <TechniqueLibraryAdminTab />
         </TabsContent>
         <TabsContent value="belts" className="mt-6">
           <BeltSystemsAdminTab />

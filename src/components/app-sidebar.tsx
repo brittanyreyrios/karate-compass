@@ -13,6 +13,7 @@ import {
   Trophy,
   BarChart3,
   Settings,
+  Swords,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,12 +30,14 @@ import {
 } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useIsAdmin } from "@/hooks/use-auth";
+import { useTechniqueLibrary } from "@/lib/technique-library";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
+  { title: "Technique Library", url: "/techniques", icon: Swords },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
   { title: "Polls & RSVPs", url: "/polls", icon: BarChart3 },
@@ -50,6 +53,15 @@ export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
+
+  /**
+   * AU2 — the Technique Library tab only exists for families the server says are
+   * entitled to something. A karate-only family never sees an empty shell; the
+   * entitlement decision is made in SQL, not here.
+   */
+  const libraryQ = useTechniqueLibrary();
+  const hasLibrary = (libraryQ.data ?? []).length > 0;
+  const navItems = items.filter((i) => i.url !== "/techniques" || hasLibrary);
 
   const handleSignOut = async () => {
     await qc.cancelQueries();
@@ -81,7 +93,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
+              {navItems.map((item) => {
                 const active = pathname === item.url;
                 return (
                   <SidebarMenuItem key={item.url}>

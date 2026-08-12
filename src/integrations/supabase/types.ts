@@ -1016,6 +1016,78 @@ export type Database = {
           },
         ]
       }
+      technique_library: {
+        Row: {
+          belt_rank_id: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          difficulty: string | null
+          id: string
+          label: string
+          notes: string | null
+          program_id: string
+          published: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+          video_seconds: number | null
+          video_title: string | null
+          video_youtube_id: string | null
+        }
+        Insert: {
+          belt_rank_id?: string | null
+          category: string
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          program_id: string
+          published?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+          video_seconds?: number | null
+          video_title?: string | null
+          video_youtube_id?: string | null
+        }
+        Update: {
+          belt_rank_id?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          program_id?: string
+          published?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_seconds?: number | null
+          video_title?: string | null
+          video_youtube_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technique_library_belt_rank_id_fkey"
+            columns: ["belt_rank_id"]
+            isOneToOne: false
+            referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technique_library_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1128,6 +1200,24 @@ export type Database = {
           label: string
           option_id: string
           vote_count: number
+        }[]
+      }
+      get_technique_library: {
+        Args: never
+        Returns: {
+          category: string
+          difficulty: string
+          id: string
+          label: string
+          notes: string
+          program_id: string
+          program_name: string
+          published: boolean
+          sort_order: number
+          title: string
+          video_seconds: number
+          video_title: string
+          video_youtube_id: string
         }[]
       }
       has_role: {
