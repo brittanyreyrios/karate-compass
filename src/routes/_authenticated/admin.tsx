@@ -56,7 +56,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CLASS_NAMES } from "@/lib/dojo-constants";
+import {
+  useClasses,
+  useEnrollments,
+  usePrograms,
+  indexEnrollments,
+  ENROLLMENT_KEYS,
+  type ClassRow,
+} from "@/lib/enrollment";
+import { EnrollmentEditor } from "@/components/admin-enrollment";
+import { ProgramsCard } from "@/components/admin-programs";
 import { BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
@@ -395,6 +404,11 @@ function AttendanceTab() {
   );
 
   const studentsQ = useStudents();
+  const classesQ = useClasses();
+  const enrollQ = useEnrollments();
+  const classes = classesQ.data ?? [];
+  /** Membership comes from the join table, so a child in two classes shows in both. */
+  const { studentsByClass } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -410,29 +424,33 @@ function AttendanceTab() {
     },
   });
   const holidayClasses = holidaysQ.data ?? new Set<string>();
-  const currentClassIsHoliday =
-    classFilter !== ALL_CLASSES && holidayClasses.has(classFilter);
+  /** The filter now holds a class id; holidays are still recorded by class name. */
+  const selectedClass = classes.find((c) => c.id === classFilter) ?? null;
+  const currentClassIsHoliday = !!selectedClass && holidayClasses.has(selectedClass.class_name);
 
   const filtered = useMemo(() => {
     const list = (studentsQ.data ?? []).filter((s) => s.active);
-    const byClass = classFilter === ALL_CLASSES ? list : list.filter((s) => s.class_name === classFilter);
+    const byClass =
+      classFilter === ALL_CLASSES
+        ? list
+        : list.filter((s) => studentsByClass.get(classFilter)?.has(s.id));
     if (!q.trim()) return byClass;
     const needle = q.toLowerCase();
     return byClass.filter((s) =>
       `${s.first_name} ${s.last_name} ${s.current_belt}`.toLowerCase().includes(needle),
     );
-  }, [q, classFilter, studentsQ.data]);
+  }, [q, classFilter, studentsQ.data, studentsByClass]);
 
   const counts = useMemo(() => {
-    const map: Record<string, number> = { [ALL_CLASSES]: 0 };
-    for (const c of CLASS_NAMES) map[c] = 0;
-    for (const s of studentsQ.data ?? []) {
-      if (!s.active) continue;
-      map[ALL_CLASSES]++;
-      map[s.class_name] = (map[s.class_name] ?? 0) + 1;
+    const activeIds = new Set((studentsQ.data ?? []).filter((s) => s.active).map((s) => s.id));
+    const map: Record<string, number> = { [ALL_CLASSES]: activeIds.size };
+    for (const c of classes) {
+      let n = 0;
+      for (const id of studentsByClass.get(c.id) ?? []) if (activeIds.has(id)) n++;
+      map[c.id] = n;
     }
     return map;
-  }, [studentsQ.data]);
+  }, [studentsQ.data, classes, studentsByClass]);
 
   const lockButton = (
     setter: (fn: (s: Record<string, number>) => Record<string, number>) => void,
@@ -531,18 +549,18 @@ function AttendanceTab() {
 
   const toggleHoliday = useMutation({
     mutationFn: async () => {
-      if (classFilter === ALL_CLASSES) throw new Error("Select a specific class first.");
+      if (!selectedClass) throw new Error("Select a specific class first.");
       if (currentClassIsHoliday) {
         const { error } = await supabase
           .from("class_holidays")
           .delete()
-          .eq("class_name", classFilter)
+          .eq("class_name", selectedClass.class_name)
           .eq("holiday_date", today);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("class_holidays")
-          .insert({ class_name: classFilter, holiday_date: today, note: "Marked in-app" });
+          .insert({ class_name: selectedClass.class_name, holiday_date: today, note: "Marked in-app" });
         if (error) throw error;
       }
     },
@@ -553,9 +571,11 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Filter keys are class ids now — the whole point of Round 12 is to stop
+  // identifying a class by its name.
   const filterOptions: { key: string; label: string }[] = [
     { key: ALL_CLASSES, label: "All Classes" },
-    ...CLASS_NAMES.map((c) => ({ key: c, label: c })),
+    ...classes.map((c) => ({ key: c.id, label: c.class_name })),
   ];
 
   return (
@@ -586,7 +606,7 @@ function AttendanceTab() {
       <div className="mt-5 flex flex-wrap gap-2">
         {filterOptions.map((opt) => {
           const active = classFilter === opt.key;
-          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.key);
+          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.label);
           return (
             <button
               key={opt.key}
@@ -613,7 +633,9 @@ function AttendanceTab() {
         <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${currentClassIsHoliday ? "border-yellow-400/50 bg-yellow-400/10" : "border-border bg-background"}`}>
           <div className="text-xs">
             <div className="font-bold uppercase tracking-widest text-foreground">
-              {currentClassIsHoliday ? `${classFilter} — Closed today` : `${classFilter} — Regular session`}
+              {currentClassIsHoliday
+                ? `${selectedClass?.class_name} — Closed today`
+                : `${selectedClass?.class_name} — Regular session`}
             </div>
             <div className="mt-0.5 text-muted-foreground">
               {currentClassIsHoliday
@@ -727,17 +749,30 @@ function AttendanceTab() {
 function ManageStudentsTab() {
   const qc = useQueryClient();
   const studentsQ = useStudents();
+  const classesQ = useClasses();
+  const enrollQ = useEnrollments();
+  const classes = classesQ.data ?? [];
+  const { byStudent } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noRankOnly, setNoRankOnly] = useState(false);
+  const [noClassOnly, setNoClassOnly] = useState(false);
   const allStudents = studentsQ.data ?? [];
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
-  const visibleStudents = noRankOnly ? allStudents.filter((s) => !s.belt_rank_id) : allStudents;
+  /**
+   * A student enrolled in nothing is allowed, but they are invisible to
+   * attendance and to every class count — so the number has to be countable and
+   * drivable to zero after each wave of signups, exactly like a missing rank.
+   */
+  const noClassCount = allStudents.filter((s) => s.active && !byStudent.get(s.id)?.length).length;
+  const visibleStudents = allStudents.filter(
+    (s) => (!noRankOnly || !s.belt_rank_id) && (!noClassOnly || !byStudent.get(s.id)?.length),
+  );
 
   // Add form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
-  const [className, setClassName] = useState<string>(CLASS_NAMES[0]);
+  const [classId, setClassId] = useState<string>("");
   const [systemId, setSystemId] = useState<string | null>(null);
   const [rankId, setRankId] = useState<string | null>(null);
 
@@ -747,6 +782,7 @@ function ManageStudentsTab() {
         throw new Error("Please fill in all fields.");
       }
       if (!rankId) throw new Error("Choose a belt system and rank for this student.");
+      if (!classId) throw new Error("Choose the class this student trains in.");
       const emailNorm = parentEmail.trim().toLowerCase();
       const { data: profile, error: profErr } = await supabase
         .from("profiles")
@@ -756,20 +792,30 @@ function ManageStudentsTab() {
       if (profErr) throw profErr;
       if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first.`);
 
-      const { error } = await supabase.from("students").insert({
-        parent_id: profile.id,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        belt_rank_id: rankId,
-        class_name: className,
-      });
+      // class_name is never written from here: the enrollment row below is the
+      // source of truth and a trigger derives the display label from it.
+      const { data: created, error } = await supabase
+        .from("students")
+        .insert({
+          parent_id: profile.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          belt_rank_id: rankId,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+
+      const { error: enrErr } = await supabase
+        .from("student_classes")
+        .insert({ student_id: created.id, class_id: classId, is_primary: true });
+      if (enrErr) throw enrErr;
     },
     onSuccess: () => {
-      toast.success("Student added");
+      toast.success("Student added and enrolled");
       setFirstName(""); setLastName(""); setParentEmail("");
-      setClassName(CLASS_NAMES[0]); setSystemId(null); setRankId(null);
-      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      setClassId(""); setSystemId(null); setRankId(null);
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -806,13 +852,18 @@ function ManageStudentsTab() {
               <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
             </div>
             <div>
-              <Label>Assigned class</Label>
-              <Select value={className} onValueChange={setClassName}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <Label>First class</Label>
+              <Select value={classId} onValueChange={setClassId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a class…" /></SelectTrigger>
                 <SelectContent>
-                  {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.class_name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Extra classes can be added from the student's row once they exist.
+              </p>
             </div>
             <BeltPicker
               idPrefix="add-student"
@@ -852,10 +903,26 @@ function ManageStudentsTab() {
               <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
               No belt rank set ({noRankCount})
             </Button>
+            <Button
+              size="sm"
+              variant={noClassOnly ? "default" : "outline"}
+              className={noClassOnly ? "bg-gradient-red" : ""}
+              aria-pressed={noClassOnly}
+              onClick={() => setNoClassOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Students in no class ({noClassCount})
+            </Button>
             {noRankCount > 0 && (
               <span className="text-xs text-muted-foreground">
                 {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
                 leaderboard or see curriculum until a rank is set.
+              </span>
+            )}
+            {noClassCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {noClassCount} student{noClassCount === 1 ? "" : "s"} in no class won't appear on any
+                attendance sheet until they are enrolled.
               </span>
             )}
           </div>
@@ -916,9 +983,9 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
-          <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
+        <EnrollmentEditor studentId={student.id} />
       </div>
 
       <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
@@ -950,7 +1017,8 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const currentRank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const [systemId, setSystemId] = useState<string | null>(currentRank?.system_id ?? null);
   const [rankId, setRankId] = useState<string | null>(student.belt_rank_id ?? null);
-  const [className, setClassName] = useState(student.class_name);
+  // No class field here: membership lives in student_classes and students.class_name
+  // is a trigger-derived label. Writing it here would recreate the drift trap.
   const [points, setPoints] = useState(String(student.points));
   const [attendance, setAttendance] = useState(String(student.attendance_count));
 
@@ -967,7 +1035,6 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           belt_rank_id: rankId,
-          class_name: className,
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
@@ -995,13 +1062,10 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1" />
         </div>
         <div>
-          <Label className="text-xs">Class</Label>
-          <Select value={className} onValueChange={setClassName}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Label className="text-xs">Classes</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Enrolment is managed on the student's row above — a student can be in more than one class.
+          </p>
         </div>
         <div className="sm:col-span-2 lg:col-span-3">
           <BeltPicker
@@ -1382,6 +1446,8 @@ type ClassSchedule = {
   next_test_date: string | null;
   location: string | null;
   is_teen_adult: boolean;
+  /** AT2 — which programme this class belongs to, set by hand, never inferred. */
+  program_id: string | null;
   /** The announcement posted for this class's testing date, if any. */
   test_announcement_id: string | null;
   updated_at: string;
@@ -1398,7 +1464,7 @@ function ClassSchedulesTab() {
       const { data, error } = await supabase
         .from("class_schedules")
         .select(
-          "id, class_name, next_test_date, location, is_teen_adult, test_announcement_id, updated_at",
+          "id, class_name, next_test_date, location, is_teen_adult, program_id, test_announcement_id, updated_at",
         )
         .order("class_name");
       if (error) throw error;
@@ -1407,10 +1473,9 @@ function ClassSchedulesTab() {
   });
 
   /**
-   * Students link to classes by a class_name text match, not a foreign key, so a
-   * class reading 0 students is that mismatch showing itself. The count uses the
-   * same normalised comparison as division_of(), so it can never disagree with
-   * which students actually pick up the teen/adult flag.
+   * Counted through student_classes now, not by matching class names, so a class
+   * reading 0 students genuinely has nobody enrolled rather than a spelling
+   * mismatch. Same source as division_of(), so the two can never disagree.
    */
   const countsQ = useQuery({
     queryKey: ["class-student-counts"],
@@ -1460,7 +1525,9 @@ function ClassSchedulesTab() {
 
   return (
     <div className="space-y-6">
+      <ProgramsCard />
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -1550,6 +1617,25 @@ function ClassScheduleRow({
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
       qc.invalidateQueries({ queryKey: ["leaderboard"] });
       qc.invalidateQueries({ queryKey: ["my-division"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const programsQ = usePrograms();
+  const programs = programsQ.data ?? [];
+
+  const saveProgram = useMutation({
+    mutationFn: async (next: string | null) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ program_id: next })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Programme updated");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["classes-list"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1674,23 +1760,44 @@ function ClassScheduleRow({
           </div>
         </div>
 
-        <label
-          className="flex items-center gap-2 text-sm"
-          htmlFor={`teen-adult-${schedule.id}`}
-        >
-          <Checkbox
-            id={`teen-adult-${schedule.id}`}
-            checked={schedule.is_teen_adult}
-            onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
-            disabled={saveTeenAdult.isPending}
-          />
-          <span>
-            Teen / adult class
-            <span className="block text-xs text-muted-foreground">
-              Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+        <div className="flex flex-col gap-3">
+          <label
+            className="flex items-center gap-2 text-sm"
+            htmlFor={`teen-adult-${schedule.id}`}
+          >
+            <Checkbox
+              id={`teen-adult-${schedule.id}`}
+              checked={schedule.is_teen_adult}
+              onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
+              disabled={saveTeenAdult.isPending}
+            />
+            <span>
+              Teen / adult class
+              <span className="block text-xs text-muted-foreground">
+                Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+
+          {/* AT2 — the programme is set per class, never inferred from the name. */}
+          <div className="min-w-[200px]">
+            <Label htmlFor={`program-${schedule.id}`} className="text-xs">Programme</Label>
+            <Select
+              value={schedule.program_id ?? "none"}
+              onValueChange={(v) => saveProgram.mutate(v === "none" ? null : v)}
+            >
+              <SelectTrigger id={`program-${schedule.id}`} className="mt-1 h-9">
+                <SelectValue placeholder="No programme" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No programme</SelectItem>
+                {programs.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
 
@@ -1842,7 +1949,12 @@ function CsvImporter() {
   const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
-  const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
+  const classesQ = useClasses();
+  const classes = classesQ.data ?? [];
+  /** The batch is assigned by class id; the name is only carried for display. */
+  const [assignedClass, setAssignedClass] = useState<string>("");
+  const assignedClassName =
+    classes.find((c) => c.id === assignedClass)?.class_name ?? "Unassigned";
   /**
    * A Kicksite export says "Purple", which is a rank name in more than one belt
    * system — and a roster is imported one class at a time, so staff always know
@@ -1888,6 +2000,10 @@ function CsvImporter() {
 
   const runImport = async () => {
     if (rows.length === 0) return;
+    if (!assignedClass) {
+      toast.error("Choose the class to enrol this batch in first.");
+      return;
+    }
     setImporting(true);
     const out: ImportResult[] = [];
     for (const row of rows) {
@@ -1916,12 +2032,16 @@ function CsvImporter() {
         const rank = candidates.length === 1 ? candidates[0] : undefined;
 
         if (!profile) {
-          // Stage as unlinked so admins can spot typos in the audit view.
+          // Stage as unlinked so admins can spot typos in the audit view. The
+          // class is resolved to an *id* here, where a human is watching, so the
+          // child arrives enrolled — not merely labelled — when their parent
+          // signs up later (AS5).
           const { error } = await supabase.from("pending_student_imports").insert({
             first_name: row.first_name.trim(),
             last_name: row.last_name.trim(),
             parent_email: email,
-            class_name: assignedClass,
+            class_name: assignedClassName,
+            class_id: assignedClass,
             current_belt: belt,
             ...(rank ? { belt_rank_id: rank.id } : {}),
             ...(startDate ? { start_date: startDate } : {}),
@@ -1943,14 +2063,22 @@ function CsvImporter() {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
-          class_name: assignedClass,
           current_belt: belt,
           ...(rank ? { belt_rank_id: rank.id } : {}),
 
           ...(startDate ? { start_date: startDate } : {}),
         };
-        const { error } = await supabase.from("students").insert(payload);
+        const { data: createdStudent, error } = await supabase
+          .from("students")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
+        // Enrolment, not a text class name: the trigger derives the label.
+        const { error: enrErr } = await supabase
+          .from("student_classes")
+          .insert({ student_id: createdStudent.id, class_id: assignedClass, is_primary: true });
+        if (enrErr) throw enrErr;
         if (rank) {
           const sysName = systemsById.get(rank.system_id)?.name;
           out.push({
@@ -2028,11 +2156,15 @@ function CsvImporter() {
         </label>
 
         <div>
-          <Label htmlFor="csv-class">Assign every imported student to</Label>
+          <Label htmlFor="csv-class">Enrol every imported student in</Label>
           <Select value={assignedClass} onValueChange={setAssignedClass}>
-            <SelectTrigger id="csv-class" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="csv-class" className="mt-1">
+              <SelectValue placeholder="Choose a class…" />
+            </SelectTrigger>
             <SelectContent>
-              {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {classes.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.class_name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
