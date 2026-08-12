@@ -631,7 +631,9 @@ function AttendanceTab() {
         <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${currentClassIsHoliday ? "border-yellow-400/50 bg-yellow-400/10" : "border-border bg-background"}`}>
           <div className="text-xs">
             <div className="font-bold uppercase tracking-widest text-foreground">
-              {currentClassIsHoliday ? `${classFilter} — Closed today` : `${classFilter} — Regular session`}
+              {currentClassIsHoliday
+                ? `${selectedClass?.class_name} — Closed today`
+                : `${selectedClass?.class_name} — Regular session`}
             </div>
             <div className="mt-0.5 text-muted-foreground">
               {currentClassIsHoliday
