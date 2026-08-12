@@ -1061,13 +1061,10 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1" />
         </div>
         <div>
-          <Label className="text-xs">Class</Label>
-          <Select value={className} onValueChange={setClassName}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Label className="text-xs">Classes</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Enrolment is managed on the student's row above — a student can be in more than one class.
+          </p>
         </div>
         <div className="sm:col-span-2 lg:col-span-3">
           <BeltPicker
