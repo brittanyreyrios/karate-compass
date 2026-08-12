@@ -229,6 +229,7 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "qr", label: "Signup QR" },
   { value: "gallery", label: "Media Gallery" },
   { value: "curriculum", label: "Belt Curriculum" },
+  { value: "techniques", label: "Technique Library" },
   { value: "belts", label: "Belt Systems" },
   { value: "guidelines", label: "Dojo Point Guidelines" },
   { value: "announcements", label: "Post Announcement" },

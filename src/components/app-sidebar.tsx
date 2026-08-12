@@ -93,7 +93,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
+              {navItems.map((item) => {
                 const active = pathname === item.url;
                 return (
                   <SidebarMenuItem key={item.url}>
