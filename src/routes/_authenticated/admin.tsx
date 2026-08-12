@@ -1905,7 +1905,12 @@ function CsvImporter() {
   const systemsById = new Map((systemsQ.data ?? []).map((s) => [s.id, s]));
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
-  const [assignedClass, setAssignedClass] = useState<string>(CLASS_NAMES[0]);
+  const classesQ = useClasses();
+  const classes = classesQ.data ?? [];
+  /** The batch is assigned by class id; the name is only carried for display. */
+  const [assignedClass, setAssignedClass] = useState<string>("");
+  const assignedClassName =
+    classes.find((c) => c.id === assignedClass)?.class_name ?? "Unassigned";
   /**
    * A Kicksite export says "Purple", which is a rank name in more than one belt
    * system — and a roster is imported one class at a time, so staff always know
