@@ -35,6 +35,7 @@ const items = [
   { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Belt Curriculum", url: "/curriculum", icon: BookOpen },
+  { title: "Technique Library", url: "/techniques", icon: Swords },
   { title: "Media Gallery", url: "/gallery", icon: Image },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
   { title: "Polls & RSVPs", url: "/polls", icon: BarChart3 },
