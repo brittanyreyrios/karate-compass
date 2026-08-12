@@ -1617,6 +1617,25 @@ function ClassScheduleRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const programsQ = usePrograms();
+  const programs = programsQ.data ?? [];
+
+  const saveProgram = useMutation({
+    mutationFn: async (next: string | null) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update({ program_id: next })
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Programme updated");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["classes-list"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
 
