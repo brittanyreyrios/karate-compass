@@ -2108,11 +2108,15 @@ function CsvImporter() {
         </label>
 
         <div>
-          <Label htmlFor="csv-class">Assign every imported student to</Label>
+          <Label htmlFor="csv-class">Enrol every imported student in</Label>
           <Select value={assignedClass} onValueChange={setAssignedClass}>
-            <SelectTrigger id="csv-class" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="csv-class" className="mt-1">
+              <SelectValue placeholder="Choose a class…" />
+            </SelectTrigger>
             <SelectContent>
-              {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {classes.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.class_name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
