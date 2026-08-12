@@ -63,7 +63,15 @@ import {
   indexEnrollments,
   ENROLLMENT_KEYS,
   type ClassRow,
+import {
+  useClasses,
+  useEnrollments,
+  usePrograms,
+  indexEnrollments,
+  ENROLLMENT_KEYS,
+  type ClassRow,
 } from "@/lib/enrollment";
+import { EnrollmentEditor } from "@/components/admin-enrollment";
 import { BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
