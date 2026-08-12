@@ -1979,12 +1979,16 @@ function CsvImporter() {
         const rank = candidates.length === 1 ? candidates[0] : undefined;
 
         if (!profile) {
-          // Stage as unlinked so admins can spot typos in the audit view.
+          // Stage as unlinked so admins can spot typos in the audit view. The
+          // class is resolved to an *id* here, where a human is watching, so the
+          // child arrives enrolled — not merely labelled — when their parent
+          // signs up later (AS5).
           const { error } = await supabase.from("pending_student_imports").insert({
             first_name: row.first_name.trim(),
             last_name: row.last_name.trim(),
             parent_email: email,
-            class_name: assignedClass,
+            class_name: assignedClassName,
+            class_id: assignedClass,
             current_belt: belt,
             ...(rank ? { belt_rank_id: rank.id } : {}),
             ...(startDate ? { start_date: startDate } : {}),
@@ -2006,14 +2010,22 @@ function CsvImporter() {
           parent_id: profile.id,
           first_name: row.first_name.trim(),
           last_name: row.last_name.trim(),
-          class_name: assignedClass,
           current_belt: belt,
           ...(rank ? { belt_rank_id: rank.id } : {}),
 
           ...(startDate ? { start_date: startDate } : {}),
         };
-        const { error } = await supabase.from("students").insert(payload);
+        const { data: createdStudent, error } = await supabase
+          .from("students")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
+        // Enrolment, not a text class name: the trigger derives the label.
+        const { error: enrErr } = await supabase
+          .from("student_classes")
+          .insert({ student_id: createdStudent.id, class_id: assignedClass, is_primary: true });
+        if (enrErr) throw enrErr;
         if (rank) {
           const sysName = systemsById.get(rank.system_id)?.name;
           out.push({
