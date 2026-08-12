@@ -1524,7 +1524,8 @@ function ClassSchedulesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <ProgramsCard />
+
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
