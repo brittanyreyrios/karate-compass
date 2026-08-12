@@ -246,6 +246,7 @@ export type Database = {
           is_teen_adult: boolean
           location: string | null
           next_test_date: string | null
+          program_id: string | null
           test_announcement_id: string | null
           time_end: string | null
           time_start: string | null
@@ -259,6 +260,7 @@ export type Database = {
           is_teen_adult?: boolean
           location?: string | null
           next_test_date?: string | null
+          program_id?: string | null
           test_announcement_id?: string | null
           time_end?: string | null
           time_start?: string | null
@@ -272,12 +274,20 @@ export type Database = {
           is_teen_adult?: boolean
           location?: string | null
           next_test_date?: string | null
+          program_id?: string | null
           test_announcement_id?: string | null
           time_end?: string | null
           time_start?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "class_schedules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "class_schedules_test_announcement_id_fkey"
             columns: ["test_announcement_id"]
@@ -519,6 +529,7 @@ export type Database = {
       pending_student_imports: {
         Row: {
           belt_rank_id: string | null
+          class_id: string | null
           class_name: string
           created_at: string
           current_belt: string
@@ -532,6 +543,7 @@ export type Database = {
         }
         Insert: {
           belt_rank_id?: string | null
+          class_id?: string | null
           class_name: string
           created_at?: string
           current_belt?: string
@@ -545,6 +557,7 @@ export type Database = {
         }
         Update: {
           belt_rank_id?: string | null
+          class_id?: string | null
           class_name?: string
           created_at?: string
           current_belt?: string
@@ -562,6 +575,13 @@ export type Database = {
             columns: ["belt_rank_id"]
             isOneToOne: false
             referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_student_imports_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
             referencedColumns: ["id"]
           },
         ]
@@ -811,6 +831,33 @@ export type Database = {
         }
         Relationships: []
       }
+      programs: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       review_prompt_dismissals: {
         Row: {
           dismissed_at: string
@@ -860,6 +907,45 @@ export type Database = {
           target_user_id?: string
         }
         Relationships: []
+      }
+      student_classes: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_classes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_classes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
@@ -968,10 +1054,7 @@ export type Database = {
           student_count: number
         }[]
       }
-      division_of: {
-        Args: { _belt_rank_id: string; _class_name: string }
-        Returns: string
-      }
+      division_of: { Args: { _student_id: string }; Returns: string }
       get_curriculum_for_all_children: {
         Args: never
         Returns: {
