@@ -1463,7 +1463,7 @@ function ClassSchedulesTab() {
       const { data, error } = await supabase
         .from("class_schedules")
         .select(
-          "id, class_name, next_test_date, location, is_teen_adult, test_announcement_id, updated_at",
+          "id, class_name, next_test_date, location, is_teen_adult, program_id, test_announcement_id, updated_at",
         )
         .order("class_name");
       if (error) throw error;
@@ -1472,10 +1472,9 @@ function ClassSchedulesTab() {
   });
 
   /**
-   * Students link to classes by a class_name text match, not a foreign key, so a
-   * class reading 0 students is that mismatch showing itself. The count uses the
-   * same normalised comparison as division_of(), so it can never disagree with
-   * which students actually pick up the teen/adult flag.
+   * Counted through student_classes now, not by matching class names, so a class
+   * reading 0 students genuinely has nobody enrolled rather than a spelling
+   * mismatch. Same source as division_of(), so the two can never disagree.
    */
   const countsQ = useQuery({
     queryKey: ["class-student-counts"],
