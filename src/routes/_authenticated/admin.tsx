@@ -1016,7 +1016,8 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const currentRank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const [systemId, setSystemId] = useState<string | null>(currentRank?.system_id ?? null);
   const [rankId, setRankId] = useState<string | null>(student.belt_rank_id ?? null);
-  const [className, setClassName] = useState(student.class_name);
+  // No class field here: membership lives in student_classes and students.class_name
+  // is a trigger-derived label. Writing it here would recreate the drift trap.
   const [points, setPoints] = useState(String(student.points));
   const [attendance, setAttendance] = useState(String(student.attendance_count));
 
