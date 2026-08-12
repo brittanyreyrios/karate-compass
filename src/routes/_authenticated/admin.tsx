@@ -402,6 +402,11 @@ function AttendanceTab() {
   );
 
   const studentsQ = useStudents();
+  const classesQ = useClasses();
+  const enrollQ = useEnrollments();
+  const classes = classesQ.data ?? [];
+  /** Membership comes from the join table, so a child in two classes shows in both. */
+  const { studentsByClass } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -417,29 +422,33 @@ function AttendanceTab() {
     },
   });
   const holidayClasses = holidaysQ.data ?? new Set<string>();
-  const currentClassIsHoliday =
-    classFilter !== ALL_CLASSES && holidayClasses.has(classFilter);
+  /** The filter now holds a class id; holidays are still recorded by class name. */
+  const selectedClass = classes.find((c) => c.id === classFilter) ?? null;
+  const currentClassIsHoliday = !!selectedClass && holidayClasses.has(selectedClass.class_name);
 
   const filtered = useMemo(() => {
     const list = (studentsQ.data ?? []).filter((s) => s.active);
-    const byClass = classFilter === ALL_CLASSES ? list : list.filter((s) => s.class_name === classFilter);
+    const byClass =
+      classFilter === ALL_CLASSES
+        ? list
+        : list.filter((s) => studentsByClass.get(classFilter)?.has(s.id));
     if (!q.trim()) return byClass;
     const needle = q.toLowerCase();
     return byClass.filter((s) =>
       `${s.first_name} ${s.last_name} ${s.current_belt}`.toLowerCase().includes(needle),
     );
-  }, [q, classFilter, studentsQ.data]);
+  }, [q, classFilter, studentsQ.data, studentsByClass]);
 
   const counts = useMemo(() => {
-    const map: Record<string, number> = { [ALL_CLASSES]: 0 };
-    for (const c of CLASS_NAMES) map[c] = 0;
-    for (const s of studentsQ.data ?? []) {
-      if (!s.active) continue;
-      map[ALL_CLASSES]++;
-      map[s.class_name] = (map[s.class_name] ?? 0) + 1;
+    const activeIds = new Set((studentsQ.data ?? []).filter((s) => s.active).map((s) => s.id));
+    const map: Record<string, number> = { [ALL_CLASSES]: activeIds.size };
+    for (const c of classes) {
+      let n = 0;
+      for (const id of studentsByClass.get(c.id) ?? []) if (activeIds.has(id)) n++;
+      map[c.id] = n;
     }
     return map;
-  }, [studentsQ.data]);
+  }, [studentsQ.data, classes, studentsByClass]);
 
   const lockButton = (
     setter: (fn: (s: Record<string, number>) => Record<string, number>) => void,
