@@ -604,7 +604,7 @@ function AttendanceTab() {
       <div className="mt-5 flex flex-wrap gap-2">
         {filterOptions.map((opt) => {
           const active = classFilter === opt.key;
-          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.key);
+          const isHol = opt.key !== ALL_CLASSES && holidayClasses.has(opt.label);
           return (
             <button
               key={opt.key}
