@@ -1737,23 +1737,44 @@ function ClassScheduleRow({
           </div>
         </div>
 
-        <label
-          className="flex items-center gap-2 text-sm"
-          htmlFor={`teen-adult-${schedule.id}`}
-        >
-          <Checkbox
-            id={`teen-adult-${schedule.id}`}
-            checked={schedule.is_teen_adult}
-            onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
-            disabled={saveTeenAdult.isPending}
-          />
-          <span>
-            Teen / adult class
-            <span className="block text-xs text-muted-foreground">
-              Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+        <div className="flex flex-col gap-3">
+          <label
+            className="flex items-center gap-2 text-sm"
+            htmlFor={`teen-adult-${schedule.id}`}
+          >
+            <Checkbox
+              id={`teen-adult-${schedule.id}`}
+              checked={schedule.is_teen_adult}
+              onCheckedChange={(v) => saveTeenAdult.mutate(v === true)}
+              disabled={saveTeenAdult.isPending}
+            />
+            <span>
+              Teen / adult class
+              <span className="block text-xs text-muted-foreground">
+                Puts these students on the Teen &amp; Adults leaderboard, whatever their belt.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+
+          {/* AT2 — the programme is set per class, never inferred from the name. */}
+          <div className="min-w-[200px]">
+            <Label htmlFor={`program-${schedule.id}`} className="text-xs">Programme</Label>
+            <Select
+              value={schedule.program_id ?? "none"}
+              onValueChange={(v) => saveProgram.mutate(v === "none" ? null : v)}
+            >
+              <SelectTrigger id={`program-${schedule.id}`} className="mt-1 h-9">
+                <SelectValue placeholder="No programme" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No programme</SelectItem>
+                {programs.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
 
