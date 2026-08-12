@@ -1034,7 +1034,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           belt_rank_id: rankId,
-          class_name: className,
+          points: Math.max(0, parseInt(points || "0", 10) || 0),
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
