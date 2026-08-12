@@ -981,9 +981,9 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
-          <Badge variant="outline">{student.class_name}</Badge>
           <span>{student.attendance_count} classes</span>
         </div>
+        <EnrollmentEditor studentId={student.id} />
       </div>
 
       <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
