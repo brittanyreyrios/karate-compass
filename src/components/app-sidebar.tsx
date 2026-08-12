@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useIsAdmin } from "@/hooks/use-auth";
+import { useTechniqueLibrary } from "@/lib/technique-library";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
