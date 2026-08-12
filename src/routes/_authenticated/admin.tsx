@@ -901,10 +901,26 @@ function ManageStudentsTab() {
               <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
               No belt rank set ({noRankCount})
             </Button>
+            <Button
+              size="sm"
+              variant={noClassOnly ? "default" : "outline"}
+              className={noClassOnly ? "bg-gradient-red" : ""}
+              aria-pressed={noClassOnly}
+              onClick={() => setNoClassOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Students in no class ({noClassCount})
+            </Button>
             {noRankCount > 0 && (
               <span className="text-xs text-muted-foreground">
                 {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
                 leaderboard or see curriculum until a rank is set.
+              </span>
+            )}
+            {noClassCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {noClassCount} student{noClassCount === 1 ? "" : "s"} in no class won't appear on any
+                attendance sheet until they are enrolled.
               </span>
             )}
           </div>
