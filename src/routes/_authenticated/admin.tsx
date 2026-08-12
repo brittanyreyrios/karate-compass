@@ -2000,6 +2000,10 @@ function CsvImporter() {
 
   const runImport = async () => {
     if (rows.length === 0) return;
+    if (!assignedClass) {
+      toast.error("Choose the class to enrol this batch in first.");
+      return;
+    }
     setImporting(true);
     const out: ImportResult[] = [];
     for (const row of rows) {
