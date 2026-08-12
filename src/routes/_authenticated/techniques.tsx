@@ -51,9 +51,8 @@ function Techniques() {
     return (
       <div className="mx-auto w-full max-w-5xl">
         <QueryErrorState
-          title="Technique library unavailable"
-          error={libraryQ.error}
-          onRetry={() => libraryQ.refetch()}
+          what="the technique library"
+          onRetry={() => void libraryQ.refetch()}
         />
       </div>
     );
