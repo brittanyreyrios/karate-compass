@@ -74,6 +74,14 @@ export function EnrollmentEditor({ studentId }: { studentId: string }) {
 
   const makePrimary = useMutation({
     mutationFn: async (id: string) => {
+      // A unique partial index allows exactly one primary row per student, so the
+      // old one has to be cleared before the new one is set.
+      const { error: clearErr } = await supabase
+        .from("student_classes")
+        .update({ is_primary: false })
+        .eq("student_id", studentId)
+        .eq("is_primary", true);
+      if (clearErr) throw clearErr;
       const { error } = await supabase
         .from("student_classes")
         .update({ is_primary: true })
