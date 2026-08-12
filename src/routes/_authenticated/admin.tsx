@@ -850,13 +850,18 @@ function ManageStudentsTab() {
               <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
             </div>
             <div>
-              <Label>Assigned class</Label>
-              <Select value={className} onValueChange={setClassName}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <Label>First class</Label>
+              <Select value={classId} onValueChange={setClassId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a class…" /></SelectTrigger>
                 <SelectContent>
-                  {CLASS_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.class_name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Extra classes can be added from the student's row once they exist.
+              </p>
             </div>
             <BeltPicker
               idPrefix="add-student"
