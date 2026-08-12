@@ -13,6 +13,7 @@ import {
   Trophy,
   BarChart3,
   Settings,
+  Swords,
 } from "lucide-react";
 import {
   Sidebar,
