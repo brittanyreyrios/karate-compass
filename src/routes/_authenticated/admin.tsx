@@ -547,18 +547,18 @@ function AttendanceTab() {
 
   const toggleHoliday = useMutation({
     mutationFn: async () => {
-      if (classFilter === ALL_CLASSES) throw new Error("Select a specific class first.");
+      if (!selectedClass) throw new Error("Select a specific class first.");
       if (currentClassIsHoliday) {
         const { error } = await supabase
           .from("class_holidays")
           .delete()
-          .eq("class_name", classFilter)
+          .eq("class_name", selectedClass.class_name)
           .eq("holiday_date", today);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("class_holidays")
-          .insert({ class_name: classFilter, holiday_date: today, note: "Marked in-app" });
+          .insert({ class_name: selectedClass.class_name, holiday_date: today, note: "Marked in-app" });
         if (error) throw error;
       }
     },
@@ -569,9 +569,11 @@ function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Filter keys are class ids now — the whole point of Round 12 is to stop
+  // identifying a class by its name.
   const filterOptions: { key: string; label: string }[] = [
     { key: ALL_CLASSES, label: "All Classes" },
-    ...CLASS_NAMES.map((c) => ({ key: c, label: c })),
+    ...classes.map((c) => ({ key: c.id, label: c.class_name })),
   ];
 
   return (
