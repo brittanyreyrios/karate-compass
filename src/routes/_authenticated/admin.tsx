@@ -747,17 +747,30 @@ function AttendanceTab() {
 function ManageStudentsTab() {
   const qc = useQueryClient();
   const studentsQ = useStudents();
+  const classesQ = useClasses();
+  const enrollQ = useEnrollments();
+  const classes = classesQ.data ?? [];
+  const { byStudent } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noRankOnly, setNoRankOnly] = useState(false);
+  const [noClassOnly, setNoClassOnly] = useState(false);
   const allStudents = studentsQ.data ?? [];
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
-  const visibleStudents = noRankOnly ? allStudents.filter((s) => !s.belt_rank_id) : allStudents;
+  /**
+   * A student enrolled in nothing is allowed, but they are invisible to
+   * attendance and to every class count — so the number has to be countable and
+   * drivable to zero after each wave of signups, exactly like a missing rank.
+   */
+  const noClassCount = allStudents.filter((s) => s.active && !byStudent.get(s.id)?.length).length;
+  const visibleStudents = allStudents.filter(
+    (s) => (!noRankOnly || !s.belt_rank_id) && (!noClassOnly || !byStudent.get(s.id)?.length),
+  );
 
   // Add form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
-  const [className, setClassName] = useState<string>(CLASS_NAMES[0]);
+  const [classId, setClassId] = useState<string>("");
   const [systemId, setSystemId] = useState<string | null>(null);
   const [rankId, setRankId] = useState<string | null>(null);
 
@@ -767,6 +780,7 @@ function ManageStudentsTab() {
         throw new Error("Please fill in all fields.");
       }
       if (!rankId) throw new Error("Choose a belt system and rank for this student.");
+      if (!classId) throw new Error("Choose the class this student trains in.");
       const emailNorm = parentEmail.trim().toLowerCase();
       const { data: profile, error: profErr } = await supabase
         .from("profiles")
@@ -776,20 +790,30 @@ function ManageStudentsTab() {
       if (profErr) throw profErr;
       if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first.`);
 
-      const { error } = await supabase.from("students").insert({
-        parent_id: profile.id,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        belt_rank_id: rankId,
-        class_name: className,
-      });
+      // class_name is never written from here: the enrollment row below is the
+      // source of truth and a trigger derives the display label from it.
+      const { data: created, error } = await supabase
+        .from("students")
+        .insert({
+          parent_id: profile.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          belt_rank_id: rankId,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+
+      const { error: enrErr } = await supabase
+        .from("student_classes")
+        .insert({ student_id: created.id, class_id: classId, is_primary: true });
+      if (enrErr) throw enrErr;
     },
     onSuccess: () => {
-      toast.success("Student added");
+      toast.success("Student added and enrolled");
       setFirstName(""); setLastName(""); setParentEmail("");
-      setClassName(CLASS_NAMES[0]); setSystemId(null); setRankId(null);
-      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      setClassId(""); setSystemId(null); setRankId(null);
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: Error) => toast.error(e.message),
   });
