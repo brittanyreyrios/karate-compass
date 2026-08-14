@@ -59,7 +59,7 @@ export function useBeltSystems() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("belt_systems")
-        .select("id, slug, name, age_guidance, sort_order, uses_belts")
+        .select("id, slug, name, age_guidance, sort_order, uses_belts, program_id")
         .order("sort_order");
       if (error) throw error;
       return (data ?? []) as BeltSystem[];
