@@ -756,11 +756,14 @@ function ManageStudentsTab() {
   const studentsQ = useStudents();
   const classesQ = useClasses();
   const enrollQ = useEnrollments();
+  const ranksQ = useBeltRanks();
+  const systemsQ = useBeltSystems();
   const classes = classesQ.data ?? [];
   const { byStudent } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noRankOnly, setNoRankOnly] = useState(false);
   const [noClassOnly, setNoClassOnly] = useState(false);
+  const [mismatchOnly, setMismatchOnly] = useState(false);
   const allStudents = studentsQ.data ?? [];
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
   /**
@@ -769,9 +772,50 @@ function ManageStudentsTab() {
    * drivable to zero after each wave of signups, exactly like a missing rank.
    */
   const noClassCount = allStudents.filter((s) => s.active && !byStudent.get(s.id)?.length).length;
+
+  /**
+   * AY1: a rank that disagrees with every programme the student trains in. A
+   * dual-programme child matches one of their programmes and never appears here.
+   */
+  const mismatchIds = useMemo(() => {
+    const ranks = ranksQ.data ?? [];
+    const systems = systemsQ.data ?? [];
+    return new Set(
+      allStudents
+        .filter((s) =>
+          isRankProgrammeMismatch({
+            student: s,
+            enrollments: enrollQ.data,
+            classes,
+            ranks,
+            systems,
+          }),
+        )
+        .map((s) => s.id),
+    );
+  }, [allStudents, enrollQ.data, classes, ranksQ.data, systemsQ.data]);
+  const mismatchCount = mismatchIds.size;
+
+  const assignJiuJitsu = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("assign_jiu_jitsu_levels");
+      if (error) throw error;
+      return data as { assigned: number; skipped: number; skipped_students: unknown[] };
+    },
+    onSuccess: (res) => {
+      toast.success(jiuJitsuAssignmentSummary(res));
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const visibleStudents = allStudents.filter(
-    (s) => (!noRankOnly || !s.belt_rank_id) && (!noClassOnly || !byStudent.get(s.id)?.length),
+    (s) =>
+      (!noRankOnly || !s.belt_rank_id) &&
+      (!noClassOnly || !byStudent.get(s.id)?.length) &&
+      (!mismatchOnly || mismatchIds.has(s.id)),
   );
+
 
   // Add form state
   const [firstName, setFirstName] = useState("");
