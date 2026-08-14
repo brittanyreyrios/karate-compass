@@ -965,6 +965,27 @@ function ManageStudentsTab() {
               <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
               Students in no class ({noClassCount})
             </Button>
+            {/* AY1: a rank that agrees with none of the student's programmes. */}
+            <Button
+              size="sm"
+              variant={mismatchOnly ? "default" : "outline"}
+              className={mismatchOnly ? "bg-gradient-red" : ""}
+              aria-pressed={mismatchOnly}
+              onClick={() => setMismatchOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Rank doesn't match programme ({mismatchCount})
+            </Button>
+            {/* AX3: the roster is also edited by hand, so this can't only run on import. */}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={assignJiuJitsu.isPending}
+              onClick={() => assignJiuJitsu.mutate()}
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              {assignJiuJitsu.isPending ? "Assigning…" : "Assign jiu jitsu levels"}
+            </Button>
             {noRankCount > 0 && (
               <span className="text-xs text-muted-foreground">
                 {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
@@ -977,6 +998,13 @@ function ManageStudentsTab() {
                 attendance sheet until they are enrolled.
               </span>
             )}
+            {mismatchCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {mismatchCount} student{mismatchCount === 1 ? "'s rank" : "s' ranks"} disagree with every
+                programme they train in — their leaderboard division follows the rank, so check the belt.
+              </span>
+            )}
+
           </div>
 
           <div className="mt-5 space-y-3">
