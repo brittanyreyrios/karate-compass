@@ -21,7 +21,14 @@ export type BeltSystem = {
    * a future beltless program needs no code change, only a row.
    */
   uses_belts: boolean;
+  /**
+   * Round 14 AY: the single place that says which programme a belt system
+   * belongs to. Solid/Camo/Youth Stripe -> Karate, Jiu Jitsu -> Jiu Jitsu &
+   * Wrestling, Tai Chi -> Tai Chi. Null means "unmapped": it never flags anyone.
+   */
+  program_id: string | null;
 };
+
 
 
 export type BeltRank = {
