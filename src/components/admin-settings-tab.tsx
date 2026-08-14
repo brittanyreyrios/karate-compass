@@ -92,6 +92,9 @@ export function SchoolSettingsTab() {
           their entire review history over it.
         </p>
       </div>
+
+      <PublicSiteUrlCard />
     </div>
+
   );
 }
