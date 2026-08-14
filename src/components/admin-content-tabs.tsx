@@ -1195,12 +1195,42 @@ export function InviteQrTab() {
     },
   });
 
+  /**
+   * BA3: the QR and the copyable link are built from the one configured public
+   * address, never from `window.location.origin`. The old code baked whatever
+   * host the admin's browser was on into a permanent printed artifact — an
+   * editor-internal address that only worked for the person who made it.
+   */
+  const siteQ = useAppSetting(PUBLIC_SITE_URL_KEY);
+  const configured = siteQ.data;
+  const siteConfigured = isUsableUrl(configured);
+
   const codes = codesQ.data ?? [];
   const code = selected || codes[0]?.code || "";
   const signupUrl =
-    typeof window !== "undefined" && code
-      ? `${window.location.origin}/auth?invite=${encodeURIComponent(code)}`
+    siteConfigured && code
+      ? publicSiteUrl(configured, `/auth?invite=${encodeURIComponent(code)}`)
       : "";
+
+  /**
+   * BA6: an admin generating a production QR from a preview session is doing the
+   * right thing, so a mismatch is surfaced rather than blocked. Read after mount
+   * only — the origin does not exist during SSR.
+   */
+  const [currentOrigin, setCurrentOrigin] = useState<string | null>(null);
+  useEffect(() => {
+    setCurrentOrigin(window.location.origin);
+  }, []);
+  const configuredOrigin = (() => {
+    if (!siteConfigured) return null;
+    try {
+      return new URL(configured!.trim()).origin;
+    } catch {
+      return null;
+    }
+  })();
+  const originMismatch =
+    !!signupUrl && !!currentOrigin && !!configuredOrigin && configuredOrigin !== currentOrigin;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -1226,34 +1256,63 @@ export function InviteQrTab() {
           </Select>
         </div>
 
-        {signupUrl && (
-          <div className="mt-4 flex items-center gap-2">
-            <Input readOnly value={signupUrl} aria-label="Signup link with invite code" />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Copy signup link"
-              onClick={() => {
-                navigator.clipboard.writeText(signupUrl);
-                toast.success("Signup link copied.");
-              }}
-            >
-              <Copy className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
+        {/* BA4: no address means no link to copy either — the copy button carried
+            the identical defect and texted the wrong host to individual families. */}
+        {!siteConfigured ? (
+          <p className="mt-4 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
+            Set the portal's public address in Settings before generating a QR code. A printed QR
+            cannot be corrected afterwards.
+          </p>
+        ) : (
+          signupUrl && (
+            <div className="mt-4 flex items-center gap-2">
+              <Input readOnly value={signupUrl} aria-label="Signup link with invite code" />
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Copy signup link"
+                onClick={() => {
+                  navigator.clipboard.writeText(signupUrl);
+                  toast.success("Signup link copied.");
+                }}
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          )
         )}
       </div>
 
       <div className="grid place-items-center rounded-2xl border border-border bg-card p-6">
-        {signupUrl ? (
-          <div className="rounded-xl bg-white p-5">
-            <QRCodeSVG value={signupUrl} size={220} includeMargin={false} title={`Signup QR for invite code ${code}`} />
-          </div>
+        {!siteConfigured ? (
+          <p className="text-sm text-muted-foreground">
+            Set the portal's public address in Settings before generating a QR code. A printed QR
+            cannot be corrected afterwards.
+          </p>
+        ) : signupUrl ? (
+          <>
+            {/* BA5: whoever prints the poster must be able to read the address
+                without scanning it — full string, wrapping, no truncation. */}
+            <p className="mb-4 max-w-full break-all text-center text-xs text-muted-foreground">
+              This QR encodes: <span className="font-medium text-foreground">{signupUrl}</span>
+            </p>
+            <div className="rounded-xl bg-white p-5">
+              <QRCodeSVG value={signupUrl} size={220} includeMargin={false} title={`Signup QR for invite code ${code}`} />
+            </div>
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">Create an invite code first, then select it here.</p>
         )}
-        {code && <p className="mt-4 font-display text-lg font-bold uppercase tracking-[0.3em]">{code}</p>}
+        {siteConfigured && code && (
+          <p className="mt-4 font-display text-lg font-bold uppercase tracking-[0.3em]">{code}</p>
+        )}
+        {originMismatch && (
+          <p className="mt-4 max-w-full break-all text-center text-xs text-muted-foreground">
+            This QR points at {configured!.trim()}. You are currently viewing {currentOrigin}.
+          </p>
+        )}
       </div>
     </div>
   );
 }
+
