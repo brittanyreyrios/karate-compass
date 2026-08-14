@@ -1034,18 +1034,24 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
 
   const save = useMutation({
     mutationFn: async () => {
+      // AZ(b): current_belt is the documented fallback for students with no rank,
+      // and it used to keep whatever the import wrote while belt_rank_id moved on.
+      // Writing both here stops the column drifting at source.
+      const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
       const { error } = await supabase
         .from("students")
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           belt_rank_id: rankId,
+          ...(rank ? { current_belt: rank.name } : {}),
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
         .eq("id", student.id);
       if (error) throw error;
     },
+
 
     onSuccess: () => {
       toast.success("Saved");
