@@ -1,4 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  PUBLIC_SITE_URL_KEY,
+  isUsableUrl,
+  publicSiteUrl,
+  useAppSetting,
+} from "@/lib/app-settings";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy, Video, VideoOff, ChevronUp, ChevronDown } from "lucide-react";
