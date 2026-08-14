@@ -2344,7 +2344,14 @@ function CsvImporter() {
         </Button>
       </div>
 
+      {jjSummary && (
+        <p className="mt-4 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+          {jjSummary}
+        </p>
+      )}
+
       {results.length > 0 && (
+
         <div className="mt-5 space-y-1 text-xs">
           {results.map((r, i) => {
             const cls =
