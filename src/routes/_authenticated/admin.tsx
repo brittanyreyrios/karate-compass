@@ -65,6 +65,9 @@ import {
   type ClassRow,
 } from "@/lib/enrollment";
 import { EnrollmentEditor } from "@/components/admin-enrollment";
+import { isRankProgrammeMismatch } from "@/lib/rank-programme";
+import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
+
 import { ProgramsCard } from "@/components/admin-programs";
 import { BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
