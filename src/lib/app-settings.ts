@@ -7,6 +7,28 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const GOOGLE_REVIEW_URL_KEY = "google_review_url";
 
+/**
+ * BA: the portal's one public address, set by a human and never detected.
+ *
+ * `window.location.origin` is the address the admin's browser happens to be at,
+ * not the school's address — a QR generated inside the editor baked a
+ * Lovable-internal host into a printed poster and sent scanners to Lovable's own
+ * sign-in screen. A QR is permanent, so the address it encodes must be a
+ * deliberate, readable, human-set value. Ships absent on purpose.
+ */
+export const PUBLIC_SITE_URL_KEY = "public_site_url";
+
+/**
+ * Joins the configured public address to an app path. Trailing slashes are
+ * trimmed so a value saved as `https://example.com/` cannot produce
+ * `https://example.com//auth`.
+ */
+export function publicSiteUrl(base: string | null | undefined, path: string) {
+  if (!isUsableUrl(base)) return "";
+  return `${base!.trim().replace(/\/+$/, "")}${path}`;
+}
+
+
 export function useAppSetting(key: string) {
   return useQuery({
     queryKey: ["app-setting", key],
