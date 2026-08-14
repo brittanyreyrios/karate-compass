@@ -21,7 +21,14 @@ export type BeltSystem = {
    * a future beltless program needs no code change, only a row.
    */
   uses_belts: boolean;
+  /**
+   * Round 14 AY: the single place that says which programme a belt system
+   * belongs to. Solid/Camo/Youth Stripe -> Karate, Jiu Jitsu -> Jiu Jitsu &
+   * Wrestling, Tai Chi -> Tai Chi. Null means "unmapped": it never flags anyone.
+   */
+  program_id: string | null;
 };
+
 
 
 export type BeltRank = {
@@ -52,7 +59,7 @@ export function useBeltSystems() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("belt_systems")
-        .select("id, slug, name, age_guidance, sort_order, uses_belts")
+        .select("id, slug, name, age_guidance, sort_order, uses_belts, program_id")
         .order("sort_order");
       if (error) throw error;
       return (data ?? []) as BeltSystem[];

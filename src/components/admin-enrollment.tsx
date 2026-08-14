@@ -163,6 +163,11 @@ export function EnrollmentEditor({ studentId }: { studentId: string }) {
           </Button>
         </span>
       )}
+      {/* AY3: the class list and the belt are independent, and nothing else says so. */}
+      <span className="w-full text-xs text-muted-foreground">
+        Changing a student's classes does not change their belt or level — set that separately.
+      </span>
     </div>
   );
 }
+

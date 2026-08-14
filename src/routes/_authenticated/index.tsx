@@ -285,12 +285,23 @@ function Dashboard() {
             <Select value={student.id} onValueChange={setActiveId}>
               <SelectTrigger className="w-[200px] border-border bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {students.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.first_name} — {s.current_belt}
-                  </SelectItem>
-                ))}
+                {students.map((s) => {
+                  /**
+                   * AZ: current_belt is a text column that an admin rank change
+                   * used not to touch, so this dropdown showed the belt the child
+                   * held at import while the rest of the page showed the new one.
+                   * Resolve the rank like every other reader; keep the text as the
+                   * documented fallback for students with no rank.
+                   */
+                  const sRank = (ranksQ.data ?? []).find((r) => r.id === s.belt_rank_id);
+                  return (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.first_name} — {sRank?.name ?? s.current_belt}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
+
             </Select>
           </div>
         )}

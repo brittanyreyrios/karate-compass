@@ -183,6 +183,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          program_id: string | null
           slug: string
           sort_order: number
           updated_at: string
@@ -193,6 +194,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          program_id?: string | null
           slug: string
           sort_order?: number
           updated_at?: string
@@ -203,12 +205,21 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          program_id?: string | null
           slug?: string
           sort_order?: number
           updated_at?: string
           uses_belts?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "belt_systems_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       class_holidays: {
         Row: {
@@ -1118,6 +1129,7 @@ export type Database = {
         Args: { _new_parent_email: string; _student_id: string }
         Returns: Json
       }
+      assign_jiu_jitsu_levels: { Args: never; Returns: Json }
       check_invite_code: { Args: { _code: string }; Returns: boolean }
       class_student_counts: {
         Args: never

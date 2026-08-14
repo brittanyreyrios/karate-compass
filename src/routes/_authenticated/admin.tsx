@@ -65,6 +65,9 @@ import {
   type ClassRow,
 } from "@/lib/enrollment";
 import { EnrollmentEditor } from "@/components/admin-enrollment";
+import { isRankProgrammeMismatch } from "@/lib/rank-programme";
+import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
+
 import { ProgramsCard } from "@/components/admin-programs";
 import { BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
@@ -756,11 +759,14 @@ function ManageStudentsTab() {
   const studentsQ = useStudents();
   const classesQ = useClasses();
   const enrollQ = useEnrollments();
+  const ranksQ = useBeltRanks();
+  const systemsQ = useBeltSystems();
   const classes = classesQ.data ?? [];
   const { byStudent } = useMemo(() => indexEnrollments(enrollQ.data), [enrollQ.data]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noRankOnly, setNoRankOnly] = useState(false);
   const [noClassOnly, setNoClassOnly] = useState(false);
+  const [mismatchOnly, setMismatchOnly] = useState(false);
   const allStudents = studentsQ.data ?? [];
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
   /**
@@ -769,9 +775,50 @@ function ManageStudentsTab() {
    * drivable to zero after each wave of signups, exactly like a missing rank.
    */
   const noClassCount = allStudents.filter((s) => s.active && !byStudent.get(s.id)?.length).length;
+
+  /**
+   * AY1: a rank that disagrees with every programme the student trains in. A
+   * dual-programme child matches one of their programmes and never appears here.
+   */
+  const mismatchIds = useMemo(() => {
+    const ranks = ranksQ.data ?? [];
+    const systems = systemsQ.data ?? [];
+    return new Set(
+      allStudents
+        .filter((s) =>
+          isRankProgrammeMismatch({
+            student: s,
+            enrollments: enrollQ.data,
+            classes,
+            ranks,
+            systems,
+          }),
+        )
+        .map((s) => s.id),
+    );
+  }, [allStudents, enrollQ.data, classes, ranksQ.data, systemsQ.data]);
+  const mismatchCount = mismatchIds.size;
+
+  const assignJiuJitsu = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("assign_jiu_jitsu_levels");
+      if (error) throw error;
+      return data as { assigned: number; skipped: number; skipped_students: unknown[] };
+    },
+    onSuccess: (res) => {
+      toast.success(jiuJitsuAssignmentSummary(res));
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const visibleStudents = allStudents.filter(
-    (s) => (!noRankOnly || !s.belt_rank_id) && (!noClassOnly || !byStudent.get(s.id)?.length),
+    (s) =>
+      (!noRankOnly || !s.belt_rank_id) &&
+      (!noClassOnly || !byStudent.get(s.id)?.length) &&
+      (!mismatchOnly || mismatchIds.has(s.id)),
   );
+
 
   // Add form state
   const [firstName, setFirstName] = useState("");
@@ -918,6 +965,27 @@ function ManageStudentsTab() {
               <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
               Students in no class ({noClassCount})
             </Button>
+            {/* AY1: a rank that agrees with none of the student's programmes. */}
+            <Button
+              size="sm"
+              variant={mismatchOnly ? "default" : "outline"}
+              className={mismatchOnly ? "bg-gradient-red" : ""}
+              aria-pressed={mismatchOnly}
+              onClick={() => setMismatchOnly((v) => !v)}
+            >
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Rank doesn't match programme ({mismatchCount})
+            </Button>
+            {/* AX3: the roster is also edited by hand, so this can't only run on import. */}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={assignJiuJitsu.isPending}
+              onClick={() => assignJiuJitsu.mutate()}
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              {assignJiuJitsu.isPending ? "Assigning…" : "Assign jiu jitsu levels"}
+            </Button>
             {noRankCount > 0 && (
               <span className="text-xs text-muted-foreground">
                 {noRankCount} student{noRankCount === 1 ? "" : "s"} without a rank won't appear on any
@@ -930,6 +998,13 @@ function ManageStudentsTab() {
                 attendance sheet until they are enrolled.
               </span>
             )}
+            {mismatchCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {mismatchCount} student{mismatchCount === 1 ? "'s rank" : "s' ranks"} disagree with every
+                programme they train in — their leaderboard division follows the rank, so check the belt.
+              </span>
+            )}
+
           </div>
 
           <div className="mt-5 space-y-3">
@@ -1034,18 +1109,24 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
 
   const save = useMutation({
     mutationFn: async () => {
+      // AZ(b): current_belt is the documented fallback for students with no rank,
+      // and it used to keep whatever the import wrote while belt_rank_id moved on.
+      // Writing both here stops the column drifting at source.
+      const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
       const { error } = await supabase
         .from("students")
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           belt_rank_id: rankId,
+          ...(rank ? { current_belt: rank.name } : {}),
           points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
         .eq("id", student.id);
       if (error) throw error;
     },
+
 
     onSuccess: () => {
       toast.success("Saved");
@@ -1968,6 +2049,8 @@ function CsvImporter() {
    */
   const [systemId, setSystemId] = useState<string>("");
   const [results, setResults] = useState<ImportResult[]>([]);
+  const [jjSummary, setJjSummary] = useState<string | null>(null);
+
   const [importing, setImporting] = useState(false);
 
   /**
@@ -2122,9 +2205,23 @@ function CsvImporter() {
 
     if (warnCount > 0) toast.warning(summary);
     else toast.success(summary);
+
+    /**
+     * AX2: jiu-jitsu-only children arrive from a roster rankless, and a migration
+     * that already ran can't help them. Assign right here, while the admin is
+     * still reading the summary.
+     */
+    if (okCount + warnCount > 0) {
+      const { data: assignData, error: assignErr } = await supabase.rpc("assign_jiu_jitsu_levels");
+      if (assignErr) setJjSummary(`Jiu Jitsu levels could not be assigned: ${assignErr.message}`);
+      else setJjSummary(jiuJitsuAssignmentSummary(assignData as never));
+    }
+
     qc.invalidateQueries({ queryKey: ["admin-students"] });
     qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
+    for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
   };
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
@@ -2247,7 +2344,14 @@ function CsvImporter() {
         </Button>
       </div>
 
+      {jjSummary && (
+        <p className="mt-4 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+          {jjSummary}
+        </p>
+      )}
+
       {results.length > 0 && (
+
         <div className="mt-5 space-y-1 text-xs">
           {results.map((r, i) => {
             const cls =
