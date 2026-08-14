@@ -2203,9 +2203,23 @@ function CsvImporter() {
 
     if (warnCount > 0) toast.warning(summary);
     else toast.success(summary);
+
+    /**
+     * AX2: jiu-jitsu-only children arrive from a roster rankless, and a migration
+     * that already ran can't help them. Assign right here, while the admin is
+     * still reading the summary.
+     */
+    if (okCount + warnCount > 0) {
+      const { data: assignData, error: assignErr } = await supabase.rpc("assign_jiu_jitsu_levels");
+      if (assignErr) setJjSummary(`Jiu Jitsu levels could not be assigned: ${assignErr.message}`);
+      else setJjSummary(jiuJitsuAssignmentSummary(assignData as never));
+    }
+
     qc.invalidateQueries({ queryKey: ["admin-students"] });
     qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
+    for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
   };
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
