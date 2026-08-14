@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   GOOGLE_REVIEW_URL_KEY,
+  PUBLIC_SITE_URL_KEY,
   isUsableUrl,
   useAppSetting,
   useSetAppSetting,
@@ -26,6 +27,7 @@ export function SchoolSettingsTab() {
 
   const trimmed = value.trim();
   const valid = trimmed === "" || isUsableUrl(trimmed);
+
 
   return (
     <div className="space-y-6">
