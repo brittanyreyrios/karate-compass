@@ -2049,6 +2049,8 @@ function CsvImporter() {
    */
   const [systemId, setSystemId] = useState<string>("");
   const [results, setResults] = useState<ImportResult[]>([]);
+  const [jjSummary, setJjSummary] = useState<string | null>(null);
+
   const [importing, setImporting] = useState(false);
 
   /**
