@@ -46,6 +46,7 @@ type CurriculumItem = {
   video_youtube_id: string | null;
   video_title: string | null;
   video_seconds: number | null;
+  video_orientation: "landscape" | "portrait" | null;
 };
 
 type ChildRow = CurriculumItem & {
@@ -315,6 +316,7 @@ function RequirementCard({ item, index }: { item: CurriculumItem; index: number 
           videoId={item.video_youtube_id}
           technique={item.technique}
           videoSeconds={item.video_seconds}
+          orientation={item.video_orientation}
           variant="cover"
         />
         <div className="mt-3">

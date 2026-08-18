@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, Swords, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
+import { VideoShapePicker } from "@/components/video-shape-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ type LibraryRow = {
   video_youtube_id: string | null;
   video_title: string | null;
   video_seconds: number | null;
+  video_orientation: "landscape" | "portrait" | null;
 };
 
 export function TechniqueLibraryAdminTab() {
@@ -61,6 +63,7 @@ export function TechniqueLibraryAdminTab() {
   const [videoLink, setVideoLink] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
   const [videoMinutes, setVideoMinutes] = useState("");
+  const [videoShape, setVideoShape] = useState<"landscape" | "portrait" | null>("landscape");
 
   const itemsQ = useQuery({
     queryKey: ["admin-technique-library"],
@@ -68,7 +71,7 @@ export function TechniqueLibraryAdminTab() {
       const { data, error } = await supabase
         .from("technique_library")
         .select(
-          "id, program_id, label, title, category, difficulty, notes, published, sort_order, video_youtube_id, video_title, video_seconds",
+          "id, program_id, label, title, category, difficulty, notes, published, sort_order, video_youtube_id, video_title, video_seconds, video_orientation",
         )
         .order("category")
         .order("sort_order")
@@ -133,6 +136,7 @@ export function TechniqueLibraryAdminTab() {
         video_youtube_id: videoId,
         video_title: videoTitle.trim() || null,
         video_seconds: seconds,
+        video_orientation: videoId ? videoShape : null,
         sort_order: nextOrder,
         published: false,
       });
@@ -140,7 +144,7 @@ export function TechniqueLibraryAdminTab() {
     },
     onSuccess: () => {
       toast.success("Technique saved as a draft. Publish it when you're ready.");
-      setTitle(""); setNotes(""); setVideoLink(""); setVideoTitle(""); setVideoMinutes("");
+      setTitle(""); setNotes(""); setVideoLink(""); setVideoTitle(""); setVideoMinutes(""); setVideoShape("landscape");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -258,6 +262,7 @@ export function TechniqueLibraryAdminTab() {
               <Input id="tl-video-mins" inputMode="decimal" value={videoMinutes} onChange={(e) => setVideoMinutes(e.target.value)} placeholder="2.5" />
             </div>
           </div>
+          <VideoShapePicker id="tl-video-shape" value={videoShape} onChange={setVideoShape} />
           <div>
             <Label htmlFor="tl-notes">Coaching cues (optional)</Label>
             <Textarea id="tl-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -287,6 +292,16 @@ export function TechniqueLibraryAdminTab() {
                     const next = index < g.rows.length - 1 ? g.rows[index + 1] : undefined;
                     return (
                       <li key={it.id} className="rounded-lg border border-border bg-background/50 p-3">
+                        {it.video_youtube_id && (
+                          <div className="mb-2">
+                            <VideoShapePicker
+                              id={`tl-shape-${it.id}`}
+                              value={it.video_orientation}
+                              label={`Video shape for ${it.title}`}
+                              onChange={(v) => patch.mutate({ id: it.id, values: { video_orientation: v } })}
+                            />
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">
                             <span className="mr-2 text-xs font-semibold tabular-nums text-muted-foreground">

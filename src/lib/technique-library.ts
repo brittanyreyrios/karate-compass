@@ -26,6 +26,7 @@ export type TechniqueItem = {
   video_youtube_id: string | null;
   video_title: string | null;
   video_seconds: number | null;
+  video_orientation: "landscape" | "portrait" | null;
 };
 
 /** Suggested positions — free text in the database, so staff can add more. */

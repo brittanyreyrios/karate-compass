@@ -135,6 +135,7 @@ function TechniqueCard({ item }: { item: TechniqueItem }) {
           technique={item.title}
           videoTitle={item.video_title}
           videoSeconds={item.video_seconds}
+          orientation={item.video_orientation}
           variant="cover"
         />
       ) : (

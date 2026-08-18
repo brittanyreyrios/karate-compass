@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Play } from "lucide-react";
 import {
   THUMBNAIL_HEIGHT,
+  THUMBNAIL_PLACEHOLDER_MAX_WIDTH,
   THUMBNAIL_WIDTH,
+  type VideoOrientation,
   formatRuntime,
   youTubeEmbedSrc,
   youTubeThumbnail,
@@ -21,12 +23,18 @@ export function VideoFacade({
   technique,
   videoTitle,
   videoSeconds,
+  orientation,
   variant = "inset",
 }: {
   videoId: string;
   technique: string;
   videoTitle?: string | null;
   videoSeconds?: number | null;
+  /**
+   * "portrait" is a phone-filmed clip: the frame itself becomes 9:16 so the video
+   * is not letterboxed inside a wide box. NULL/undefined keeps today's 16:9.
+   */
+  orientation?: VideoOrientation | null;
   /**
    * "cover" is the library layout: the thumbnail IS the top of the card, full
    * width, with no border or margin of its own — the single biggest reduction in
@@ -35,11 +43,20 @@ export function VideoFacade({
   variant?: "inset" | "cover";
 }) {
   const [playing, setPlaying] = useState(false);
+  // maxresdefault is missing for some uploads; YouTube answers with a 120×90 grey
+  // placeholder rather than a 404, so we detect it on load and pin to hqdefault.
+  const [thumbFallback, setThumbFallback] = useState(false);
   const runtime = formatRuntime(videoSeconds);
+  const portrait = orientation === "portrait";
+  // The frame element itself carries the aspect ratio, so the black box matches
+  // the video shape rather than letterboxing a tall clip inside a wide one.
+  const shape = portrait
+    ? "aspect-[9/16] max-h-[70svh] mx-auto w-auto"
+    : "aspect-video w-full";
   const frame =
     variant === "cover"
-      ? "block aspect-video w-full overflow-hidden rounded-xl bg-black"
-      : "block aspect-video w-full overflow-hidden rounded-lg border border-border bg-black mt-3";
+      ? `block ${shape} overflow-hidden rounded-xl bg-black`
+      : `block ${shape} overflow-hidden rounded-lg border border-border bg-black mt-3`;
 
   if (playing) {
     return (
@@ -65,14 +82,22 @@ export function VideoFacade({
     >
       <img
         src={youTubeThumbnail(videoId)}
-        srcSet={youTubeThumbnailSrcSet(videoId)}
-        sizes="(max-width: 640px) 100vw, 480px"
-        width={THUMBNAIL_WIDTH}
-        height={THUMBNAIL_HEIGHT}
+        srcSet={thumbFallback ? undefined : youTubeThumbnailSrcSet(videoId, orientation)}
+        sizes={portrait ? "(max-width: 640px) 100vw, 405px" : "(max-width: 640px) 100vw, 640px"}
+        width={portrait ? THUMBNAIL_HEIGHT : THUMBNAIL_WIDTH}
+        height={portrait ? THUMBNAIL_WIDTH : THUMBNAIL_HEIGHT}
         alt=""
         loading="lazy"
         decoding="async"
-        className="h-full w-full object-cover opacity-85 transition-opacity group-hover:opacity-100"
+        onLoad={(e) => {
+          if (!thumbFallback && e.currentTarget.naturalWidth <= THUMBNAIL_PLACEHOLDER_MAX_WIDTH) {
+            setThumbFallback(true);
+          }
+        }}
+        onError={() => {
+          if (!thumbFallback) setThumbFallback(true);
+        }}
+        className="h-full w-full object-cover transition-[filter] group-hover:brightness-110"
       />
       <span className="absolute inset-0 grid place-items-center">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-primary/90 shadow-red-glow transition-transform group-hover:scale-110">

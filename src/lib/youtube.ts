@@ -48,21 +48,38 @@ export function youTubeThumbnail(id: string): string {
 }
 
 /**
- * Intrinsic sizes of the two thumbnails we use. `mqdefault` (320×180) is plenty
- * for a full-width card on a phone; `hqdefault` (480×360) is only fetched once the
- * layout is wide enough to show it, so a phone downloads roughly a third of the
- * bytes. Both are 16:9 once cropped, and the <img> carries explicit dimensions so
- * the card reserves its space before the image lands.
+ * Thumbnail ladder. Landscape cards can be served small on a phone, so they keep
+ * the cheap rungs. Portrait cards crop the sides away — only the centre ~405px of
+ * the frame survives — so a small rung would be upscaled badly; portrait therefore
+ * starts at `sddefault` and prefers `maxresdefault`. Every <img> carries explicit
+ * dimensions so the card reserves its space before the image lands.
  */
-export const THUMBNAIL_WIDTH = 480;
-export const THUMBNAIL_HEIGHT = 270;
+export const THUMBNAIL_WIDTH = 1280;
+export const THUMBNAIL_HEIGHT = 720;
 
-export function youTubeThumbnailSrcSet(id: string): string {
-  return [
-    `https://i.ytimg.com/vi/${id}/mqdefault.jpg 320w`,
-    `https://i.ytimg.com/vi/${id}/hqdefault.jpg 480w`,
-  ].join(", ");
+export type VideoOrientation = "landscape" | "portrait";
+
+export function youTubeThumbnailSrcSet(id: string, orientation?: VideoOrientation | null): string {
+  const rungs =
+    orientation === "portrait"
+      ? [
+          `https://i.ytimg.com/vi/${id}/sddefault.jpg 640w`,
+          `https://i.ytimg.com/vi/${id}/maxresdefault.jpg 1280w`,
+        ]
+      : [
+          `https://i.ytimg.com/vi/${id}/mqdefault.jpg 320w`,
+          `https://i.ytimg.com/vi/${id}/hqdefault.jpg 480w`,
+          `https://i.ytimg.com/vi/${id}/sddefault.jpg 640w`,
+          `https://i.ytimg.com/vi/${id}/maxresdefault.jpg 1280w`,
+        ];
+  return rungs.join(", ");
 }
+
+/**
+ * `maxresdefault` does not exist for every upload; YouTube answers with a 120×90
+ * grey placeholder instead of a 404. Anything this narrow is that placeholder.
+ */
+export const THUMBNAIL_PLACEHOLDER_MAX_WIDTH = 160;
 
 export function youTubeEmbedSrc(id: string, autoplay = true): string {
   return `https://www.youtube-nocookie.com/embed/${id}${autoplay ? "?autoplay=1" : ""}`;

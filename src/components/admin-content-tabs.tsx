@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { Image as ImageIcon, BookOpen, Plus, Trash2, QrCode, Copy, Video, VideoOff, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { VideoShapePicker } from "@/components/video-shape-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -419,6 +420,7 @@ type CurriculumItem = {
   video_youtube_id: string | null;
   video_title: string | null;
   video_seconds: number | null;
+  video_orientation: "landscape" | "portrait" | null;
 };
 
 type Target = "rank" | "tier";
@@ -442,6 +444,7 @@ export function CurriculumAdminTab() {
   const [videoLink, setVideoLink] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
   const [videoMinutes, setVideoMinutes] = useState("");
+  const [videoShape, setVideoShape] = useState<"landscape" | "portrait" | null>("landscape");
 
   const itemsQ = useQuery({
     queryKey: ["admin-curriculum-items"],
@@ -514,6 +517,7 @@ export function CurriculumAdminTab() {
         video_youtube_id: videoId,
         video_title: videoId ? videoTitle.trim() || null : null,
         video_seconds: videoId ? seconds : null,
+        video_orientation: videoId ? videoShape : null,
         belt_rank_id: target === "rank" ? rankId : null,
         curriculum_tier: target === "tier" ? tier : null,
       });
@@ -522,7 +526,7 @@ export function CurriculumAdminTab() {
     onSuccess: () => {
       toast.success("Requirement added.");
       setTechnique(""); setCategory(""); setNotes("");
-      setVideoLink(""); setVideoTitle(""); setVideoMinutes("");
+      setVideoLink(""); setVideoTitle(""); setVideoMinutes(""); setVideoShape("landscape");
       qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
       qc.invalidateQueries({ queryKey: ["curriculum-items"] });
     },
@@ -535,6 +539,7 @@ export function CurriculumAdminTab() {
       video_youtube_id: string | null;
       video_title: string | null;
       video_seconds: number | null;
+      video_orientation: "landscape" | "portrait" | null;
     }) => {
       const { id, ...fields } = patch;
       const { error } = await supabase.from("curriculum_items").update(fields).eq("id", id);
@@ -813,6 +818,9 @@ export function CurriculumAdminTab() {
                 />
               </div>
             </div>
+            <div className="mt-3">
+              <VideoShapePicker id="cur-video-shape" value={videoShape} onChange={setVideoShape} />
+            </div>
           </fieldset>
           <Button type="submit" disabled={addItem.isPending} className="w-full bg-gradient-red">
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> {addItem.isPending ? "Saving…" : "Add requirement"}
@@ -962,6 +970,7 @@ function ItemVideoEditor({
     video_youtube_id: string | null;
     video_title: string | null;
     video_seconds: number | null;
+    video_orientation: "landscape" | "portrait" | null;
   }) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -969,6 +978,9 @@ function ItemVideoEditor({
   const [title, setTitle] = useState(item.video_title ?? "");
   const [minutes, setMinutes] = useState(
     item.video_seconds ? String(Math.round((item.video_seconds / 60) * 10) / 10) : "",
+  );
+  const [shape, setShape] = useState<"landscape" | "portrait" | null>(
+    item.video_orientation ?? "landscape",
   );
 
   if (!open) {
@@ -985,7 +997,7 @@ function ItemVideoEditor({
 
   const submit = () => {
     if (!link.trim()) {
-      onSave({ video_youtube_id: null, video_title: null, video_seconds: null });
+      onSave({ video_youtube_id: null, video_title: null, video_seconds: null, video_orientation: null });
       setOpen(false);
       return;
     }
@@ -999,7 +1011,12 @@ function ItemVideoEditor({
       toast.error("Video length must be a number of minutes, e.g. 1.5");
       return;
     }
-    onSave({ video_youtube_id: id, video_title: title.trim() || null, video_seconds: seconds });
+    onSave({
+      video_youtube_id: id,
+      video_title: title.trim() || null,
+      video_seconds: seconds,
+      video_orientation: shape,
+    });
     setOpen(false);
   };
 
@@ -1030,6 +1047,7 @@ function ItemVideoEditor({
           aria-label={`Video length in minutes for ${item.technique}`}
         />
       </div>
+      <VideoShapePicker id={`shape-${item.id}`} value={shape} onChange={setShape} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={submit} disabled={pending} className="bg-gradient-red">
           Save video
@@ -1041,7 +1059,7 @@ function ItemVideoEditor({
             disabled={pending}
             onClick={() => {
               setLink(""); setTitle(""); setMinutes("");
-              onSave({ video_youtube_id: null, video_title: null, video_seconds: null });
+              onSave({ video_youtube_id: null, video_title: null, video_seconds: null, video_orientation: null });
               setOpen(false);
             }}
           >
