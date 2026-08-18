@@ -1,5 +1,7 @@
 import "./lib/error-capture";
 
+import { createCspNonce, getRequestCspNonce, runWithCspNonce } from "./lib/csp-nonce.server";
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -63,9 +65,13 @@ function isPreviewHost(hostname: string): boolean {
   return PREVIEW_HOST_PATTERNS.some((re) => re.test(hostname));
 }
 
-const CONTENT_SECURITY_POLICY = [
+function buildContentSecurityPolicy(nonce: string): string {
+  return CSP_DIRECTIVES.replace("__SCRIPT_SRC__", `script-src 'self' 'nonce-${nonce}'`);
+}
+
+const CSP_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self'",
+  "__SCRIPT_SRC__",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
@@ -97,7 +103,31 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
   }
 
   if (strict) {
-    headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+    // The nonce comes from the AsyncLocalStorage store established for this
+    // request. If it is missing, the SSR inline scripts carry no nonce, so
+    // sending the strict policy anyway would produce a rendered-but-dead page.
+    // Fail open instead: serve without CSP, and mark the response so the
+    // condition is discoverable with a single curl rather than only in logs.
+    const nonce = getRequestCspNonce();
+    if (nonce) {
+      headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+      // A nonce-bearing HTML document must never be reused by a shared cache or
+      // replayed from the HTTP cache without revalidation, or a stale nonce
+      // would be paired with a fresh CSP header (or vice versa).
+      //
+      // Deliberately NOT `no-store`: that would also disable the browser's
+      // back/forward cache, so Back out of the curriculum page would re-fetch
+      // and re-render instead of restoring instantly. `private, no-cache,
+      // must-revalidate` keeps the document out of CDN/shared caches and forces
+      // revalidation before any HTTP-cache reuse, while bfcache restores the
+      // live in-memory page whose already-executed scripts match its own nonce.
+      if ((headers.get("content-type") ?? "").includes("text/html")) {
+        headers.set("Cache-Control", "private, no-cache, must-revalidate");
+      }
+    } else {
+      headers.set("X-CSP-Fallback", "1");
+      console.error("CSP nonce unavailable for this request; served without Content-Security-Policy");
+    }
     headers.set("X-Frame-Options", "DENY");
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
@@ -113,9 +143,29 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
+      const serve = async () => {
+        const handler = await getServerEntry();
+        const response = await handler.fetch(request, env, ctx);
+        return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
+      };
+      // Nonce generation or the async store failing must degrade to a served
+      // page (no CSP, X-CSP-Fallback: 1) rather than a 500.
+      let nonce: string | undefined;
+      try {
+        nonce = createCspNonce();
+      } catch (nonceError) {
+        console.error(nonceError);
+      }
+      if (!nonce) return await serve();
+      try {
+        return await runWithCspNonce(nonce, serve);
+      } catch (storeError) {
+        if (storeError instanceof Error && /AsyncLocalStorage|async_hooks/i.test(storeError.message)) {
+          console.error(storeError);
+          return await serve();
+        }
+        throw storeError;
+      }
     } catch (error) {
       console.error(error);
       return withSecurityHeaders(
