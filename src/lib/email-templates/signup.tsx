@@ -6,11 +6,15 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
+
+import * as s from './theme'
 
 interface SignupEmailProps {
   siteName: string
@@ -19,66 +23,52 @@ interface SignupEmailProps {
   confirmationUrl: string
 }
 
-export const SignupEmail = ({
-  siteName,
-  siteUrl,
-  recipient,
-  confirmationUrl,
-}: SignupEmailProps) => (
+export const SignupEmail = ({ confirmationUrl }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Confirm your email for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Confirm your email</Heading>
-        <Text style={text}>
-          Thanks for signing up for{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          !
-        </Text>
-        <Text style={text}>
-          Please confirm your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) by clicking the button below:
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Verify Email
-        </Button>
-        <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
-        </Text>
+    <Preview>Confirm your email for Tiger's Den Martial Arts &amp; Fitness</Preview>
+    <Body style={s.main}>
+      <Container style={s.container}>
+        <Section style={s.card}>
+          <div style={s.brandBar} />
+          <Text style={s.brand}>Tiger's Den</Text>
+          <Text style={s.brandSub}>Martial Arts &amp; Fitness</Text>
+
+          <Heading style={s.h1}>Welcome to the Tiger's Den Parent Portal</Heading>
+
+          <Text style={s.text}>
+            You're receiving this because someone signed up for the Tiger's Den Martial Arts
+            &amp; Fitness Parent portal using this email address.
+          </Text>
+
+          <Text style={s.text}>
+            Confirm your address to finish setting up your account. Once you're in, you'll be
+            able to see your child's belt progress, curriculum and upcoming events.
+          </Text>
+
+          <Button style={s.button} href={confirmationUrl}>
+            Confirm my email address
+          </Button>
+
+          <Text style={s.muted}>
+            If you didn't sign up, you can ignore this message — no account will be created.
+          </Text>
+
+          <Text style={s.muted}>
+            Questions? Email us at{' '}
+            <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
+              leaguecity.tigersden@gmail.com
+            </Link>{' '}
+            — this address doesn't receive replies.
+          </Text>
+
+          <Hr style={s.hr} />
+
+          <Text style={s.footer}>— Tiger's Den Martial Arts &amp; Fitness, League City</Text>
+        </Section>
       </Container>
     </Body>
   </Html>
 )
 
 export default SignupEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const link = { color: 'inherit', textDecoration: 'underline' }
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
