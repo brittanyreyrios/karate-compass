@@ -111,6 +111,19 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
     const nonce = getRequestCspNonce();
     if (nonce) {
       headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+      // A nonce-bearing HTML document must never be reused by a shared cache or
+      // replayed from the HTTP cache without revalidation, or a stale nonce
+      // would be paired with a fresh CSP header (or vice versa).
+      //
+      // Deliberately NOT `no-store`: that would also disable the browser's
+      // back/forward cache, so Back out of the curriculum page would re-fetch
+      // and re-render instead of restoring instantly. `private, no-cache,
+      // must-revalidate` keeps the document out of CDN/shared caches and forces
+      // revalidation before any HTTP-cache reuse, while bfcache restores the
+      // live in-memory page whose already-executed scripts match its own nonce.
+      if ((headers.get("content-type") ?? "").includes("text/html")) {
+        headers.set("Cache-Control", "private, no-cache, must-revalidate");
+      }
     } else {
       headers.set("X-CSP-Fallback", "1");
       console.error("CSP nonce unavailable for this request; served without Content-Security-Policy");
@@ -130,9 +143,12 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
+      const nonce = createCspNonce();
+      return await runWithCspNonce(nonce, async () => {
+        const handler = await getServerEntry();
+        const response = await handler.fetch(request, env, ctx);
+        return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
+      });
     } catch (error) {
       console.error(error);
       return withSecurityHeaders(
