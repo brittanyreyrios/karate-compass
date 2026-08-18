@@ -11,7 +11,6 @@ import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 // Configuration
 const SITE_NAME = "Tiger's Den Martial Arts & Fitness"
 const SENDER_DOMAIN = "notify.tigersdenmartialarts.com"
-const ROOT_DOMAIN = "tigersdenmartialarts.com"
 const FROM_DOMAIN = "notify.tigersdenmartialarts.com"
 const SITE_URL = "https://portal.tigersdenmartialarts.com"
 
