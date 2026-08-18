@@ -34,7 +34,7 @@ export const brandBar = {
 
 export const brand = {
   color: '#ffffff',
-  fontSize: '16px',
+  fontSize: '24px',
   fontWeight: 'bold' as const,
   letterSpacing: '0.18em',
   textTransform: 'uppercase' as const,

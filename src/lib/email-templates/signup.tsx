@@ -38,7 +38,7 @@ export const SignupEmail = ({ confirmationUrl }: SignupEmailProps) => (
 
           <Text style={s.text}>
             You're receiving this because someone signed up for the Tiger's Den Martial Arts
-            &amp; Fitness Parent portal using this email address.
+            &amp; Fitness Parent Portal using this email address.
           </Text>
 
           <Text style={s.text}>
@@ -55,11 +55,11 @@ export const SignupEmail = ({ confirmationUrl }: SignupEmailProps) => (
           </Text>
 
           <Text style={s.muted}>
-            Questions? Email us at{' '}
+            Questions? This message comes from an unmonitored address — please email us at{' '}
             <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
               leaguecity.tigersden@gmail.com
             </Link>{' '}
-            — this address doesn't receive replies.
+            instead.
           </Text>
 
           <Hr style={s.hr} />
