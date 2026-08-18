@@ -2,12 +2,17 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { RouteShellSkeleton } from "@/components/skeletons";
+import { getCspNonce } from "@/lib/csp-nonce";
 
 export const getRouter = () => {
   const queryClient = new QueryClient();
+  // Stamps the SSR inline scripts with this request's nonce so the strict
+  // script-src on the published host still allows hydration.
+  const nonce = getCspNonce();
 
   const router = createRouter({
     routeTree,
+    ...(nonce ? { ssr: { nonce } } : {}),
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
