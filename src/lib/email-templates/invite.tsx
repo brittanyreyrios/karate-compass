@@ -6,11 +6,15 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
+
+import * as s from './theme'
 
 interface InviteEmailProps {
   siteName: string
@@ -18,60 +22,53 @@ interface InviteEmailProps {
   confirmationUrl: string
 }
 
-export const InviteEmail = ({
-  siteName,
-  siteUrl,
-  confirmationUrl,
-}: InviteEmailProps) => (
+export const InviteEmail = ({ confirmationUrl }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>You've been invited to join {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>You've been invited</Heading>
-        <Text style={text}>
-          You've been invited to join{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          . Click the button below to accept the invitation and create your
-          account.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Accept Invitation
-        </Button>
-        <Text style={footer}>
-          If you weren't expecting this invitation, you can safely ignore this
-          email.
-        </Text>
+    <Preview>You're invited to the Tiger's Den Parent Portal</Preview>
+    <Body style={s.main}>
+      <Container style={s.container}>
+        <Section style={s.card}>
+          <div style={s.brandBar} />
+          <Text style={s.brand}>Tiger's Den</Text>
+          <Text style={s.brandSub}>Martial Arts &amp; Fitness</Text>
+
+          <Heading style={s.h1}>You're invited to the Parent Portal</Heading>
+
+          <Text style={s.text}>
+            You're receiving this because a Tiger's Den Martial Arts &amp; Fitness staff member
+            invited you to the Parent Portal using this email address.
+          </Text>
+
+          <Text style={s.text}>
+            Accept your invitation to set up your account. Once you're in, you'll be able to see
+            your child's belt progress, curriculum and upcoming events.
+          </Text>
+
+          <Button style={s.button} href={confirmationUrl}>
+            Accept my invitation
+          </Button>
+
+          <Text style={s.muted}>
+            If you weren't expecting this, you can ignore this message — no account will be
+            created.
+          </Text>
+
+          <Text style={s.muted}>
+            Questions? Email us at{' '}
+            <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
+              leaguecity.tigersden@gmail.com
+            </Link>{' '}
+            — this address doesn't receive replies.
+          </Text>
+
+          <Hr style={s.hr} />
+
+          <Text style={s.footer}>— Tiger's Den Martial Arts &amp; Fitness, League City</Text>
+        </Section>
       </Container>
     </Body>
   </Html>
 )
 
 export default InviteEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const link = { color: 'inherit', textDecoration: 'underline' }
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
