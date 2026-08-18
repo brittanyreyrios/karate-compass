@@ -5,10 +5,15 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
+  Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
+
+import * as s from './theme'
 
 interface ReauthenticationEmailProps {
   token: string
@@ -17,42 +22,58 @@ interface ReauthenticationEmailProps {
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your verification code</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Confirm reauthentication</Heading>
-        <Text style={text}>Use the code below to confirm your identity:</Text>
-        <Text style={codeStyle}>{token}</Text>
-        <Text style={footer}>
-          This code will expire shortly. If you didn't request this, you can
-          safely ignore this email.
-        </Text>
+    <Preview>Your Tiger's Den Parent Portal verification code</Preview>
+    <Body style={s.main}>
+      <Container style={s.container}>
+        <Section style={s.card}>
+          <div style={s.brandBar} />
+          <Text style={s.brand}>Tiger's Den</Text>
+          <Text style={s.brandSub}>Martial Arts &amp; Fitness</Text>
+
+          <Heading style={s.h1}>Your verification code</Heading>
+
+          <Text style={s.text}>
+            You're receiving this because a verification code was requested for your Tiger's Den
+            Martial Arts &amp; Fitness Parent Portal account.
+          </Text>
+
+          <Text
+            style={{
+              color: '#ffffff',
+              fontSize: '32px',
+              fontWeight: 'bold',
+              letterSpacing: '0.24em',
+              backgroundColor: '#0a0a0a',
+              border: `1px solid ${s.RED}`,
+              borderRadius: '10px',
+              padding: '18px 20px',
+              textAlign: 'center' as const,
+              margin: '4px 0 28px',
+            }}
+          >
+            {token}
+          </Text>
+
+          <Text style={s.muted}>
+            This code can only be used once. If you didn't request it, you can safely ignore this
+            email — nothing will change on your account.
+          </Text>
+
+          <Text style={s.muted}>
+            Questions? Email us at{' '}
+            <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
+              leaguecity.tigersden@gmail.com
+            </Link>{' '}
+            — this address doesn't receive replies.
+          </Text>
+
+          <Hr style={s.hr} />
+
+          <Text style={s.footer}>— Tiger's Den Martial Arts &amp; Fitness, League City</Text>
+        </Section>
       </Container>
     </Body>
   </Html>
 )
 
 export default ReauthenticationEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const codeStyle = {
-  fontFamily: 'Courier, monospace',
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 30px',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
