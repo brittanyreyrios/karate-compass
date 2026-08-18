@@ -18,7 +18,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "Karate Compass"
+const SITE_NAME = "Tiger's Den Martial Arts & Fitness"
 const ROOT_DOMAIN = "tigersdenmartialarts.com"
 
 // Sample data for preview mode ONLY (not used in actual email sending).
