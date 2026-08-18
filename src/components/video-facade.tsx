@@ -81,7 +81,7 @@ export function VideoFacade({
       className={`group relative ${frame} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
     >
       <img
-        src={thumbFallback ? youTubeThumbnail(videoId) : youTubeThumbnail(videoId)}
+        src={youTubeThumbnail(videoId)}
         srcSet={thumbFallback ? undefined : youTubeThumbnailSrcSet(videoId, orientation)}
         sizes={portrait ? "(max-width: 640px) 100vw, 405px" : "(max-width: 640px) 100vw, 640px"}
         width={portrait ? THUMBNAIL_HEIGHT : THUMBNAIL_WIDTH}
