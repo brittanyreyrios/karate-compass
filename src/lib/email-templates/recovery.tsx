@@ -49,11 +49,11 @@ export const RecoveryEmail = ({ confirmationUrl }: RecoveryEmailProps) => (
           </Text>
 
           <Text style={s.muted}>
-            Questions? Email us at{' '}
+            Questions? This message comes from an unmonitored address — please email us at{' '}
             <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
               leaguecity.tigersden@gmail.com
             </Link>{' '}
-            — this address doesn't receive replies.
+            instead.
           </Text>
 
           <Hr style={s.hr} />
