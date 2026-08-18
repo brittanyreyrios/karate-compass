@@ -143,12 +143,29 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const nonce = createCspNonce();
-      return await runWithCspNonce(nonce, async () => {
+      const serve = async () => {
         const handler = await getServerEntry();
         const response = await handler.fetch(request, env, ctx);
         return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
-      });
+      };
+      // Nonce generation or the async store failing must degrade to a served
+      // page (no CSP, X-CSP-Fallback: 1) rather than a 500.
+      let nonce: string | undefined;
+      try {
+        nonce = createCspNonce();
+      } catch (nonceError) {
+        console.error(nonceError);
+      }
+      if (!nonce) return await serve();
+      try {
+        return await runWithCspNonce(nonce, serve);
+      } catch (storeError) {
+        if (storeError instanceof Error && /AsyncLocalStorage|async_hooks/i.test(storeError.message)) {
+          console.error(storeError);
+          return await serve();
+        }
+        throw storeError;
+      }
     } catch (error) {
       console.error(error);
       return withSecurityHeaders(
