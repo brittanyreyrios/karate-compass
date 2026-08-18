@@ -1,5 +1,7 @@
 import "./lib/error-capture";
 
+import { createCspNonce, getRequestCspNonce, runWithCspNonce } from "./lib/csp-nonce.server";
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -63,9 +65,13 @@ function isPreviewHost(hostname: string): boolean {
   return PREVIEW_HOST_PATTERNS.some((re) => re.test(hostname));
 }
 
-const CONTENT_SECURITY_POLICY = [
+function buildContentSecurityPolicy(nonce: string): string {
+  return CSP_DIRECTIVES.replace("__SCRIPT_SRC__", `script-src 'self' 'nonce-${nonce}'`);
+}
+
+const CSP_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self'",
+  "__SCRIPT_SRC__",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
@@ -97,7 +103,18 @@ function withSecurityHeaders(response: Response, request?: Request): Response {
   }
 
   if (strict) {
-    headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+    // The nonce comes from the AsyncLocalStorage store established for this
+    // request. If it is missing, the SSR inline scripts carry no nonce, so
+    // sending the strict policy anyway would produce a rendered-but-dead page.
+    // Fail open instead: serve without CSP, and mark the response so the
+    // condition is discoverable with a single curl rather than only in logs.
+    const nonce = getRequestCspNonce();
+    if (nonce) {
+      headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+    } else {
+      headers.set("X-CSP-Fallback", "1");
+      console.error("CSP nonce unavailable for this request; served without Content-Security-Policy");
+    }
     headers.set("X-Frame-Options", "DENY");
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
