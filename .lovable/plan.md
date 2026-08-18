@@ -1,51 +1,51 @@
-# Round 15 — security tidy, site address, vertical video
+# Round 16 — CSP nonce for SSR hydration (published host)
 
-## A — Revoke over-broad EXECUTE grants
-One append-only migration:
-- `REVOKE EXECUTE ... FROM PUBLIC, anon` on `get_curriculum_for_student(uuid)` and
-  `get_curriculum_for_all_children()`; `GRANT EXECUTE ... TO authenticated`.
-- Function bodies untouched. `check_invite_code` untouched (anon must keep it).
-- No trigger-function grants, no `profiles` RLS change, no gallery policy change.
-Then run the verification query you supplied and paste its rows.
+## Diagnosis (confirmed in the installed framework, not assumed)
 
-## B — Delete package-lock.json
-`rm package-lock.json`, no regeneration, and confirm `bun.lock` bytes are unchanged
-(hash before/after).
+TanStack Router 1.169 already supports a per-request CSP nonce end to end:
 
-## C — Site address in auth emails
-In `src/routes/lovable/email/auth/webhook.ts`, point `SITE_URL` at
-`https://portal.tigersdenmartialarts.com`. `SENDER_DOMAIN`, `FROM_DOMAIN` and the
-`from` line stay on `notify.tigersdenmartialarts.com`. Same change checked in
-`preview.ts` only if it hardcodes the same URL.
+- `router.options.ssr.nonce` is stamped onto every inline SSR script it emits
+  (`router-core/dist/esm/ssr/ssr-server.js`: `<script nonce='…'>`, and the buffered
+  `$tsr` script barrier tag).
+- `HeadContent` emits `<meta property="csp-nonce" content="…">`, and the client
+  (`ssr-client.js`) reads that meta back so client-inserted scripts inherit the nonce.
 
-## D — Portrait video support
-- Migration: `video_orientation text` on `curriculum_items` and `technique_library`,
-  nullable, default NULL, `CHECK (video_orientation IN ('landscape','portrait'))`.
-  NULL keeps today's 16:9 behaviour.
-- Admin forms (`admin-content-tabs.tsx` curriculum add + `ItemVideoEditor`, and
-  `admin-technique-library.tsx`): a "Video shape" two-option control —
-  "Landscape (wide)" / "Portrait (tall, filmed on a phone)". No auto-detection.
-- Read paths: add `video_orientation` to the two SQL readers
-  (`get_curriculum_for_student`, `get_curriculum_for_all_children`,
-  `get_technique_library`) by `CREATE OR REPLACE` with the column appended to the
-  returned row — entitlement logic (auth.uid()/parent_id/published) copied
-  byte-for-byte, no filter changes.
-- `video-facade.tsx`: new `orientation` prop. Portrait renders
-  `aspect-[9/16] max-h-[70svh] mx-auto w-auto` inside the existing frame so it does
-  not run off a desktop screen; landscape/NULL keeps `aspect-video`. Play button,
-  runtime badge, title overlay, focus ring and `variant="cover"` work in both.
-- Pass the flag through curriculum and techniques cards.
+So option 1 from the request is achievable — no build-time hashes, no `unsafe-inline`.
 
-## E — Thumbnail resolution
-- `youTubeThumbnailSrcSet`: add `sddefault.jpg 640w` and `maxresdefault.jpg 1280w`;
-  `THUMBNAIL_WIDTH/HEIGHT` become 1280×720.
-- `maxresdefault` fallback: `onLoad` in `VideoFacade` checks
-  `naturalWidth <= 160` (YouTube's 120×90 placeholder) and, if so, drops srcSet and
-  pins `src` to `hqdefault.jpg`. Degrades, never a grey box.
-- Resting thumbnail `opacity-85` → `opacity-100` with a subtle hover brightness
-  transition retained.
+## The fix
 
-## Verification
-Execute every added/changed function and report what it returned; create clearly
-labelled test rows only, delete them after; existing records untouched. Report
-typecheck + build.
+1. New module `src/lib/csp-nonce.ts`: an `AsyncLocalStorage` holding the current
+   request's nonce, plus `runWithNonce(nonce, fn)` and `getRequestNonce()`.
+   (`node:async_hooks` is supported in the Worker runtime with nodejs_compat.)
+2. `src/server.ts`: generate a fresh base64 nonce per request with
+   `crypto.getRandomValues` (inside `fetch`, never at module scope), run the whole
+   handler call inside `runWithNonce(...)`, and inject `'nonce-<value>'` into the
+   `script-src` directive of the strict policy for that response only.
+   Host gating is unchanged — published and custom-domain hosts keep the strict set,
+   HSTS and `X-Frame-Options: DENY`. Nothing is added to `PREVIEW_HOST_PATTERNS`.
+3. `src/router.tsx`: pass `ssr: { nonce: getRequestNonce() }` to `createRouter`
+   (undefined on the client and in dev, where the header isn't applied).
+
+Notes:
+- `script-src` becomes `'self' 'nonce-…'`. A nonce does not disable `'self'`, so the
+  hashed external bundle files keep loading normally.
+- Host-agnostic by construction: the nonce is derived per request, so
+  `portal.tigersdenmartialarts.com` behaves identically.
+- No hard-coded hashes anywhere; no CSP relaxation.
+
+## Verification (against the published host, not preview)
+
+- `curl -sI https://tigersdenmartialartsparentportal.lovable.app/` — report the real
+  `Content-Security-Policy`, confirm a `nonce-` value is present and that two
+  successive requests return different nonces.
+- Playwright against the published URL: `/`, `/auth`, `/reset-password`,
+  `/privacy-policy`, `/terms`, `/media-release` — collect console output, confirm zero
+  CSP violations and zero `Invariant failed`, and confirm the page is interactive
+  (sidebar toggle / auth form responds).
+- Confirm the Supabase XHR to `https://dddsnppompvmzopufhnq.supabase.co` is allowed by
+  `connect-src https://*.supabase.co` (observed in the network log, not assumed).
+- Confirm `frame-src https://www.youtube-nocookie.com` still present so curriculum
+  videos play.
+
+Publishing is required before the published host can be re-tested, so the last step is
+a publish followed by the checks above.
