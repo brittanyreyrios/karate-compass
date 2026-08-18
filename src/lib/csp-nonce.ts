@@ -1,41 +1,30 @@
 /*
-  Per-request CSP nonce.
+  Per-request CSP nonce — client-safe accessor.
 
   TanStack Start emits inline <script> tags during SSR (the router dehydration
   payload and ScriptOnce calls). A strict `script-src 'self'` blocks them, which
   means the published site renders but never hydrates. The router accepts a
-  nonce via `ssr.nonce`; the same value has to end up in the CSP header we set
-  in src/server.ts. The two are produced in different places — the response path
-  and `getRouter()` — so the value travels through an AsyncLocalStorage store
-  keyed to the request.
-
-  node:async_hooks is available in the deployed Worker via nodejs_compat. If the
-  import or the store ever fails we degrade to a served page rather than a 500:
-  see `runWithCspNonce` returning `undefined` and the X-CSP-Fallback marker in
+  nonce via `ssr.nonce`; the same value must end up in the CSP header set in
   src/server.ts.
+
+  src/router.tsx is part of the client bundle, so it must not import
+  node:async_hooks. Instead the server registers a getter here at startup
+  (see csp-nonce.server.ts, imported only from src/server.ts) and the router
+  calls `getCspNonce()`, which returns undefined in the browser.
 */
-import { AsyncLocalStorage } from "node:async_hooks";
 
-const store = new AsyncLocalStorage<string>();
+type NonceGetter = () => string | undefined;
 
-/** Base64 nonce with 128 bits of entropy, fresh per request. */
-export function createCspNonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
+let nonceGetter: NonceGetter | undefined;
+
+export function setCspNonceGetter(getter: NonceGetter): void {
+  nonceGetter = getter;
 }
 
-/** Runs `fn` with `nonce` readable by `getCspNonce()` anywhere inside it. */
-export function runWithCspNonce<T>(nonce: string, fn: () => T): T {
-  return store.run(nonce, fn);
-}
-
-/** The current request's nonce, or undefined outside a request / on the client. */
+/** The current request's nonce, or undefined on the client / outside a request. */
 export function getCspNonce(): string | undefined {
   try {
-    return store.getStore();
+    return nonceGetter?.();
   } catch {
     return undefined;
   }
