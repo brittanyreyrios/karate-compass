@@ -320,6 +320,7 @@ export type Database = {
           notes: string | null
           sort_order: number
           technique: string
+          video_orientation: string | null
           video_seconds: number | null
           video_title: string | null
           video_youtube_id: string | null
@@ -335,6 +336,7 @@ export type Database = {
           notes?: string | null
           sort_order?: number
           technique: string
+          video_orientation?: string | null
           video_seconds?: number | null
           video_title?: string | null
           video_youtube_id?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           notes?: string | null
           sort_order?: number
           technique?: string
+          video_orientation?: string | null
           video_seconds?: number | null
           video_title?: string | null
           video_youtube_id?: string | null
@@ -1042,6 +1045,7 @@ export type Database = {
           sort_order: number
           title: string
           updated_at: string
+          video_orientation: string | null
           video_seconds: number | null
           video_title: string | null
           video_youtube_id: string | null
@@ -1060,6 +1064,7 @@ export type Database = {
           sort_order?: number
           title: string
           updated_at?: string
+          video_orientation?: string | null
           video_seconds?: number | null
           video_title?: string | null
           video_youtube_id?: string | null
@@ -1078,6 +1083,7 @@ export type Database = {
           sort_order?: number
           title?: string
           updated_at?: string
+          video_orientation?: string | null
           video_seconds?: number | null
           video_title?: string | null
           video_youtube_id?: string | null
@@ -1156,6 +1162,7 @@ export type Database = {
           student_created_at: string
           student_id: string
           technique: string
+          video_orientation: string
           video_seconds: number
           video_title: string
           video_youtube_id: string
@@ -1174,6 +1181,7 @@ export type Database = {
           rank_name: string
           sort_order: number
           technique: string
+          video_orientation: string
           video_seconds: number
           video_title: string
           video_youtube_id: string
@@ -1227,6 +1235,7 @@ export type Database = {
           published: boolean
           sort_order: number
           title: string
+          video_orientation: string
           video_seconds: number
           video_title: string
           video_youtube_id: string
