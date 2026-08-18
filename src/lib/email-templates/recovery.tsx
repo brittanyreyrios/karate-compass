@@ -6,64 +6,63 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
+  Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
+
+import * as s from './theme'
 
 interface RecoveryEmailProps {
   siteName: string
   confirmationUrl: string
 }
 
-export const RecoveryEmail = ({
-  siteName,
-  confirmationUrl,
-}: RecoveryEmailProps) => (
+export const RecoveryEmail = ({ confirmationUrl }: RecoveryEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Reset your password for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Reset your password</Heading>
-        <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
-          the button below to choose a new password.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Reset Password
-        </Button>
-        <Text style={footer}>
-          If you didn't request a password reset, you can safely ignore this
-          email. Your password will not be changed.
-        </Text>
+    <Preview>Reset Your Tiger's Den Parent Portal Password</Preview>
+    <Body style={s.main}>
+      <Container style={s.container}>
+        <Section style={s.card}>
+          <div style={s.brandBar} />
+          <Text style={s.brand}>Tiger's Den</Text>
+          <Text style={s.brandSub}>Martial Arts &amp; Fitness</Text>
+
+          <Heading style={s.h1}>Reset your password</Heading>
+
+          <Text style={s.text}>
+            You're receiving this because a password reset was requested for your Tiger's Den
+            Martial Arts &amp; Fitness Parent Portal account.
+          </Text>
+
+          <Button style={s.button} href={confirmationUrl}>
+            Choose a new password
+          </Button>
+
+          <Text style={s.muted}>
+            This link can only be used once. If you didn't request a reset, you can safely
+            ignore this email — your password will not change.
+          </Text>
+
+          <Text style={s.muted}>
+            Questions? Email us at{' '}
+            <Link href="mailto:leaguecity.tigersden@gmail.com" style={s.link}>
+              leaguecity.tigersden@gmail.com
+            </Link>{' '}
+            — this address doesn't receive replies.
+          </Text>
+
+          <Hr style={s.hr} />
+
+          <Text style={s.footer}>— Tiger's Den Martial Arts &amp; Fitness, League City</Text>
+        </Section>
       </Container>
     </Body>
   </Html>
 )
 
 export default RecoveryEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
