@@ -13,7 +13,7 @@ const SITE_NAME = "Tiger's Den Martial Arts & Fitness"
 const SENDER_DOMAIN = "notify.tigersdenmartialarts.com"
 const ROOT_DOMAIN = "tigersdenmartialarts.com"
 const FROM_DOMAIN = "notify.tigersdenmartialarts.com"
-const SITE_URL = `https://${ROOT_DOMAIN}`
+const SITE_URL = "https://portal.tigersdenmartialarts.com"
 
 // The SDK handler owns verification, dispatch, and retry semantics; this file
 // owns only the email decisions: subjects, templates, and per-type props.
