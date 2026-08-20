@@ -14,6 +14,8 @@ import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "
 import { CurriculumSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
+import { LibrarySearch, matchesTerm } from "@/components/library-search";
+
 
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
