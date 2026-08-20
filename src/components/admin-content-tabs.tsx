@@ -584,6 +584,7 @@ export function CurriculumAdminTab() {
         video_seconds: videoId ? seconds : null,
         video_orientation: videoId ? videoShape : null,
         belt_rank_id: target === "rank" ? rankId : null,
+        program_id: programChoice === EVERY_PROGRAM ? null : programChoice,
         curriculum_tier: target === "tier" ? tier : null,
       });
       if (error) throw error;
