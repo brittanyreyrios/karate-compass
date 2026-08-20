@@ -209,32 +209,28 @@ export function TechniqueLibraryAdminTab() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="tl-label">Group</Label>
-            <Select value={label} onValueChange={setLabel}>
-              <SelectTrigger id="tl-label" className="h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TECHNIQUE_LABELS.map((l) => (
-                  <SelectItem key={l} value={l}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SuggestInput
+            id="tl-label"
+            label="Group"
+            value={label}
+            onChange={setLabel}
+            suggestions={labelSuggestions}
+            placeholder="Jiu Jitsu"
+            hint="Display and filtering only — suggestions come from what is already saved for this programme."
+          />
           <div>
             <Label htmlFor="tl-title">Technique</Label>
             <Input id="tl-title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Armbar from guard" />
           </div>
-          <div>
-            <Label htmlFor="tl-category">Position / category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="tl-category" className="h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TECHNIQUE_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SuggestInput
+            id="tl-category"
+            label="Position / category"
+            value={category}
+            onChange={setCategory}
+            suggestions={categorySuggestions}
+            placeholder="Guard"
+          />
+
           <div>
             <Label htmlFor="tl-difficulty">Difficulty (optional)</Label>
             <Select value={difficulty} onValueChange={setDifficulty}>
