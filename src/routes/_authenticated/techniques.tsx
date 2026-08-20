@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VideoFacade } from "@/components/video-facade";
 import { QueryErrorState } from "@/components/query-error";
+import { LibrarySearch, matchesTerm } from "@/components/library-search";
+
 import { count } from "@/lib/plural";
 import {
   DIFFICULTY_LABELS,
