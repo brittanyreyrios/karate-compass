@@ -134,24 +134,41 @@ function Curriculum() {
     rows: rowsByStudent.get(s.id) ?? [],
   }));
 
+  /**
+   * Round 19 D — search filters ONLY these rows, which
+   * get_curriculum_for_all_children has already restricted to what each child has
+   * unlocked. There is no search argument on that function and no second query,
+   * so a parent cannot reach material their child is not entitled to by typing.
+   */
+  const keep = (i: CurriculumItem) =>
+    matchesTerm(term, [i.technique, i.category, i.notes, i.video_title, i.group_label]);
+
   const sections = perChild.map(({ studentId, firstName, rankId, rows }) => {
     const rank = ranks.find((r) => r.id === rankId);
     const system = systems.find((sys) => sys.id === rank?.system_id);
     // "Dojo Basics" is the beginner tier-wide material — etiquette and
     // fundamentals every student is held to, at every belt. It is pulled out of
     // the rank/earned buckets FIRST so each item renders exactly once.
-    const basics = rows.filter((i) => i.belt_rank_id === null && i.curriculum_tier === "beginner");
-    const basicIds = new Set(basics.map((i) => i.id));
+    const allBasics = rows.filter((i) => i.belt_rank_id === null && i.curriculum_tier === "beginner");
+    const basicIds = new Set(allBasics.map((i) => i.id));
     const rest = rows.filter((i) => !basicIds.has(i.id));
-    const current = rest.filter((i) => i.is_current);
+    const basics = allBasics.filter(keep);
+    const current = rest.filter((i) => i.is_current).filter(keep);
+    // Total at this rank is a fact about the child, not about the search.
+    const currentTotal = rest.filter((i) => i.is_current).length;
     const earnedGroups: { label: string; items: CurriculumItem[] }[] = [];
-    for (const item of rest.filter((i) => !i.is_current)) {
+    for (const item of rest.filter((i) => !i.is_current).filter(keep)) {
       const last = earnedGroups[earnedGroups.length - 1];
       if (last && last.label === item.group_label) last.items.push(item);
       else earnedGroups.push({ label: item.group_label, items: [item] });
     }
-    return { studentId, firstName, rank, system, basics, current, earnedGroups };
+    const matches = basics.length + current.length + earnedGroups.reduce((n, g) => n + g.items.length, 0);
+    return { studentId, firstName, rank, system, basics, current, currentTotal, earnedGroups, matches };
   });
+
+  const totalMatches = sections.reduce((n, s) => n + s.matches, 0);
+  const searchable = (childrenQ.data ?? []).length > 0;
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
