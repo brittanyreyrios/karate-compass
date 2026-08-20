@@ -1,51 +1,91 @@
-# Round 16 — CSP nonce for SSR hydration (published host)
+# Round 17 — a programme boundary for tier-wide curriculum
 
-## Diagnosis (confirmed in the installed framework, not assumed)
+## Section A — Data model
 
-TanStack Router 1.169 already supports a per-request CSP nonce end to end:
+Add one nullable column, no second source of truth:
 
-- `router.options.ssr.nonce` is stamped onto every inline SSR script it emits
-  (`router-core/dist/esm/ssr/ssr-server.js`: `<script nonce='…'>`, and the buffered
-  `$tsr` script barrier tag).
-- `HeadContent` emits `<meta property="csp-nonce" content="…">`, and the client
-  (`ssr-client.js`) reads that meta back so client-inserted scripts inherit the nonce.
+```
+ALTER TABLE public.curriculum_items ADD COLUMN program_id uuid REFERENCES public.programs(id);
+```
 
-So option 1 from the request is achievable — no build-time hashes, no `unsafe-inline`.
+Meaning, enforced by a `NOT VALID` check so existing rows are untouched:
+- `belt_rank_id IS NOT NULL` (rank-targeted) → `program_id` must be NULL. The rank's belt
+  system already implies the programme; a second field could only contradict it.
+- `belt_rank_id IS NULL` (tier-wide) → `program_id` NULL means **all programmes**,
+  a value means **that programme only**.
 
-## The fix
+The programme of a *student* is read exactly where Round 14 AY put it:
+`students.belt_rank_id → belt_ranks.system_id → belt_systems.program_id`. No name matching.
 
-1. New module `src/lib/csp-nonce.ts`: an `AsyncLocalStorage` holding the current
-   request's nonce, plus `runWithNonce(nonce, fn)` and `getRequestNonce()`.
-   (`node:async_hooks` is supported in the Worker runtime with nodejs_compat.)
-2. `src/server.ts`: generate a fresh base64 nonce per request with
-   `crypto.getRandomValues` (inside `fetch`, never at module scope), run the whole
-   handler call inside `runWithNonce(...)`, and inject `'nonce-<value>'` into the
-   `script-src` directive of the strict policy for that response only.
-   Host gating is unchanged — published and custom-domain hosts keep the strict set,
-   HSTS and `X-Frame-Options: DENY`. Nothing is added to `PREVIEW_HOST_PATTERNS`.
-3. `src/router.tsx`: pass `ssr: { nonce: getRequestNonce() }` to `createRouter`
-   (undefined on the client and in dev, where the header isn't applied).
+New tier-wide predicate in both functions (rank-targeted predicate byte-identical):
 
-Notes:
-- `script-src` becomes `'self' 'nonce-…'`. A nonce does not disable `'self'`, so the
-  hashed external bundle files keep loading normally.
-- Host-agnostic by construction: the nonce is derived per request, so
-  `portal.tigersdenmartialarts.com` behaves identically.
-- No hard-coded hashes anywhere; no CSP relaxation.
+```
+ci.belt_rank_id IS NULL
+AND ci.curriculum_tier IS NOT NULL
+AND array_position(v_tiers, ci.curriculum_tier) <= array_position(v_tiers, v_tier)
+AND (ci.program_id IS NULL OR ci.program_id = <student's belt system program_id>)
+```
 
-## Verification (against the published host, not preview)
+Answers to the three questions:
+- **Existing tier-wide item with no programme:** behaves exactly as today — visible to every
+  programme. Zero rows change audience from the schema change alone.
+- **"All programmes" stays expressible:** it is the explicit "Every programme" choice in the
+  form, stored as NULL.
+- **Belt system with no `program_id`:** the student's programme resolves to NULL, so
+  `ci.program_id = NULL` is never true and only "all programmes" items reach them. No crash,
+  and they never see another programme's material. (Today all five systems are mapped.)
 
-- `curl -sI https://tigersdenmartialartsparentportal.lovable.app/` — report the real
-  `Content-Security-Policy`, confirm a `nonce-` value is present and that two
-  successive requests return different nonces.
-- Playwright against the published URL: `/`, `/auth`, `/reset-password`,
-  `/privacy-policy`, `/terms`, `/media-release` — collect console output, confirm zero
-  CSP violations and zero `Invariant failed`, and confirm the page is interactive
-  (sidebar toggle / auth form responds).
-- Confirm the Supabase XHR to `https://dddsnppompvmzopufhnq.supabase.co` is allowed by
-  `connect-src https://*.supabase.co` (observed in the network log, not assumed).
-- Confirm `frame-src https://www.youtube-nocookie.com` still present so curriculum
-  videos play.
+### Backward compatibility — the rows I propose to change
 
-Publishing is required before the published host can be re-tested, so the last step is
-a publish followed by the checks above.
+The schema change alone widens nothing and narrows nothing. But it also does not fix the
+reported bug on its own, because all six existing tier-wide items stay cross-programme. They
+are the karate "Dojo Basics" block:
+
+| technique | tier |
+|---|---|
+| Welcome! | beginner |
+| How to Tie Your Belt! | beginner |
+| Attention Stance & Bowing | beginner |
+| Fighting Stance | beginner |
+| Voice Commands | beginner |
+| Punches from a Fighting Stance | beginner |
+
+Proposed second statement in the same migration: set `program_id` = Karate on exactly these
+six ids. **This narrows their audience** — jiu jitsu and tai chi students stop receiving
+them; karate students are unaffected. Nothing becomes visible to more students than before,
+anywhere. If you would rather keep the six cross-programme and scope only future items, say
+so and I will ship Section A without the backfill.
+
+## Section B — Admin form
+
+In "Who sees this", when "A whole curriculum tier" is selected, a required programme choice
+appears: "Every programme" plus one entry per row in `programs`. Below the fieldset, a live
+sentence in plain English, e.g.:
+- "Every Beginner student in Karate will see this."
+- "Every Beginner student in all programmes will see this."
+- rank mode: "Every student at Camo Purple and above, in the Camo Belt system, will see this."
+
+Save is blocked while the audience is ambiguous (no rank chosen in rank mode; no programme
+choice made in tier mode — the selector starts empty rather than defaulting to a programme).
+The existing items list gains the programme in each tier-wide row's label so an already-saved
+item's audience is readable too.
+
+## Section C — Proof
+
+Test rows created and deleted afterwards, existing records untouched. Over HTTPS against the
+published host with a real non-admin parent session (minted per project tooling), calling
+`get_curriculum_for_student` / `get_curriculum_for_all_children` for a karate-belt student, a
+jiu jitsu student and a tai chi student, reporting actual rows for all five assertions
+including the before/after count for the karate student.
+
+## Section D — Invariants
+
+- `cr.system_id = v_system` untouched.
+- ORDERING CONTRACT comment and the whole ORDER BY preserved verbatim; verified by asserting
+  in the Section C output that `group_label` runs are contiguous per student.
+- `is_current` stays a plain boolean CASE, never NULL.
+- Both functions are DROPped and recreated (`get_curriculum_for_all_children` is SQL and its
+  body changes; signatures stay the same but I will DROP/CREATE for clarity), so
+  `REVOKE ... FROM PUBLIC` + `GRANT EXECUTE ... TO authenticated` are the **last** DDL in the
+  migration, and the grant audit query is re-run as the final statement with rows pasted.
+- Migration is a new append-only file.
