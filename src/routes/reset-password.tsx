@@ -95,7 +95,7 @@ function ResetPasswordPage() {
 
         {!ready && <p className="mt-3 text-sm text-muted-foreground">Checking your reset link…</p>}
 
-        {ready && !hasRecovery && (
+        {ready && !hasSession && (
           <div className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
               This page needs a valid password-reset link. Request a fresh one from the sign-in page —
@@ -107,7 +107,7 @@ function ResetPasswordPage() {
           </div>
         )}
 
-        {ready && hasRecovery && (
+        {ready && hasSession && (
           <form onSubmit={submit} className="mt-5 space-y-4">
             <p className="text-sm text-muted-foreground">
               Choose a new password for your Parent Portal account.
