@@ -408,17 +408,26 @@ function RequirementCard({ item, index }: { item: CurriculumItem; index: number 
 function EarnedAccordion({
   firstName,
   groups,
+  forceOpen = false,
 }: {
   firstName: string;
   groups: { label: string; items: CurriculumItem[] }[];
+  forceOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
+  /**
+   * Round 19 D — earned material lives behind a collapsed accordion, so a search
+   * that only matches in here would otherwise look like no match at all. While a
+   * term is active the group is forced open; clearing it returns the accordion to
+   * whatever the parent had set themselves.
+   */
+  const isOpen = forceOpen || open;
 
   return (
     <details
       className="mt-10 rounded-xl border border-border bg-background/60"
-      open={open}
+      open={isOpen}
       onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
     >
       <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-base font-semibold">
@@ -427,7 +436,8 @@ function EarnedAccordion({
           ({count(total, "requirement")})
         </span>
       </summary>
-      {open && (
+      {isOpen && (
+
         <div className="space-y-8 border-t border-border px-4 py-5">
           {groups.map((group) => (
             <div key={group.label}>
