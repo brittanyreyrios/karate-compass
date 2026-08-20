@@ -29,7 +29,12 @@ export type TechniqueItem = {
   video_orientation: "landscape" | "portrait" | null;
 };
 
-/** Suggested positions — free text in the database, so staff can add more. */
+/**
+ * Starter positions. The admin form treats these as suggestions only: they are
+ * merged with the distinct category values already saved, and staff can type any
+ * new value — the column is free text and nothing in the database restricts it.
+ */
+
 export const TECHNIQUE_CATEGORIES = [
   "Guard",
   "Mount",
