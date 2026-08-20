@@ -726,6 +726,26 @@ export function CurriculumAdminTab() {
 
   const legacy = items.filter((i) => !i.belt_rank_id && !i.curriculum_tier);
 
+  /** The same plain-English sentence as the add form, for a saved item. */
+  const rowAudience = (it: CurriculumItem) => {
+    const rank = ranks.find((r) => r.id === it.belt_rank_id);
+    const system = systems.find((s) => s.id === rank?.system_id);
+    if (!rank && !it.curriculum_tier) return "Not shown to anyone yet.";
+    return (
+      audienceSentence({
+        target: rank ? "rank" : "tier",
+        tier: (it.curriculum_tier ?? "beginner") as CurriculumTier,
+        rankName: rank?.name ?? null,
+        systemName: system?.name ?? null,
+        usesBelts: system ? system.uses_belts !== false : true,
+        programChoice: it.program_id ?? EVERY_PROGRAM,
+        programName: programName(it.program_id),
+      }) ?? ""
+    );
+  };
+
+
+
   /**
    * `group` is the ordered list this row lives in. Up/Down are plain buttons with
    * real labels and 44px targets — the whole reorder is keyboard- and screen
