@@ -1,91 +1,124 @@
-# Round 17 — a programme boundary for tier-wide curriculum
+# Round 17 (re-planned) — curriculum scoped by programme, resolved from classes
 
-## Section A — Data model
+## What I found before planning (two things contradict the brief)
 
-Add one nullable column, no second source of truth:
+1. There are exactly three programmes: **Karate**, **Jiu Jitsu & Wrestling**, **Tai Chi**.
+   `Teen Karate`, `Adult Karate` and `Tai Chi` classes are all mapped to the **Tai Chi**
+   programme already — so the separation you describe is expressible today with no new
+   programme row. Its display name reads "Tai Chi" while your sentence example says
+   "Tai Chi & Karate"; I will not rename it unless you ask.
+2. 🔴 The single existing rank-targeted item is **not** children's karate material. It is
+   `ae04d5c1-3af8-4743-966c-5e0069573597` — "test for jiu jitsu", pinned to the **Jiu Jitsu**
+   rank in the beltless Jiu Jitsu system. Setting it to Karate would hide it from the only
+   students who can currently see it and show it to nobody new. See Section C for the choice
+   I need from you.
 
-```
-ALTER TABLE public.curriculum_items ADD COLUMN program_id uuid REFERENCES public.programs(id);
-```
-
-Meaning, enforced by a `NOT VALID` check so existing rows are untouched:
-- `belt_rank_id IS NOT NULL` (rank-targeted) → `program_id` must be NULL. The rank's belt
-  system already implies the programme; a second field could only contradict it.
-- `belt_rank_id IS NULL` (tier-wide) → `program_id` NULL means **all programmes**,
-  a value means **that programme only**.
-
-The programme of a *student* is read exactly where Round 14 AY put it:
-`students.belt_rank_id → belt_ranks.system_id → belt_systems.program_id`. No name matching.
-
-New tier-wide predicate in both functions (rank-targeted predicate byte-identical):
+## Section A — `program_id` on all curriculum items
 
 ```
-ci.belt_rank_id IS NULL
-AND ci.curriculum_tier IS NOT NULL
+ALTER TABLE public.curriculum_items
+  ADD COLUMN program_id uuid REFERENCES public.programs(id);
+```
+
+- Nullable. **NULL = every programme** — deliberately shared material.
+- Applies to rank-targeted and tier-wide items alike.
+
+Both predicate branches gain the same programme filter; the rank branch keeps
+`cr.system_id = v_system` untouched, so belt-system scoping and programme scoping stack:
+
+```
+-- rank-targeted
+cr.id IS NOT NULL AND cr.system_id = v_system AND cr.sort_order <= v_rank_order
+AND (ci.program_id IS NULL OR ci.program_id IN (student's class programmes))
+
+-- tier-wide
+ci.belt_rank_id IS NULL AND ci.curriculum_tier IS NOT NULL
 AND array_position(v_tiers, ci.curriculum_tier) <= array_position(v_tiers, v_tier)
-AND (ci.program_id IS NULL OR ci.program_id = <student's belt system program_id>)
+AND (ci.program_id IS NULL OR ci.program_id IN (student's class programmes))
 ```
 
-Answers to the three questions:
-- **Existing tier-wide item with no programme:** behaves exactly as today — visible to every
-  programme. Zero rows change audience from the schema change alone.
-- **"All programmes" stays expressible:** it is the explicit "Every programme" choice in the
-  form, stored as NULL.
-- **Belt system with no `program_id`:** the student's programme resolves to NULL, so
-  `ci.program_id = NULL` is never true and only "all programmes" items reach them. No crash,
-  and they never see another programme's material. (Today all five systems are mapped.)
+### One way to resolve a student's programmes
 
-### Backward compatibility — the rows I propose to change
+Mirrored from `get_technique_library` exactly — `students → student_classes →
+class_schedules.program_id` — expressed as an `EXISTS` correlated on the student, in both
+curriculum functions:
 
-The schema change alone widens nothing and narrows nothing. But it also does not fix the
-reported bug on its own, because all six existing tier-wide items stay cross-programme. They
-are the karate "Dojo Basics" block:
+```
+EXISTS (SELECT 1 FROM public.student_classes sc
+        JOIN public.class_schedules cs ON cs.id = sc.class_id
+        WHERE sc.student_id = <the student> AND cs.program_id = ci.program_id)
+```
 
-| technique | tier |
-|---|---|
-| Welcome! | beginner |
-| How to Tie Your Belt! | beginner |
-| Attention Stance & Bowing | beginner |
-| Fighting Stance | beginner |
-| Voice Commands | beginner |
-| Punches from a Fighting Stance | beginner |
+Keeping the two consistent: I add a header comment in each function naming
+`get_technique_library` as the reference implementation and stating that the join path is
+`student_classes → class_schedules.program_id` and nothing else, plus the same note on
+`curriculum_items.program_id` via `COMMENT ON COLUMN`. Belt systems are no longer consulted
+for programme anywhere in curriculum; `belt_systems.program_id` keeps its Round 14 AY job
+(the mismatch flag) and is not touched.
 
-Proposed second statement in the same migration: set `program_id` = Karate on exactly these
-six ids. **This narrows their audience** — jiu jitsu and tai chi students stop receiving
-them; karate students are unaffected. Nothing becomes visible to more students than before,
-anywhere. If you would rather keep the six cross-programme and scope only future items, say
-so and I will ship Section A without the backfill.
+- **Student with no class enrolments:** the `EXISTS` is false for every programme, so they
+  see only `program_id IS NULL` items. No crash, nothing from another instructor.
+- **Student in two programmes** (children's karate + Kid's Jiu Jitsu): the `EXISTS` matches
+  both, so they see both programmes' items plus shared ones.
+- Programme membership does not consider `students.active` (the caller is that student's
+  parent and the row is already scoped); `get_technique_library`'s `s.active = true` filter is
+  about "any of my children", a different question.
 
-## Section B — Admin form
+## Section B — `get_technique_library` untouched. No edits, no re-grant, no DROP.
 
-In "Who sees this", when "A whole curriculum tier" is selected, a required programme choice
-appears: "Every programme" plus one entry per row in `programs`. Below the fieldset, a live
-sentence in plain English, e.g.:
-- "Every Beginner student in Karate will see this."
-- "Every Beginner student in all programmes will see this."
-- rank mode: "Every student at Camo Purple and above, in the Camo Belt system, will see this."
+## Section C — Backfill
 
-Save is blocked while the audience is ambiguous (no rank chosen in rank mode; no programme
-choice made in tier mode — the selector starts empty rather than defaulting to a programme).
-The existing items list gains the programme in each tier-wide row's label so an already-saved
-item's audience is readable too.
+Six tier-wide items → **Karate** (children's karate instructor's material):
+`048baaee…` Welcome!, `f6729593…` How to Tie Your Belt!, `b9623b9c…` Attention Stance &
+Bowing, `557a1ac0…` Fighting Stance, `4d05fab8…` Voice Commands, `13f8454d…` Punches from a
+Fighting Stance.
 
-## Section C — Proof
+Seventh row — `ae04d5c1-3af8-4743-966c-5e0069573597` "test for jiu jitsu". It is jiu jitsu
+material, so I plan to set it to **Jiu Jitsu & Wrestling**, not Karate. Tell me if you want
+it set to Karate anyway or deleted as a leftover test row; I will do exactly what you say.
+Either way seven rows change and I will report the count.
 
-Test rows created and deleted afterwards, existing records untouched. Over HTTPS against the
-published host with a real non-admin parent session (minted per project tooling), calling
-`get_curriculum_for_student` / `get_curriculum_for_all_children` for a karate-belt student, a
-jiu jitsu student and a tai chi student, reporting actual rows for all five assertions
-including the before/after count for the karate student.
+Audience direction: all seven narrow or stay level. Nothing becomes visible to more students
+than before — NULL-programme is the widest state and no row moves *to* NULL.
 
-## Section D — Invariants
+## Section D — Admin form and editing
 
-- `cr.system_id = v_system` untouched.
-- ORDERING CONTRACT comment and the whole ORDER BY preserved verbatim; verified by asserting
-  in the Section C output that `group_label` runs are contiguous per student.
-- `is_current` stays a plain boolean CASE, never NULL.
-- Both functions are DROPped and recreated (`get_curriculum_for_all_children` is SQL and its
-  body changes; signatures stay the same but I will DROP/CREATE for clarity), so
-  `REVOKE ... FROM PUBLIC` + `GRANT EXECUTE ... TO authenticated` are the **last** DDL in the
-  migration, and the grant audit query is re-run as the final statement with rows pasted.
-- Migration is a new append-only file.
+- A **Programme** selector appears in both modes (rank and tier), starting empty, offering
+  "Every programme" plus each row in `programs`. No default — an unmade choice blocks save.
+- Live plain-English audience sentence under the fieldset, updating on every change:
+  - "Every student at Yellow and above in the Solid Belt system, in the Karate programme,
+    will see this."
+  - "Every Beginner student in the Tai Chi programme will see this."
+  - "…in every programme will see this." for shared material.
+- The same selector and sentence appear in the **edit** row for an existing item, saving
+  `program_id` alongside the existing rank/tier control.
+- The item list shows the programme (or "Every programme") on every row.
+- Wording avoids "tier" and "programme boundary" jargon in the parent-facing explanation
+  text; it names the actual classes/levels instead.
+
+## Section E — Proof
+
+Over HTTPS against the published host with a real non-admin parent session, calling
+`get_curriculum_for_student` and `get_curriculum_for_all_children`. Clearly labelled
+`[R17 TEST]` items and temporary students/enrolments, deleted afterwards; no existing record
+touched. I will paste actual returned rows for all six assertions, including the
+both-programmes child and the "every programme" control item. If any assertion cannot be
+demonstrated I will report the round incomplete.
+
+## Section F — Invariants
+
+- `CREATE OR REPLACE` only, no DROP, returned columns unchanged; grant audit run as the final
+  statement and rows pasted regardless.
+- Dashboard belt display and `division_of`/`get_leaderboard` untouched — I will confirm a
+  Teen Karate student's rank chip and division are unchanged before/after.
+- ORDERING CONTRACT comment and ORDER BY preserved verbatim; verified by checking
+  `group_label` runs are contiguous per student in the Section E output.
+- `is_current` stays the same plain boolean CASE.
+- New append-only migration file.
+
+## What this now excludes
+
+Curriculum material no longer crosses programmes unless someone explicitly marks it "every
+programme": teen/adult karate and tai chi students stop receiving the children's karate
+instructor's items even though they share the Solid Belt system, and a student with no class
+enrolment gets shared material only instead of everything.
