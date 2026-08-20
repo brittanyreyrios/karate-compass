@@ -62,6 +62,9 @@ type ChildRow = CurriculumItem & {
 function Curriculum() {
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
+  const [term, setTerm] = useState("");
+  const searching = term.trim() !== "";
+
 
   /**
    * ONE round trip for the whole page. get_curriculum_for_all_children resolves
