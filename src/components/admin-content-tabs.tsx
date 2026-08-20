@@ -640,6 +640,33 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Round 19 E — the wording of a posted requirement. The Add form collected
+   * technique, category and notes and then froze them; this saves an edit on
+   * blur, exactly like the technique library's Category field. An empty name is
+   * refused by the caller, which reverts the input.
+   */
+  const saveText = useMutation({
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: Partial<Pick<CurriculumItem, "technique" | "category" | "notes">>;
+    }) => {
+      const { error } = await supabase.from("curriculum_items").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
 
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
