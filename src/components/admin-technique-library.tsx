@@ -132,6 +132,12 @@ export function TechniqueLibraryAdminTab() {
     mutationFn: async () => {
       if (!defaultProgram) throw new Error("Create a programme first.");
       if (!title.trim()) throw new Error("A technique title is required.");
+      // Free text, but trimmed and required — a stray space would otherwise
+      // create a second "Guard " that families see as a separate heading.
+      const cleanLabel = label.trim();
+      const cleanCategory = category.trim();
+      if (!cleanLabel) throw new Error("A group is required.");
+      if (!cleanCategory) throw new Error("A position / category is required.");
       let videoId: string | null = null;
       if (videoLink.trim()) {
         videoId = extractYouTubeId(videoLink);
@@ -144,15 +150,18 @@ export function TechniqueLibraryAdminTab() {
           : null;
 
       const peers = items.filter(
-        (i) => i.program_id === defaultProgram && i.category === category,
+        (i) =>
+          i.program_id === defaultProgram &&
+          i.category.toLowerCase() === cleanCategory.toLowerCase(),
       );
       const nextOrder = peers.length ? Math.max(...peers.map((p) => p.sort_order)) + 1 : 0;
 
       const { error } = await supabase.from("technique_library").insert({
         program_id: defaultProgram,
-        label,
+        label: cleanLabel,
         title: title.trim(),
-        category,
+        category: cleanCategory,
+
         difficulty: difficulty === "none" ? null : difficulty,
         notes: notes.trim() || null,
         video_youtube_id: videoId,
