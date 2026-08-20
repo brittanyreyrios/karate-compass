@@ -1185,51 +1185,17 @@ export function CurriculumAdminTab() {
               tier. Point each one at a group below — it is renumbered to the end of that group, so
               it never lands ahead of material taught earlier.
             </p>
+            {/* Round 19 E — the "Move to" control now lives inside ItemRow for
+                every requirement, so this block must NOT render a second copy of
+                it. Orphans get it from the row itself, with no bound value. */}
             <ul className="mt-3 space-y-2">
               {legacy.map((it) => (
                 <li key={it.id} className="rounded-xl border border-border bg-background p-2">
                   <ItemRow it={it} group={legacy} />
-                  <div className="mt-2 flex flex-wrap items-center gap-2 px-1 pb-1">
-                    <Label className="text-xs" htmlFor={`retarget-${it.id}`}>
-                      Move to
-                    </Label>
-                    <Select
-                      disabled={retargetItem.isPending}
-                      onValueChange={(v) =>
-                        retargetItem.mutate(
-                          v.startsWith("tier:")
-                            ? {
-                                id: it.id,
-                                belt_rank_id: null,
-                                curriculum_tier: v.slice(5) as CurriculumTier,
-                              }
-                            : { id: it.id, belt_rank_id: v.slice(5), curriculum_tier: null },
-                        )
-                      }
-                    >
-                      <SelectTrigger id={`retarget-${it.id}`} className="h-9 w-64">
-                        <SelectValue placeholder="Choose a rank or tier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRICULUM_TIERS.map((t) => (
-                          <SelectItem key={t} value={`tier:${t}`}>
-                            All {TIER_LABELS[t]} students
-                          </SelectItem>
-                        ))}
-                        {ranks.map((r) => (
-                          <SelectItem key={r.id} value={`rank:${r.id}`}>
-                            {r.name}
-                            {systems.find((s) => s.id === r.system_id)
-                              ? ` · ${systems.find((s) => s.id === r.system_id)!.name}`
-                              : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </li>
               ))}
             </ul>
+
           </div>
 
         )}
