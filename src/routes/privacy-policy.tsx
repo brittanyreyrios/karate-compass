@@ -192,7 +192,46 @@ function PrivacyPolicyPage() {
           />
         </Section>
 
-        <Section n={6} title="Data Retention">
+        <Section n={6} title="Third-Party Services">
+          <p>
+            The Portal relies on a small number of outside services to work. Each one only receives
+            what it needs to do its job, and none of them are permitted to sell your family's
+            information.
+          </p>
+          <Bullets
+            items={[
+              "Lovable — hosts the Portal itself and serves the pages you load.",
+              "Supabase — stores account, student, attendance and announcement data, and handles login.",
+              "Resend — delivers account emails such as sign-in links, invitations and password resets.",
+              "YouTube (Google) — hosts the technique videos embedded on the Belt Curriculum and Technique Library pages, as described in Section 3.",
+              "Google Business Profile — if you choose to leave us a review from the link on your dashboard, you leave the Portal and Google's own terms and privacy policy apply.",
+            ]}
+          />
+          <p>
+            We do not use advertising networks, tracking pixels, or third-party analytics that profile
+            your family across other websites.
+          </p>
+        </Section>
+
+        <Section n={7} title="Artificial Intelligence">
+          <p>
+            Student and family information in the Portal is not used to train artificial-intelligence
+            models, and we do not feed attendance, rank, points, photos, or any other student record
+            into an AI system to generate content about your child.
+          </p>
+          <p>
+            AI tools are used by our staff only as a writing aid — for example, helping draft the
+            wording of a general school announcement or a page of this website before a person reviews
+            and approves it. Any such use is limited to general school content, never to individual
+            student data.
+          </p>
+          <p>
+            If that ever changes, we will update this section and tell families directly before the
+            change takes effect.
+          </p>
+        </Section>
+
+        <Section n={8} title="Data Retention">
           <p>
             We retain student and family data for as long as the family is enrolled or has an active
             account. If your family leaves the school, you may request deletion of your account and
@@ -200,7 +239,7 @@ function PrivacyPolicyPage() {
           </p>
         </Section>
 
-        <Section n={7} title="Your Rights">
+        <Section n={9} title="Your Rights">
           <p>As a parent/guardian, you can:</p>
           <Bullets
             items={[
@@ -217,7 +256,7 @@ function PrivacyPolicyPage() {
         </Section>
 
 
-        <Section n={8} title="Future Features">
+        <Section n={10} title="Future Features">
           <p>
             We may introduce a premium subscription tier in the future, offering additional content
             (challenge programming, exclusive posts, etc.). This section will be updated before that tier
@@ -225,7 +264,7 @@ function PrivacyPolicyPage() {
           </p>
         </Section>
 
-        <Section n={9} title="Changes to This Policy">
+        <Section n={11} title="Changes to This Policy">
           <p>
             We may update this policy as the Portal changes. We'll update the "Last Updated" date above
             when we do. Material changes (e.g., new categories of data collected) will be communicated to
@@ -233,12 +272,13 @@ function PrivacyPolicyPage() {
           </p>
         </Section>
 
-        <Section n={10} title="Contact Us">
+        <Section n={12} title="Contact Us">
           <p>
             Questions about this policy or your data? Contact us at: Tiger's Den Martial Arts &amp;
             Fitness - 3383 Deke Slayton Hwy, League City, Tx 77573. (281) 535-9500.
           </p>
         </Section>
+
 
         <div className="mt-12 border-t border-border pt-6">
           <Link
