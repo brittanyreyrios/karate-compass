@@ -153,9 +153,12 @@ function PrivacyPolicyPage() {
           <p className="font-semibold text-foreground">Instructional videos hosted on YouTube:</p>
           <p>
             Technique videos shown on the Belt Curriculum page are hosted on YouTube (a Google service)
-            and embedded in the Portal. Nothing is requested from YouTube until you press play on a
-            video — before that, only a still thumbnail image is loaded. Once you press play, Google may
-            collect information about that playback as described in{" "}
+            and embedded in the Portal. Before you press play, the Portal loads only a still thumbnail
+            image, which is served from Google's image servers. Google therefore receives your device's
+            IP address and browser type, but no video player, cookies or tracking scripts are loaded
+            and nothing is recorded about what you watch. The player itself loads only when you press
+            play, and from that point Google may collect information about that playback as described in{" "}
+
             <a
               href="https://policies.google.com/privacy"
               target="_blank"
