@@ -995,7 +995,11 @@ export function CurriculumAdminTab() {
               <VideoShapePicker id="cur-video-shape" value={videoShape} onChange={setVideoShape} />
             </div>
           </fieldset>
-          <Button type="submit" disabled={addItem.isPending} className="w-full bg-gradient-red">
+          <Button
+            type="submit"
+            disabled={addItem.isPending || !audience}
+            className="w-full bg-gradient-red"
+          >
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> {addItem.isPending ? "Saving…" : "Add requirement"}
           </Button>
         </div>
