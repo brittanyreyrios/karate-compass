@@ -510,6 +510,21 @@ export function CurriculumAdminTab() {
   const ranks = ranksQ.data ?? [];
   const systems = systemsQ.data ?? [];
   const items = itemsQ.data ?? [];
+  const programs = programsQ.data ?? [];
+  const programName = (id: string | null) =>
+    id ? (programs.find((p) => p.id === id)?.name ?? null) : null;
+
+  const formSystem = systems.find((s) => s.id === systemId);
+  const formRank = ranks.find((r) => r.id === rankId);
+  const audience = audienceSentence({
+    target,
+    tier,
+    rankName: formRank?.name ?? null,
+    systemName: formSystem?.name ?? null,
+    usesBelts: formSystem ? formSystem.uses_belts !== false : true,
+    programChoice,
+    programName: programChoice && programChoice !== EVERY_PROGRAM ? programName(programChoice) : null,
+  });
 
   const byTier = useMemo(
     () =>
