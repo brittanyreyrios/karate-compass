@@ -318,6 +318,7 @@ export type Database = {
           curriculum_tier: string | null
           id: string
           notes: string | null
+          program_id: string | null
           sort_order: number
           technique: string
           video_orientation: string | null
@@ -334,6 +335,7 @@ export type Database = {
           curriculum_tier?: string | null
           id?: string
           notes?: string | null
+          program_id?: string | null
           sort_order?: number
           technique: string
           video_orientation?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           curriculum_tier?: string | null
           id?: string
           notes?: string | null
+          program_id?: string | null
           sort_order?: number
           technique?: string
           video_orientation?: string | null
@@ -363,6 +366,13 @@ export type Database = {
             columns: ["belt_rank_id"]
             isOneToOne: false
             referencedRelation: "belt_ranks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_items_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]

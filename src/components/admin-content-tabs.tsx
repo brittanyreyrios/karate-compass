@@ -39,6 +39,7 @@ import {
   useBeltSystems,
   type CurriculumTier,
 } from "@/lib/belts";
+import { usePrograms } from "@/lib/enrollment";
 import {
   coverSrc,
   deleteCoverObject,
@@ -411,6 +412,11 @@ type CurriculumItem = {
   id: string;
   belt: string | null;
   belt_rank_id: string | null;
+  /**
+   * Round 17 — the programme (instructor's syllabus) this item belongs to.
+   * NULL means "every programme": deliberately shared material.
+   */
+  program_id: string | null;
   curriculum_tier: CurriculumTier | null;
   technique: string;
   category: string | null;
@@ -425,6 +431,45 @@ type CurriculumItem = {
 
 type Target = "rank" | "tier";
 
+/**
+ * Round 17 — the programme choice, as three distinct states. "unset" exists so a
+ * requirement can never be saved with an audience nobody chose: the belt system
+ * does NOT imply a programme (Teen and Adult Karate share the Solid Belt system
+ * with children's karate but are taught by a different instructor), so a default
+ * would silently publish one instructor's material to another's students.
+ */
+const EVERY_PROGRAM = "__every__";
+type ProgramChoice = string | null;
+
+/**
+ * The parent-facing consequence, in words a person who has never heard "tier" or
+ * "programme" can check. Rendered live under the picker and in every edit row.
+ */
+function audienceSentence(opts: {
+  target: Target;
+  tier: CurriculumTier;
+  rankName: string | null;
+  systemName: string | null;
+  usesBelts: boolean;
+  programChoice: ProgramChoice;
+  programName: string | null;
+}) {
+  const where =
+    opts.programChoice === null
+      ? null
+      : opts.programChoice === EVERY_PROGRAM
+        ? "in every class we teach"
+        : `in ${opts.programName ?? "that"} classes`;
+  if (!where) return null;
+
+  if (opts.target === "tier") {
+    return `Every ${TIER_LABELS[opts.tier].toLowerCase()}-level student ${where} will see this.`;
+  }
+  if (!opts.rankName) return null;
+  const rankWord = opts.usesBelts ? "belt" : "level";
+  return `Every student at ${opts.rankName} and above on the ${opts.systemName ?? ""} ${rankWord} ladder, ${where}, will see this.`;
+}
+
 export function CurriculumAdminTab() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
@@ -434,6 +479,9 @@ export function CurriculumAdminTab() {
   // rank pickers deliberately survive a submit so adding a run of requirements
   // for one rank is not five clicks each.
   const [target, setTarget] = useState<Target>("rank");
+  // Starts empty on purpose — see EVERY_PROGRAM above.
+  const [programChoice, setProgramChoice] = useState<ProgramChoice>(null);
+  const programsQ = usePrograms();
 
   const [tier, setTier] = useState<CurriculumTier>("beginner");
   const [systemId, setSystemId] = useState<string | null>(null);
@@ -462,6 +510,21 @@ export function CurriculumAdminTab() {
   const ranks = ranksQ.data ?? [];
   const systems = systemsQ.data ?? [];
   const items = itemsQ.data ?? [];
+  const programs = programsQ.data ?? [];
+  const programName = (id: string | null) =>
+    id ? (programs.find((p) => p.id === id)?.name ?? null) : null;
+
+  const formSystem = systems.find((s) => s.id === systemId);
+  const formRank = ranks.find((r) => r.id === rankId);
+  const audience = audienceSentence({
+    target,
+    tier,
+    rankName: formRank?.name ?? null,
+    systemName: formSystem?.name ?? null,
+    usesBelts: formSystem ? formSystem.uses_belts !== false : true,
+    programChoice,
+    programName: programChoice && programChoice !== EVERY_PROGRAM ? programName(programChoice) : null,
+  });
 
   const byTier = useMemo(
     () =>
@@ -485,6 +548,8 @@ export function CurriculumAdminTab() {
       if (!technique.trim()) throw new Error("Technique name is required.");
       // Exactly one of the two targets is set — the database enforces this too.
       if (target === "rank" && !rankId) throw new Error("Choose the specific rank this belongs to.");
+      // Round 17: an unchosen programme is an ambiguous audience, never a default.
+      if (!programChoice) throw new Error("Choose which classes this is for.");
       // A pasted link is validated here, before it can ever be saved: a bad ID
       // would render as a dead player for every family at that rank.
       let videoId: string | null = null;
@@ -519,6 +584,7 @@ export function CurriculumAdminTab() {
         video_seconds: videoId ? seconds : null,
         video_orientation: videoId ? videoShape : null,
         belt_rank_id: target === "rank" ? rankId : null,
+        program_id: programChoice === EVERY_PROGRAM ? null : programChoice,
         curriculum_tier: target === "tier" ? tier : null,
       });
       if (error) throw error;
@@ -552,6 +618,28 @@ export function CurriculumAdminTab() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /**
+   * Round 17 — editing an existing item's audience. Same three states as the add
+   * form; NULL in the database means "every programme".
+   */
+  const saveProgram = useMutation({
+    mutationFn: async ({ id, program_id }: { id: string; program_id: string | null }) => {
+      const { error } = await supabase
+        .from("curriculum_items")
+        .update({ program_id })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Audience updated.");
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
@@ -638,6 +726,26 @@ export function CurriculumAdminTab() {
 
   const legacy = items.filter((i) => !i.belt_rank_id && !i.curriculum_tier);
 
+  /** The same plain-English sentence as the add form, for a saved item. */
+  const rowAudience = (it: CurriculumItem) => {
+    const rank = ranks.find((r) => r.id === it.belt_rank_id);
+    const system = systems.find((s) => s.id === rank?.system_id);
+    if (!rank && !it.curriculum_tier) return "Not shown to anyone yet.";
+    return (
+      audienceSentence({
+        target: rank ? "rank" : "tier",
+        tier: (it.curriculum_tier ?? "beginner") as CurriculumTier,
+        rankName: rank?.name ?? null,
+        systemName: system?.name ?? null,
+        usesBelts: system ? system.uses_belts !== false : true,
+        programChoice: it.program_id ?? EVERY_PROGRAM,
+        programName: programName(it.program_id),
+      }) ?? ""
+    );
+  };
+
+
+
   /**
    * `group` is the ordered list this row lives in. Up/Down are plain buttons with
    * real labels and 44px targets — the whole reorder is keyboard- and screen
@@ -656,6 +764,9 @@ export function CurriculumAdminTab() {
           </span>
           <span className="text-sm font-medium">{it.technique}</span>
           {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
+          <Badge variant="outline" className="ml-2 border-border text-xs">
+            {programName(it.program_id) ?? "Every programme"}
+          </Badge>
           {it.video_youtube_id && (
             <Badge variant="outline" className="ml-2 gap-1 border-border text-xs">
               <Video className="h-3 w-3" aria-hidden="true" />
@@ -696,6 +807,31 @@ export function CurriculumAdminTab() {
           </Button>
         </div>
       </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label className="text-xs" htmlFor={`prog-${it.id}`}>
+          Who sees this
+        </Label>
+        <Select
+          value={it.program_id ?? EVERY_PROGRAM}
+          disabled={saveProgram.isPending}
+          onValueChange={(v) =>
+            saveProgram.mutate({ id: it.id, program_id: v === EVERY_PROGRAM ? null : v })
+          }
+        >
+          <SelectTrigger id={`prog-${it.id}`} className="h-9 w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={EVERY_PROGRAM}>Every programme (shared)</SelectItem>
+            {programs.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name} classes only
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{rowAudience(it)}</span>
+      </div>
       <ItemVideoEditor
         item={it}
         pending={saveVideo.isPending}
@@ -704,6 +840,7 @@ export function CurriculumAdminTab() {
     </li>
     );
   };
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
@@ -747,7 +884,43 @@ export function CurriculumAdminTab() {
               Intermediate).
             </p>
 
+            {/* Round 17 — which instructor's students. Deliberately no default:
+                Teen and Adult Karate share the Solid Belt ladder with the
+                children's classes but are taught separately, so the belt does
+                not tell us which classes the material is for. */}
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="cur-program">Which classes</Label>
+              <Select
+                value={programChoice ?? ""}
+                onValueChange={(v) => setProgramChoice(v)}
+              >
+                <SelectTrigger id="cur-program">
+                  <SelectValue placeholder="Choose the classes this is for" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EVERY_PROGRAM}>Every programme (shared material)</SelectItem>
+                  {programs.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} classes only
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p
+              aria-live="polite"
+              className={`mt-3 rounded-lg border p-2 text-xs ${
+                audience
+                  ? "border-border bg-background text-foreground"
+                  : "border-dashed border-border text-muted-foreground"
+              }`}
+            >
+              {audience ??
+                "Pick a rank (or tier) and the classes above, and this will tell you exactly who sees it."}
+            </p>
           </fieldset>
+
 
           {target === "tier" ? (
             <div>
@@ -822,7 +995,11 @@ export function CurriculumAdminTab() {
               <VideoShapePicker id="cur-video-shape" value={videoShape} onChange={setVideoShape} />
             </div>
           </fieldset>
-          <Button type="submit" disabled={addItem.isPending} className="w-full bg-gradient-red">
+          <Button
+            type="submit"
+            disabled={addItem.isPending || !audience}
+            className="w-full bg-gradient-red"
+          >
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> {addItem.isPending ? "Saving…" : "Add requirement"}
           </Button>
         </div>
