@@ -11,6 +11,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, Swords, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 import { VideoShapePicker } from "@/components/video-shape-picker";
+import { SuggestInput, mergeSuggestions } from "@/components/suggest-input";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -84,6 +86,26 @@ export function TechniqueLibraryAdminTab() {
   const items = itemsQ.data ?? [];
   const defaultProgram = programId || programs.find((p) => /jiu/i.test(p.name))?.id || programs[0]?.id || "";
 
+  /**
+   * Round 19 B — suggestions are what staff have already saved, merged with the
+   * built-in starters so the fields are never blank on an empty library.
+   * Categories are pooled across every programme; groups are scoped to the
+   * programme currently chosen in the form, so changing it changes the list.
+   */
+  const categorySuggestions = useMemo(
+    () => mergeSuggestions(TECHNIQUE_CATEGORIES, items.map((i) => i.category)),
+    [items],
+  );
+  const labelSuggestions = useMemo(
+    () =>
+      mergeSuggestions(
+        TECHNIQUE_LABELS,
+        items.filter((i) => i.program_id === defaultProgram).map((i) => i.label),
+      ),
+    [items, defaultProgram],
+  );
+
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin-technique-library"] });
     qc.invalidateQueries({ queryKey: ["technique-library"] });
@@ -110,6 +132,12 @@ export function TechniqueLibraryAdminTab() {
     mutationFn: async () => {
       if (!defaultProgram) throw new Error("Create a programme first.");
       if (!title.trim()) throw new Error("A technique title is required.");
+      // Free text, but trimmed and required — a stray space would otherwise
+      // create a second "Guard " that families see as a separate heading.
+      const cleanLabel = label.trim();
+      const cleanCategory = category.trim();
+      if (!cleanLabel) throw new Error("A group is required.");
+      if (!cleanCategory) throw new Error("A position / category is required.");
       let videoId: string | null = null;
       if (videoLink.trim()) {
         videoId = extractYouTubeId(videoLink);
@@ -122,15 +150,18 @@ export function TechniqueLibraryAdminTab() {
           : null;
 
       const peers = items.filter(
-        (i) => i.program_id === defaultProgram && i.category === category,
+        (i) =>
+          i.program_id === defaultProgram &&
+          i.category.toLowerCase() === cleanCategory.toLowerCase(),
       );
       const nextOrder = peers.length ? Math.max(...peers.map((p) => p.sort_order)) + 1 : 0;
 
       const { error } = await supabase.from("technique_library").insert({
         program_id: defaultProgram,
-        label,
+        label: cleanLabel,
         title: title.trim(),
-        category,
+        category: cleanCategory,
+
         difficulty: difficulty === "none" ? null : difficulty,
         notes: notes.trim() || null,
         video_youtube_id: videoId,
@@ -209,32 +240,28 @@ export function TechniqueLibraryAdminTab() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="tl-label">Group</Label>
-            <Select value={label} onValueChange={setLabel}>
-              <SelectTrigger id="tl-label" className="h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TECHNIQUE_LABELS.map((l) => (
-                  <SelectItem key={l} value={l}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SuggestInput
+            id="tl-label"
+            label="Group"
+            value={label}
+            onChange={setLabel}
+            suggestions={labelSuggestions}
+            placeholder="Jiu Jitsu"
+            hint="Display and filtering only — suggestions come from what is already saved for this programme."
+          />
           <div>
             <Label htmlFor="tl-title">Technique</Label>
             <Input id="tl-title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Armbar from guard" />
           </div>
-          <div>
-            <Label htmlFor="tl-category">Position / category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="tl-category" className="h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TECHNIQUE_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SuggestInput
+            id="tl-category"
+            label="Position / category"
+            value={category}
+            onChange={setCategory}
+            suggestions={categorySuggestions}
+            placeholder="Guard"
+          />
+
           <div>
             <Label htmlFor="tl-difficulty">Difficulty (optional)</Label>
             <Select value={difficulty} onValueChange={setDifficulty}>
@@ -384,6 +411,21 @@ export function TechniqueLibraryAdminTab() {
                               }}
                             />
                           </div>
+                          <div>
+                            {/* Round 19 B — Group is editable after posting too,
+                                same blur-to-save pattern as Category. */}
+                            <Label htmlFor={`tl-g-${it.id}`}>Group</Label>
+                            <Input
+                              id={`tl-g-${it.id}`}
+                              defaultValue={it.label}
+                              onBlur={(e) => {
+                                const v = e.target.value.trim();
+                                if (!v) { e.target.value = it.label; return; }
+                                if (v !== it.label) patch.mutate({ id: it.id, values: { label: v } });
+                              }}
+                            />
+                          </div>
+
                           <div className="sm:col-span-2">
                             <Label htmlFor={`tl-n-${it.id}`}>Coaching cues</Label>
                             <Textarea

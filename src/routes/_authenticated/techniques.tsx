@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VideoFacade } from "@/components/video-facade";
 import { QueryErrorState } from "@/components/query-error";
+import { LibrarySearch, matchesTerm } from "@/components/library-search";
+
 import { count } from "@/lib/plural";
 import {
   DIFFICULTY_LABELS,
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/techniques")({
 function Techniques() {
   const libraryQ = useTechniqueLibrary();
   const [label, setLabel] = useState<string>("all");
+  const [term, setTerm] = useState("");
 
   const items = libraryQ.data ?? [];
   /** Published items only on the family view; drafts are flagged for admins. */
@@ -44,8 +47,17 @@ function Techniques() {
     () => Array.from(new Set(items.map((i) => i.label))).sort(),
     [items],
   );
-  const shown = label === "all" ? items : items.filter((i) => i.label === label);
+  /**
+   * Chip and search compose: an item must satisfy both. Filtering happens here,
+   * over rows get_technique_library() already returned — never in the database.
+   */
+  const shown = items.filter(
+    (i) =>
+      (label === "all" || i.label === label) &&
+      matchesTerm(term, [i.title, i.category, i.label, i.notes, i.video_title]),
+  );
   const groups = groupByCategory(shown);
+  const searching = term.trim() !== "";
 
   if (libraryQ.isError) {
     return (
@@ -78,8 +90,20 @@ function Techniques() {
         </p>
       ) : (
         <>
+          {/* Same rule the chips follow: don't render a control for nothing. */}
+          <div className="mt-6 max-w-sm">
+            <LibrarySearch
+              id="technique-search"
+              label="Search techniques"
+              placeholder="Search techniques…"
+              value={term}
+              onChange={setTerm}
+              status={count(shown.length, "technique")}
+            />
+          </div>
+
           {labels.length > 1 && (
-            <div className="mt-6 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 variant={label === "all" ? "default" : "outline"}
                 size="sm"
@@ -102,29 +126,46 @@ function Techniques() {
             </div>
           )}
 
-          <p className="mt-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {count(shown.length, "technique")}
-          </p>
-
-          <div className="mt-4 space-y-10">
-            {groups.map((g) => (
-              <section key={g.category}>
-                <h2 className="font-display text-lg font-bold uppercase tracking-wide">
-                  {g.category}
-                </h2>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {g.items.map((item) => (
-                    <TechniqueCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          {shown.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+              <p>
+                No techniques match{searching ? ` “${term.trim()}”` : ""}
+                {label !== "all" ? ` in ${label}` : ""}.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setTerm("");
+                  setLabel("all");
+                }}
+              >
+                Clear search and filters
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-10">
+              {groups.map((g) => (
+                <section key={g.category}>
+                  <h2 className="font-display text-lg font-bold uppercase tracking-wide">
+                    {g.category}
+                  </h2>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {g.items.map((item) => (
+                      <TechniqueCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
+
 
 function TechniqueCard({ item }: { item: TechniqueItem }) {
   return (

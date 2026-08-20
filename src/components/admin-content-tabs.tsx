@@ -640,6 +640,33 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Round 19 E — the wording of a posted requirement. The Add form collected
+   * technique, category and notes and then froze them; this saves an edit on
+   * blur, exactly like the technique library's Category field. An empty name is
+   * refused by the caller, which reverts the input.
+   */
+  const saveText = useMutation({
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: Partial<Pick<CurriculumItem, "technique" | "category" | "notes">>;
+    }) => {
+      const { error } = await supabase.from("curriculum_items").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
 
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
@@ -832,6 +859,113 @@ export function CurriculumAdminTab() {
         </Select>
         <span className="text-xs text-muted-foreground">{rowAudience(it)}</span>
       </div>
+
+      {/* Round 19 E — retargeting, on EVERY row rather than only orphans. The
+          value is bound so a row already pinned to a rank or tier reads as such
+          instead of showing a placeholder, and the options are still only ranks
+          and tiers, so rank/tier stay mutually exclusive and neither can be
+          cleared to nothing. It calls the existing advisory-locked retargetItem
+          mutation unchanged — the renumbering logic is not duplicated here. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label className="text-xs" htmlFor={`retarget-${it.id}`}>
+          Move to
+        </Label>
+        <Select
+          value={
+            it.belt_rank_id
+              ? `rank:${it.belt_rank_id}`
+              : it.curriculum_tier
+                ? `tier:${it.curriculum_tier}`
+                : undefined
+          }
+          disabled={retargetItem.isPending}
+          onValueChange={(v) =>
+            retargetItem.mutate(
+              v.startsWith("tier:")
+                ? {
+                    id: it.id,
+                    belt_rank_id: null,
+                    curriculum_tier: v.slice(5) as CurriculumTier,
+                  }
+                : { id: it.id, belt_rank_id: v.slice(5), curriculum_tier: null },
+            )
+          }
+        >
+          <SelectTrigger id={`retarget-${it.id}`} className="h-11 w-64">
+            <SelectValue placeholder="Choose a rank or tier" />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRICULUM_TIERS.map((t) => (
+              <SelectItem key={t} value={`tier:${t}`}>
+                All {TIER_LABELS[t]} students
+              </SelectItem>
+            ))}
+            {ranks.map((r) => (
+              <SelectItem key={r.id} value={`rank:${r.id}`}>
+                {r.name}
+                {systems.find((s) => s.id === r.system_id)
+                  ? ` · ${systems.find((s) => s.id === r.system_id)!.name}`
+                  : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs" htmlFor={`ci-t-${it.id}`}>
+            Requirement
+          </Label>
+          <Input
+            id={`ci-t-${it.id}`}
+            className="h-11"
+            defaultValue={it.technique}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (!v) {
+                e.target.value = it.technique;
+                toast.error("A requirement needs a name.");
+                return;
+              }
+              if (v !== it.technique) saveText.mutate({ id: it.id, values: { technique: v } });
+            }}
+          />
+        </div>
+        <div>
+          <Label className="text-xs" htmlFor={`ci-c-${it.id}`}>
+            Category
+          </Label>
+          <Input
+            id={`ci-c-${it.id}`}
+            className="h-11"
+            defaultValue={it.category ?? ""}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v !== (it.category ?? "")) {
+                saveText.mutate({ id: it.id, values: { category: v || null } });
+              }
+            }}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <Label className="text-xs" htmlFor={`ci-n-${it.id}`}>
+            Notes
+          </Label>
+          <Textarea
+            id={`ci-n-${it.id}`}
+            rows={2}
+            defaultValue={it.notes ?? ""}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v !== (it.notes ?? "")) {
+                saveText.mutate({ id: it.id, values: { notes: v || null } });
+              }
+            }}
+          />
+        </div>
+      </div>
+
       <ItemVideoEditor
         item={it}
         pending={saveVideo.isPending}
@@ -1051,51 +1185,17 @@ export function CurriculumAdminTab() {
               tier. Point each one at a group below — it is renumbered to the end of that group, so
               it never lands ahead of material taught earlier.
             </p>
+            {/* Round 19 E — the "Move to" control now lives inside ItemRow for
+                every requirement, so this block must NOT render a second copy of
+                it. Orphans get it from the row itself, with no bound value. */}
             <ul className="mt-3 space-y-2">
               {legacy.map((it) => (
                 <li key={it.id} className="rounded-xl border border-border bg-background p-2">
                   <ItemRow it={it} group={legacy} />
-                  <div className="mt-2 flex flex-wrap items-center gap-2 px-1 pb-1">
-                    <Label className="text-xs" htmlFor={`retarget-${it.id}`}>
-                      Move to
-                    </Label>
-                    <Select
-                      disabled={retargetItem.isPending}
-                      onValueChange={(v) =>
-                        retargetItem.mutate(
-                          v.startsWith("tier:")
-                            ? {
-                                id: it.id,
-                                belt_rank_id: null,
-                                curriculum_tier: v.slice(5) as CurriculumTier,
-                              }
-                            : { id: it.id, belt_rank_id: v.slice(5), curriculum_tier: null },
-                        )
-                      }
-                    >
-                      <SelectTrigger id={`retarget-${it.id}`} className="h-9 w-64">
-                        <SelectValue placeholder="Choose a rank or tier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRICULUM_TIERS.map((t) => (
-                          <SelectItem key={t} value={`tier:${t}`}>
-                            All {TIER_LABELS[t]} students
-                          </SelectItem>
-                        ))}
-                        {ranks.map((r) => (
-                          <SelectItem key={r.id} value={`rank:${r.id}`}>
-                            {r.name}
-                            {systems.find((s) => s.id === r.system_id)
-                              ? ` · ${systems.find((s) => s.id === r.system_id)!.name}`
-                              : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </li>
               ))}
             </ul>
+
           </div>
 
         )}

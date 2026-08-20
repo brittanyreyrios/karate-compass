@@ -14,6 +14,8 @@ import { TIER_LABELS, useBeltRanks, useBeltSystems, type CurriculumTier } from "
 import { CurriculumSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
+import { LibrarySearch, matchesTerm } from "@/components/library-search";
+
 
 
 export const Route = createFileRoute("/_authenticated/curriculum")({
@@ -60,6 +62,9 @@ type ChildRow = CurriculumItem & {
 function Curriculum() {
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
+  const [term, setTerm] = useState("");
+  const searching = term.trim() !== "";
+
 
   /**
    * ONE round trip for the whole page. get_curriculum_for_all_children resolves
@@ -134,24 +139,41 @@ function Curriculum() {
     rows: rowsByStudent.get(s.id) ?? [],
   }));
 
+  /**
+   * Round 19 D — search filters ONLY these rows, which
+   * get_curriculum_for_all_children has already restricted to what each child has
+   * unlocked. There is no search argument on that function and no second query,
+   * so a parent cannot reach material their child is not entitled to by typing.
+   */
+  const keep = (i: CurriculumItem) =>
+    matchesTerm(term, [i.technique, i.category, i.notes, i.video_title, i.group_label]);
+
   const sections = perChild.map(({ studentId, firstName, rankId, rows }) => {
     const rank = ranks.find((r) => r.id === rankId);
     const system = systems.find((sys) => sys.id === rank?.system_id);
     // "Dojo Basics" is the beginner tier-wide material — etiquette and
     // fundamentals every student is held to, at every belt. It is pulled out of
     // the rank/earned buckets FIRST so each item renders exactly once.
-    const basics = rows.filter((i) => i.belt_rank_id === null && i.curriculum_tier === "beginner");
-    const basicIds = new Set(basics.map((i) => i.id));
+    const allBasics = rows.filter((i) => i.belt_rank_id === null && i.curriculum_tier === "beginner");
+    const basicIds = new Set(allBasics.map((i) => i.id));
     const rest = rows.filter((i) => !basicIds.has(i.id));
-    const current = rest.filter((i) => i.is_current);
+    const basics = allBasics.filter(keep);
+    const current = rest.filter((i) => i.is_current).filter(keep);
+    // Total at this rank is a fact about the child, not about the search.
+    const currentTotal = rest.filter((i) => i.is_current).length;
     const earnedGroups: { label: string; items: CurriculumItem[] }[] = [];
-    for (const item of rest.filter((i) => !i.is_current)) {
+    for (const item of rest.filter((i) => !i.is_current).filter(keep)) {
       const last = earnedGroups[earnedGroups.length - 1];
       if (last && last.label === item.group_label) last.items.push(item);
       else earnedGroups.push({ label: item.group_label, items: [item] });
     }
-    return { studentId, firstName, rank, system, basics, current, earnedGroups };
+    const matches = basics.length + current.length + earnedGroups.reduce((n, g) => n + g.items.length, 0);
+    return { studentId, firstName, rank, system, basics, current, currentTotal, earnedGroups, matches };
   });
+
+  const totalMatches = sections.reduce((n, s) => n + s.matches, 0);
+  const searchable = (childrenQ.data ?? []).length > 0;
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -184,9 +206,22 @@ function Curriculum() {
         />
       )}
 
+      {!loading && !failedToLoad && sections.length > 0 && searchable && (
+        <div className="mt-8 max-w-sm">
+          <LibrarySearch
+            id="curriculum-search"
+            label="Search requirements"
+            placeholder="Search requirements…"
+            value={term}
+            onChange={setTerm}
+            status={`${count(totalMatches, "requirement")} shown`}
+          />
+        </div>
+      )}
+
       {!loading && !failedToLoad && sections.length > 0 && (
         <div className="mt-10 space-y-12">
-          {sections.map(({ studentId, firstName, rank, system, basics, current, earnedGroups }) => (
+          {sections.map(({ studentId, firstName, rank, system, basics, current, currentTotal, earnedGroups, matches }) => (
             <section key={studentId} className="rounded-2xl border border-border bg-card p-5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -224,40 +259,57 @@ function Curriculum() {
                   )}
                   {/* Current-rank count only — it must not inflate as a student advances. */}
                   <div className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {count(current.length, "requirement")} at this rank
+                    {count(currentTotal, "requirement")} at this rank
                   </div>
                 </div>
               </div>
 
-              {basics.length > 0 && (
-                <div className="mt-10">
-                  <SectionHeading>Dojo Basics</SectionHeading>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Etiquette and fundamentals — for every student, at every belt.
-                  </p>
-                  <RequirementList items={basics} />
-                </div>
-              )}
+              {/* Every child keeps their section while searching — a family needs
+                  to see which child a match belongs to, and which have none. */}
+              {searching && matches === 0 ? (
+                <p className="mt-6 text-sm text-muted-foreground">
+                  No matches for “{term.trim()}” in {firstName}'s requirements.
+                </p>
+              ) : (
+                <>
+                  {basics.length > 0 && (
+                    <div className="mt-10">
+                      <SectionHeading>Dojo Basics</SectionHeading>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Etiquette and fundamentals — for every student, at every belt.
+                      </p>
+                      <RequirementList items={basics} />
+                    </div>
+                  )}
 
-              <div className="mt-10">
-                <SectionHeading accent>Working on now</SectionHeading>
-                {current.length === 0 ? (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Nothing published for this rank yet. Ask at the front desk for the printed
-                    requirement sheet in the meantime.
-                  </p>
-                ) : (
-                  <RequirementList items={current} />
-                )}
-              </div>
+                  {(!searching || current.length > 0) && (
+                    <div className="mt-10">
+                      <SectionHeading accent>Working on now</SectionHeading>
+                      {current.length === 0 ? (
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          Nothing published for this rank yet. Ask at the front desk for the printed
+                          requirement sheet in the meantime.
+                        </p>
+                      ) : (
+                        <RequirementList items={current} />
+                      )}
+                    </div>
+                  )}
 
-              {earnedGroups.length > 0 && (
-                <EarnedAccordion firstName={firstName} groups={earnedGroups} />
+                  {earnedGroups.length > 0 && (
+                    <EarnedAccordion
+                      firstName={firstName}
+                      groups={earnedGroups}
+                      forceOpen={searching}
+                    />
+                  )}
+                </>
               )}
             </section>
           ))}
         </div>
       )}
+
 
       <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
         <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
