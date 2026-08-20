@@ -86,6 +86,26 @@ export function TechniqueLibraryAdminTab() {
   const items = itemsQ.data ?? [];
   const defaultProgram = programId || programs.find((p) => /jiu/i.test(p.name))?.id || programs[0]?.id || "";
 
+  /**
+   * Round 19 B — suggestions are what staff have already saved, merged with the
+   * built-in starters so the fields are never blank on an empty library.
+   * Categories are pooled across every programme; groups are scoped to the
+   * programme currently chosen in the form, so changing it changes the list.
+   */
+  const categorySuggestions = useMemo(
+    () => mergeSuggestions(TECHNIQUE_CATEGORIES, items.map((i) => i.category)),
+    [items],
+  );
+  const labelSuggestions = useMemo(
+    () =>
+      mergeSuggestions(
+        TECHNIQUE_LABELS,
+        items.filter((i) => i.program_id === defaultProgram).map((i) => i.label),
+      ),
+    [items, defaultProgram],
+  );
+
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin-technique-library"] });
     qc.invalidateQueries({ queryKey: ["technique-library"] });
