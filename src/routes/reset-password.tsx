@@ -25,31 +25,40 @@ export const Route = createFileRoute("/reset-password")({
 function ResetPasswordPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
-  const [hasRecovery, setHasRecovery] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Supabase delivers the recovery session either via the URL hash or via the
-    // PASSWORD_RECOVERY auth event once the client has parsed that hash.
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    const looksLikeRecovery = /type=recovery/.test(hash);
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || (looksLikeRecovery && session)) {
-        setHasRecovery(true);
-        setReady(true);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session && looksLikeRecovery) setHasRecovery(true);
+    /**
+     * Round 19 A — do NOT try to detect "did this visit come from a recovery
+     * link". The Supabase client is created with detectSessionInUrl at its
+     * default (true), so it consumes the recovery hash, creates the session and
+     * strips the hash before this effect ever runs — every hash sniff and every
+     * late PASSWORD_RECOVERY subscription loses that race, which is why parents
+     * were told their valid link was invalid.
+     *
+     * The only thing that actually matters is whether there is a session: a
+     * password change requires one, and a signed-in person who navigates here
+     * deliberately should get a change-password screen.
+     */
+    let mounted = true;
+    const apply = (present: boolean) => {
+      if (!mounted) return;
+      setHasSession(present);
       setReady(true);
-    });
+    };
 
-    return () => sub.subscription.unsubscribe();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(!!session));
+    supabase.auth.getSession().then(({ data }) => apply(!!data.session));
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
