@@ -411,6 +411,21 @@ export function TechniqueLibraryAdminTab() {
                               }}
                             />
                           </div>
+                          <div>
+                            {/* Round 19 B — Group is editable after posting too,
+                                same blur-to-save pattern as Category. */}
+                            <Label htmlFor={`tl-g-${it.id}`}>Group</Label>
+                            <Input
+                              id={`tl-g-${it.id}`}
+                              defaultValue={it.label}
+                              onBlur={(e) => {
+                                const v = e.target.value.trim();
+                                if (!v) { e.target.value = it.label; return; }
+                                if (v !== it.label) patch.mutate({ id: it.id, values: { label: v } });
+                              }}
+                            />
+                          </div>
+
                           <div className="sm:col-span-2">
                             <Label htmlFor={`tl-n-${it.id}`}>Coaching cues</Label>
                             <Textarea
