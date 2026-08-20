@@ -39,6 +39,7 @@ import {
   useBeltSystems,
   type CurriculumTier,
 } from "@/lib/belts";
+import { usePrograms } from "@/lib/enrollment";
 import {
   coverSrc,
   deleteCoverObject,
