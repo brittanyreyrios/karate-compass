@@ -73,7 +73,7 @@ function PrivacyPolicyPage() {
             Privacy <span className="text-gradient-red">Policy</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Effective Date: July 30th, 2026 · Last Updated: July 30th, 2026
+            Effective Date: July 30th, 2026 · Last Updated: August 19th, 2026
           </p>
         </header>
 
