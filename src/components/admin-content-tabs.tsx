@@ -479,6 +479,9 @@ export function CurriculumAdminTab() {
   // rank pickers deliberately survive a submit so adding a run of requirements
   // for one rank is not five clicks each.
   const [target, setTarget] = useState<Target>("rank");
+  // Starts empty on purpose — see EVERY_PROGRAM above.
+  const [programChoice, setProgramChoice] = useState<ProgramChoice>(null);
+  const programsQ = usePrograms();
 
   const [tier, setTier] = useState<CurriculumTier>("beginner");
   const [systemId, setSystemId] = useState<string | null>(null);
