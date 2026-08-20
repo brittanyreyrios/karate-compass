@@ -11,6 +11,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, Swords, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 import { VideoShapePicker } from "@/components/video-shape-picker";
+import { SuggestInput, mergeSuggestions } from "@/components/suggest-input";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
