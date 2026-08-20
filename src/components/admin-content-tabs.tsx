@@ -744,6 +744,9 @@ export function CurriculumAdminTab() {
           </span>
           <span className="text-sm font-medium">{it.technique}</span>
           {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
+          <Badge variant="outline" className="ml-2 border-border text-xs">
+            {programName(it.program_id) ?? "Every programme"}
+          </Badge>
           {it.video_youtube_id && (
             <Badge variant="outline" className="ml-2 gap-1 border-border text-xs">
               <Video className="h-3 w-3" aria-hidden="true" />
