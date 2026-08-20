@@ -884,7 +884,43 @@ export function CurriculumAdminTab() {
               Intermediate).
             </p>
 
+            {/* Round 17 — which instructor's students. Deliberately no default:
+                Teen and Adult Karate share the Solid Belt ladder with the
+                children's classes but are taught separately, so the belt does
+                not tell us which classes the material is for. */}
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="cur-program">Which classes</Label>
+              <Select
+                value={programChoice ?? ""}
+                onValueChange={(v) => setProgramChoice(v)}
+              >
+                <SelectTrigger id="cur-program">
+                  <SelectValue placeholder="Choose the classes this is for" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EVERY_PROGRAM}>Every programme (shared material)</SelectItem>
+                  {programs.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} classes only
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p
+              aria-live="polite"
+              className={`mt-3 rounded-lg border p-2 text-xs ${
+                audience
+                  ? "border-border bg-background text-foreground"
+                  : "border-dashed border-border text-muted-foreground"
+              }`}
+            >
+              {audience ??
+                "Pick a rank (or tier) and the classes above, and this will tell you exactly who sees it."}
+            </p>
           </fieldset>
+
 
           {target === "tier" ? (
             <div>
