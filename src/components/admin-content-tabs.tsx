@@ -431,6 +431,45 @@ type CurriculumItem = {
 
 type Target = "rank" | "tier";
 
+/**
+ * Round 17 — the programme choice, as three distinct states. "unset" exists so a
+ * requirement can never be saved with an audience nobody chose: the belt system
+ * does NOT imply a programme (Teen and Adult Karate share the Solid Belt system
+ * with children's karate but are taught by a different instructor), so a default
+ * would silently publish one instructor's material to another's students.
+ */
+const EVERY_PROGRAM = "__every__";
+type ProgramChoice = string | null;
+
+/**
+ * The parent-facing consequence, in words a person who has never heard "tier" or
+ * "programme" can check. Rendered live under the picker and in every edit row.
+ */
+function audienceSentence(opts: {
+  target: Target;
+  tier: CurriculumTier;
+  rankName: string | null;
+  systemName: string | null;
+  usesBelts: boolean;
+  programChoice: ProgramChoice;
+  programName: string | null;
+}) {
+  const where =
+    opts.programChoice === null
+      ? null
+      : opts.programChoice === EVERY_PROGRAM
+        ? "in every class we teach"
+        : `in ${opts.programName ?? "that"} classes`;
+  if (!where) return null;
+
+  if (opts.target === "tier") {
+    return `Every ${TIER_LABELS[opts.tier].toLowerCase()}-level student ${where} will see this.`;
+  }
+  if (!opts.rankName) return null;
+  const rankWord = opts.usesBelts ? "belt" : "level";
+  return `Every student at ${opts.rankName} and above on the ${opts.systemName ?? ""} ${rankWord} ladder, ${where}, will see this.`;
+}
+
 export function CurriculumAdminTab() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
