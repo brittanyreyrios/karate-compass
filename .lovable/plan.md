@@ -1,124 +1,86 @@
-# Round 17 (re-planned) — curriculum scoped by programme, resolved from classes
+# Round 19 — reset page, free-text technique fields, two search boxes
 
-## What I found before planning (two things contradict the brief)
+Front-end only. No migrations, no schema or constraint changes, no changes to any curriculum or
+entitlement function, and no changes to `server.ts`, the CSP, or `__root.tsx`. Nothing in these four
+sections needs any of those.
 
-1. There are exactly three programmes: **Karate**, **Jiu Jitsu & Wrestling**, **Tai Chi**.
-   `Teen Karate`, `Adult Karate` and `Tai Chi` classes are all mapped to the **Tai Chi**
-   programme already — so the separation you describe is expressible today with no new
-   programme row. Its display name reads "Tai Chi" while your sentence example says
-   "Tai Chi & Karate"; I will not rename it unless you ask.
-2. 🔴 The single existing rank-targeted item is **not** children's karate material. It is
-   `ae04d5c1-3af8-4743-966c-5e0069573597` — "test for jiu jitsu", pinned to the **Jiu Jitsu**
-   rank in the beltless Jiu Jitsu system. Setting it to Karate would hide it from the only
-   students who can currently see it and show it to nobody new. See Section C for the choice
-   I need from you.
+## A — /reset-password never shows the form (do first)
 
-## Section A — `program_id` on all curriculum items
+Diagnosis confirmed by reading the code: `src/integrations/supabase/client.ts` sets only `storage`,
+`persistSession` and `autoRefreshToken` — no `detectSessionInUrl`, so it defaults to true and the
+client consumes the recovery hash before the page's `useEffect` runs. `reset-password.tsx` tests
+`/type=recovery/` against `window.location.hash` and subscribes to `onAuthStateChange` inside the
+same effect, so both detections race that consumption and lose.
 
-```
-ALTER TABLE public.curriculum_items
-  ADD COLUMN program_id uuid REFERENCES public.programs(id);
-```
+Change, in `src/routes/reset-password.tsx` only:
 
-- Nullable. **NULL = every programme** — deliberately shared material.
-- Applies to rank-targeted and tier-wide items alike.
+- Drop the hash sniffing and the `PASSWORD_RECOVERY` reasoning. Gate purely on session presence:
+  `getSession()` plus `onAuthStateChange` to keep it live.
+- Session present -> render the existing password form unchanged (`updateUser({ password })`,
+  8-character minimum, confirm field, same toasts, redirect to `/`).
+- No session -> the existing message and "Back to sign in" button, wording untouched.
+- Unknown -> keep "Checking your reset link…", so the error never flashes first.
 
-Both predicate branches gain the same programme filter; the rank branch keeps
-`cr.system_id = v_system` untouched, so belt-system scoping and programme scoping stack:
+`client.ts` is not touched; `detectSessionInUrl` stays at its default. A signed-out visitor never
+gets a working form.
 
-```
--- rank-targeted
-cr.id IS NOT NULL AND cr.system_id = v_system AND cr.sort_order <= v_rank_order
-AND (ci.program_id IS NULL OR ci.program_id IN (student's class programmes))
+## B — Group and Position become combo boxes
 
--- tier-wide
-ci.belt_rank_id IS NULL AND ci.curriculum_tier IS NOT NULL
-AND array_position(v_tiers, ci.curriculum_tier) <= array_position(v_tiers, v_tier)
-AND (ci.program_id IS NULL OR ci.program_id IN (student's class programmes))
-```
+`src/components/admin-technique-library.tsx` and `src/lib/technique-library.ts`.
 
-### One way to resolve a student's programmes
+- Replace the two `Select`s in the add form with a small combo box (text input + suggestion
+  list via `datalist`, so it is native, keyboard-operable and typing a new value is always allowed).
+- Add the same Group control to the edit row, matching the existing Category input's blur-to-save.
+- Suggestions: distinct `category` values across all rows, merged with the six built-ins; distinct
+  `label` values for the programme currently selected in the form, merged with the two built-ins.
+  De-duplicated case-insensitively, first-seen casing wins. Changing Programme changes the Group
+  suggestions. With zero rows the built-ins are what shows.
+- Trim on save. No CHECK constraint, no enum, no database restriction — free text stays free text,
+  and entitlement stays on `program_id`.
+- Rewrite the `TECHNIQUE_CATEGORIES` comment so it describes what the UI now does.
 
-Mirrored from `get_technique_library` exactly — `students → student_classes →
-class_schedules.program_id` — expressed as an `EXISTS` correlated on the student, in both
-curriculum functions:
+`/techniques` chip logic is untouched; chips already derive from returned `label` values, so a new
+group appears as a chip on its own.
 
-```
-EXISTS (SELECT 1 FROM public.student_classes sc
-        JOIN public.class_schedules cs ON cs.id = sc.class_id
-        WHERE sc.student_id = <the student> AND cs.program_id = ci.program_id)
-```
+## C — search on /techniques
 
-Keeping the two consistent: I add a header comment in each function naming
-`get_technique_library` as the reference implementation and stating that the join path is
-`student_classes → class_schedules.program_id` and nothing else, plus the same note on
-`curriculum_items.program_id` via `COMMENT ON COLUMN`. Belt systems are no longer consulted
-for programme anywhere in curriculum; `belt_systems.program_id` keeps its Round 14 AY job
-(the mismatch flag) and is not touched.
+`src/routes/_authenticated/techniques.tsx`. Client-side filter over the items already returned by
+`get_technique_library()` — no new RPC, no change to that function, its arguments or grants.
 
-- **Student with no class enrolments:** the `EXISTS` is false for every programme, so they
-  see only `program_id IS NULL` items. No crash, nothing from another instructor.
-- **Student in two programmes** (children's karate + Kid's Jiu Jitsu): the `EXISTS` matches
-  both, so they see both programmes' items plus shared ones.
-- Programme membership does not consider `students.active` (the caller is that student's
-  parent and the row is already scoped); `get_technique_library`'s `s.active = true` filter is
-  about "any of my children", a different question.
+Matches title, category, label, notes and video title; case-insensitive; trimmed. Combines with the
+label chips (both must match). Grouping by category is preserved and empty headings do not render.
+Field only renders when there is something to search, mirroring the existing chip rule. Clear "×"
+button, no-match empty state naming the term. `type="search"`, visually hidden real label, 44px
+target, visible focus ring, result count in a polite live region. Mobile first. No sorting changes.
 
-## Section B — `get_technique_library` untouched. No edits, no re-grant, no DROP.
+## D — the same search on /curriculum
 
-## Section C — Backfill
+`src/routes/_authenticated/curriculum.tsx`. Filters only the rows already returned by
+`get_curriculum_for_all_children` — that function, its body and its grants are not touched, so an
+unentitled item can never be found.
 
-Six tier-wide items → **Karate** (children's karate instructor's material):
-`048baaee…` Welcome!, `f6729593…` How to Tie Your Belt!, `b9623b9c…` Attention Stance &
-Bowing, `557a1ac0…` Fighting Stance, `4d05fab8…` Voice Commands, `13f8454d…` Punches from a
-Fighting Stance.
+- One search field, applied within each child's section: Dojo Basics, "Working on now" and the
+  earned groups.
+- Accordion trap: while a term is active, the earned accordion opens automatically for any child
+  with a match inside it, and empty earned groups do not render; clearing the term restores the
+  normal collapsed state.
+- Every child keeps their section; a child with no match shows a short "No matches for …" line.
+- Rankless handling, the current/earned split, `is_current`, ordering and unlocking rules unchanged.
+- Same accessibility bar and mobile-first sizing as C.
 
-Seventh row — `ae04d5c1-3af8-4743-966c-5e0069573597` "test for jiu jitsu". It is jiu jitsu
-material, so I plan to set it to **Jiu Jitsu & Wrestling**, not Karate. Tell me if you want
-it set to Karate anyway or deleted as a leftover test row; I will do exactly what you say.
-Either way seven rows change and I will report the count.
+## Verification
 
-Audience direction: all seven narrow or stay level. Nothing becomes visible to more students
-than before — NULL-programme is the widest state and no row moves *to* NULL.
+Real project, read-mostly: I create only clearly-labelled test rows (`ZZ` prefix) and delete them,
+and modify no existing record. For each section I will report actual output — row counts before and
+after, the values saved, the suggestion lists, and the visible result counts for each search,
+including the unentitled-title search that must return nothing.
 
-## Section D — Admin form and editing
-
-- A **Programme** selector appears in both modes (rank and tier), starting empty, offering
-  "Every programme" plus each row in `programs`. No default — an unmade choice blocks save.
-- Live plain-English audience sentence under the fieldset, updating on every change:
-  - "Every student at Yellow and above in the Solid Belt system, in the Karate programme,
-    will see this."
-  - "Every Beginner student in the Tai Chi programme will see this."
-  - "…in every programme will see this." for shared material.
-- The same selector and sentence appear in the **edit** row for an existing item, saving
-  `program_id` alongside the existing rank/tier control.
-- The item list shows the programme (or "Every programme") on every row.
-- Wording avoids "tier" and "programme boundary" jargon in the parent-facing explanation
-  text; it names the actual classes/levels instead.
-
-## Section E — Proof
-
-Over HTTPS against the published host with a real non-admin parent session, calling
-`get_curriculum_for_student` and `get_curriculum_for_all_children`. Clearly labelled
-`[R17 TEST]` items and temporary students/enrolments, deleted afterwards; no existing record
-touched. I will paste actual returned rows for all six assertions, including the
-both-programmes child and the "every programme" control item. If any assertion cannot be
-demonstrated I will report the round incomplete.
-
-## Section F — Invariants
-
-- `CREATE OR REPLACE` only, no DROP, returned columns unchanged; grant audit run as the final
-  statement and rows pasted regardless.
-- Dashboard belt display and `division_of`/`get_leaderboard` untouched — I will confirm a
-  Teen Karate student's rank chip and division are unchanged before/after.
-- ORDERING CONTRACT comment and ORDER BY preserved verbatim; verified by checking
-  `group_label` runs are contiguous per student in the Section E output.
-- `is_current` stays the same plain boolean CASE.
-- New append-only migration file.
-
-## What this now excludes
-
-Curriculum material no longer crosses programmes unless someone explicitly marks it "every
-programme": teen/adult karate and tai chi students stop receiving the children's karate
-instructor's items even though they share the Solid Belt system, and a student with no class
-enrolment gets shared material only instead of everything.
+One caveat to flag before I start, per your "never invent data" rule: for Section A I can verify a
+signed-in session showing the form, a signed-out visitor seeing the error, and sign-in/sign-out
+being unaffected, all over HTTPS on the published site. What I cannot do myself is open a real
+parent's emailed recovery link — I have no access to any parent's inbox, and the service-role key
+needed to mint a recovery link is not available on this platform. I can either (a) send the reset
+email to an address you control and have you paste the link's outcome, or (b) verify the equivalent
+condition — session present on `/reset-password` renders the form — which is exactly what the
+emailed link produces given `detectSessionInUrl` is on. Tell me which you want; otherwise I will do
+(b) and say plainly that the end-to-end email click was verified by you, not by me.
