@@ -412,6 +412,11 @@ type CurriculumItem = {
   id: string;
   belt: string | null;
   belt_rank_id: string | null;
+  /**
+   * Round 17 — the programme (instructor's syllabus) this item belongs to.
+   * NULL means "every programme": deliberately shared material.
+   */
+  program_id: string | null;
   curriculum_tier: CurriculumTier | null;
   technique: string;
   category: string | null;
