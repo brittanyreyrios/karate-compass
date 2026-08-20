@@ -619,6 +619,28 @@ export function CurriculumAdminTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Round 17 — editing an existing item's audience. Same three states as the add
+   * form; NULL in the database means "every programme".
+   */
+  const saveProgram = useMutation({
+    mutationFn: async ({ id, program_id }: { id: string; program_id: string | null }) => {
+      const { error } = await supabase
+        .from("curriculum_items")
+        .update({ program_id })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Audience updated.");
+      qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+      qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("curriculum_items").delete().eq("id", id);
