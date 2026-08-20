@@ -548,6 +548,8 @@ export function CurriculumAdminTab() {
       if (!technique.trim()) throw new Error("Technique name is required.");
       // Exactly one of the two targets is set — the database enforces this too.
       if (target === "rank" && !rankId) throw new Error("Choose the specific rank this belongs to.");
+      // Round 17: an unchosen programme is an ambiguous audience, never a default.
+      if (!programChoice) throw new Error("Choose which classes this is for.");
       // A pasted link is validated here, before it can ever be saved: a bad ID
       // would render as a dead player for every family at that rank.
       let videoId: string | null = null;
