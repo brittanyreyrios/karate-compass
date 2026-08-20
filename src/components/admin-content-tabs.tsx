@@ -787,6 +787,31 @@ export function CurriculumAdminTab() {
           </Button>
         </div>
       </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label className="text-xs" htmlFor={`prog-${it.id}`}>
+          Who sees this
+        </Label>
+        <Select
+          value={it.program_id ?? EVERY_PROGRAM}
+          disabled={saveProgram.isPending}
+          onValueChange={(v) =>
+            saveProgram.mutate({ id: it.id, program_id: v === EVERY_PROGRAM ? null : v })
+          }
+        >
+          <SelectTrigger id={`prog-${it.id}`} className="h-9 w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={EVERY_PROGRAM}>Every programme (shared)</SelectItem>
+            {programs.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name} classes only
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{rowAudience(it)}</span>
+      </div>
       <ItemVideoEditor
         item={it}
         pending={saveVideo.isPending}
@@ -795,6 +820,7 @@ export function CurriculumAdminTab() {
     </li>
     );
   };
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
