@@ -103,7 +103,15 @@ function Dashboard() {
   const studentsQ = useQuery({
     queryKey: ["students-mine"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("students").select("*").order("created_at");
+      // Archived students are hidden from the leaderboard, curriculum and class
+      // counts, so they must be hidden from their own parent's switcher too —
+      // half-archived reads as a bug.
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .eq("active", true)
+        .order("created_at");
+
       if (error) throw error;
       return (data ?? []) as Student[];
     },
