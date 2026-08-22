@@ -78,6 +78,13 @@ import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
+import {
+  parkStudent,
+  findProfileByEmail,
+  findDuplicateStudent,
+  normalizeParentEmail,
+} from "@/lib/park-student";
+
 
 import {
   ConsentAttentionItem,
