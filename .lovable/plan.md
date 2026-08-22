@@ -1,102 +1,83 @@
-# Round 19 — reset page, editable requirements, free-text fields, two search boxes
+# Archive/restore/delete students, and parking a student before the parent signs up
 
-Order of work: **A, then E, then B, C, D.** Front-end only. No migrations, no schema or constraint
-changes, no changes to any entitlement or curriculum function, `next_curriculum_sort_order`,
-`server.ts`, the CSP, or `__root.tsx`. Nothing in these five sections needs any of those. I publish
-at the end.
+Front-end only. No migrations, no schema changes. Verified already in place:
+`students.active` exists, admins already have update and delete permission on
+students, and deleting a student already cascades to attendance records, point
+entries, poll votes and class enrolments. `pending_student_imports` holds 92 rows
+and the signup linking already consumes them case-insensitively.
 
-## A — /reset-password never shows the form
+## Section A — Manage Students: archive, restore, delete
 
-Diagnosis confirmed in the code: `src/integrations/supabase/client.ts` sets only `storage`,
-`persistSession` and `autoRefreshToken` — no `detectSessionInUrl`, so it defaults to true and the
-client consumes the recovery hash before the page's effect runs. `reset-password.tsx` then tests
-`/type=recovery/` against `window.location.hash` and subscribes to `onAuthStateChange` inside that
-same effect, so both detections race that consumption and lose.
+- **All Students list** shows only active students. Each row gets an **Archive**
+  action that writes `active = false` — one boolean write, nothing else. No new
+  column, no new table.
+- **New "Archived" section** below the list, collapsed by default with a count.
+  Each archived row shows name, belt and former class label, plus **Restore**
+  (`active = true`).
+- **Delete** appears only inside the Archived section. Active rows have no delete
+  control at all — an admin must archive first, then find the student in the
+  archive.
+- **Delete confirmation dialog**:
+  - On open, queries the real counts for that student: attendance records, point
+    entries, class enrolments (and poll votes, if any) — read from the database,
+    never estimated.
+  - Sentence built from those counts: "This permanently deletes Billy Bishop,
+    47 attendance records, 12 point entries and 2 class enrolments. This cannot
+    be undone."
+  - States plainly that archiving is reversible and deleting is not.
+  - The delete button stays disabled until the admin types the student's full
+    name exactly.
+  - One student at a time. No bulk or multi-select delete.
 
-Change, in `src/routes/reset-password.tsx` only:
+Reader functions, RLS policies and points/attendance recording are untouched.
 
-- Drop the hash sniffing and the `PASSWORD_RECOVERY` reasoning. Gate purely on session presence
-  (`getSession()` plus `onAuthStateChange` to stay live).
-- Session present -> the existing form, unchanged: `updateUser({ password })`, 8-character minimum,
-  confirm field, same toasts, redirect to `/`.
-- No session -> the existing message and "Back to sign in" button, wording untouched.
-- Unknown -> keep "Checking your reset link…", so the error never flashes first.
+## Section B — Add Student: parent has no account yet
 
-`client.ts` is not touched; `detectSessionInUrl` keeps its default. A signed-out visitor never gets
-a working form.
+The Add New Student form gets a two-way choice:
 
-**Verification — option (b), stated plainly.** I will verify over HTTPS on the published site that a
-present session renders the form, that a signed-out visitor gets the error with no usable form, and
-that sign-in and sign-out are unaffected. I will **not** verify the end-to-end emailed-link click —
-I have no access to a parent's inbox — and my summary will say so. You clicking a real reset link on
-a real phone is what closes the item.
+1. **Parent already has an account** — current behaviour, unchanged.
+2. **Parent hasn't signed up yet** — the student is saved as a parked row in
+   `pending_student_imports`, carrying `belt_rank_id` and `class_id` straight
+   from the form's selectors (no belt text re-resolution).
 
-## E — make a posted requirement fully editable
+Rules:
 
-`src/components/admin-content-tabs.tsx` only.
+- The CSV importer's parking insert is extracted into one shared helper used by
+  both the importer and the form, so there is a single writer with one set of
+  rules. Email is trimmed and lowercased there, exactly as the importer does.
+- **If a profile already exists with that email**, parking would create a row
+  nobody ever consumes. The form refuses and names the existing account, telling
+  the admin to switch to the "already has an account" path. That state is never
+  created.
+- **Duplicate guard**: before parking, check for an existing parked row *and* an
+  existing active student with the same first and last name under that parent
+  email. If either exists, refuse with a clear message and create nothing.
+- Plain-language preview under the form: "Ellie Rodriguez will be held until a
+  parent signs up with sarah@example.com, then linked automatically."
+- Rows created this way appear in the existing parked-row management view exactly
+  like imported ones (same table, same columns).
 
-- Lift the existing "Move to" `Select` out of the "Untargeted (legacy)" block into `ItemRow`, so
-  every requirement row has it. It calls the existing `retargetItem` mutation unchanged — no second
-  copy of the renumbering logic, no new call to `next_curriculum_sort_order`. Options stay tiers and
-  ranks only, so rank/tier stay mutually exclusive and no row can reach both-null.
-- Make `technique`, `category` and `notes` editable in place, saving on blur through one small patch
-  mutation, matching the technique library's Category field: trim on save, empty name refused and the
-  input reverted to the previous value.
-- Keep `rowAudience` on the row and let it re-render off the query data, so it is accurate before and
-  after a rank, tier or programme change.
-- Reorder arrows, delete, and the video editor are untouched.
+`handle_new_user` is not touched.
 
-## B — Group and Position become free-text with suggestions
+## Verification (real output, ZZ-labelled test rows, deleted afterwards)
 
-**Finding you asked for, before I build: `<datalist>` is not supported by Safari on iOS or iPadOS.**
-Desktop Safari gained it in 12.1; mobile Safari renders the input but shows no suggestion list at
-all. Since admin work happens on an iPad, datalist is off the table.
+Section A: archive a ZZ student and show `active` before/after plus their
+disappearance from the leaderboard and class counts; restore and show attendance
+and points intact; screenshot showing no delete control on an active row; delete
+an archived ZZ student and paste the exact counts the dialog displayed, then show
+zero remaining rows in all four child tables. Report `students` row count before
+and after.
 
-**Alternative I propose instead:** a plain `<input>` with a real associated `<Label>`, plus the
-suggestions rendered beneath it as a row of real `<button>` chips that fill the field when tapped.
-Native everywhere, works identically on iPadOS, fully keyboard operable, 44px targets, visible focus
-ring, and typing a brand-new value is always allowed because the input is just an input. If you'd
-rather have a typeahead popover, say so — but the chips are the version that cannot silently fail on
-iOS.
+Section B: park a ZZ student for an unknown email and show the stored row with a
+trimmed, lowercase email; sign up with that email in mixed case and show the
+child linked and the parked row consumed; attempt to park for an email that
+already has an account and show the refusal; attempt a duplicate park and show
+the refusal. Report `pending_student_imports` and `students` counts before and
+after and confirm the 92 pre-existing parked rows are untouched.
 
-Then, in `admin-technique-library.tsx` and `src/lib/technique-library.ts`:
+## Technical notes
 
-- Group and Position / category in the add form become that control; the edit row gains a Group
-  field matching its existing Category input.
-- Suggestions: distinct `category` values across all rows merged with the six built-ins; distinct
-  `label` values for the programme currently selected merged with the two built-ins. De-duplicated
-  case-insensitively, first-seen casing wins. Changing Programme changes the Group suggestions. With
-  zero rows, the built-ins are what shows.
-- Trim on save. No CHECK constraint, no enum, no database restriction — entitlement stays on
-  `program_id`. `/techniques` chip logic untouched; chips already derive from returned `label`s.
-- Rewrite the `TECHNIQUE_CATEGORIES` comment to describe what the UI actually does.
-
-## C — search on /techniques
-
-Client-side filter over items already returned by `get_technique_library()` — no new RPC, no change
-to that function, its arguments or grants. Matches title, category, label, notes and video title;
-case-insensitive, trimmed; combines with the label chips (both must match). Category grouping kept,
-empty headings not rendered. Field only renders when there is something to search, mirroring the
-existing chip rule. Clear "×", no-match empty state naming the term. `type="search"`, visually hidden
-real label, 44px target, visible focus ring, result count in a polite live region. Mobile first. No
-sorting changes.
-
-## D — the same search on /curriculum
-
-Filters only rows already returned by `get_curriculum_for_all_children`; that function, its body and
-its grants are untouched, so an unentitled item can never be found. Applied within each child's
-section across Dojo Basics, "Working on now" and the earned groups. While a term is active the earned
-accordion opens automatically for any child with a match inside it and empty earned groups do not
-render; clearing restores the normal collapsed state. Every child keeps their section, with a short
-"No matches for …" line when they have none. Rankless handling, the current/earned split,
-`is_current`, ordering and unlocking rules unchanged. Same accessibility bar and mobile-first sizing
-as C.
-
-## Verification
-
-Real project, read-mostly: only clearly-labelled `ZZ` test rows, all deleted afterwards, no existing
-record modified. I report actual output — `technique_library` and `curriculum_items` row counts
-before and after (technique_library explicitly, since Round 17's cleanup does not cover it), the
-saved values, the suggestion lists, `belt_rank_id` / `curriculum_tier` / `sort_order` before and
-after each retarget, the audience sentence at each step, and the visible result counts for every
-search including the unentitled-title search that must return nothing.
+- New file `src/lib/park-student.ts`: normalisation, duplicate/profile checks and
+  the single `pending_student_imports` insert; the CSV importer switches to it.
+- Changes confined to `src/routes/_authenticated/admin.tsx` plus that helper.
+- `server.ts`, the CSP, `client.ts` and all database functions unchanged.
