@@ -1213,7 +1213,13 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
 
 }
 
+/** "1 attendance record" / "47 attendance records" — counts always come from the DB. */
+function count(n: number, singular: string, plural = `${singular}s`) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
 /** Sets `active = false`. One boolean write, nothing else. */
+
 function ArchiveStudentButton({ student }: { student: Student }) {
   const qc = useQueryClient();
   const archive = useMutation({
