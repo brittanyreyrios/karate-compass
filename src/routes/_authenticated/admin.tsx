@@ -953,8 +953,31 @@ function ManageStudentsTab() {
             <h2 className="font-display text-lg font-bold uppercase">Add New Student</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            The parent must already have an account for their email to match.
+            Add a student to a parent's account, or hold them until that parent signs up.
           </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { key: "linked", label: "Parent already has an account" },
+                { key: "parked", label: "Parent hasn't signed up yet" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                aria-pressed={addMode === opt.key}
+                onClick={() => setAddMode(opt.key)}
+                className={`rounded-xl border p-3 text-left text-xs font-semibold ${
+                  addMode === opt.key
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -994,9 +1017,26 @@ function ManageStudentsTab() {
 
           </div>
 
+          {addMode === "parked" && (
+            <p className="mt-4 rounded-xl border border-border bg-background/60 p-3 text-xs text-muted-foreground">
+              {firstName.trim() || lastName.trim()
+                ? `${firstName.trim()} ${lastName.trim()}`.trim()
+                : "This student"}{" "}
+              will be held until a parent signs up with{" "}
+              <span className="font-semibold text-foreground">
+                {parentEmail.trim() ? normalizeParentEmail(parentEmail) : "their email address"}
+              </span>
+              , then linked automatically with this class and rank. They appear in the
+              Unlinked Students Audit below until then.
+            </p>
+          )}
+
           <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
-            {addStudent.isPending ? "Adding…" : "Add Student"}
+            {addStudent.isPending
+              ? addMode === "parked" ? "Holding…" : "Adding…"
+              : addMode === "parked" ? "Hold For Signup" : "Add Student"}
           </Button>
+
         </form>
 
         {/* List */}
