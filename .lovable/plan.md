@@ -1,83 +1,67 @@
-# Archive/restore/delete students, and parking a student before the parent signs up
+# Copy a curriculum requirement to other ranks
 
-Front-end only. No migrations, no schema changes. Verified already in place:
-`students.active` exists, admins already have update and delete permission on
-students, and deleting a student already cascades to attendance records, point
-entries, poll votes and class enrolments. `pending_student_imports` holds 92 rows
-and the signup linking already consumes them case-insensitively.
+Front-end only, confined to `src/components/admin-content-tabs.tsx` (plus one small
+dialog component if the row grows unwieldy). No migrations, no schema changes, no
+policy changes. `next_curriculum_sort_order`, the entitlement/curriculum functions,
+`handle_new_user`, `server.ts`, the CSP and `client.ts` are untouched.
 
-## Section A — Manage Students: archive, restore, delete
+## What gets added
 
-- **All Students list** shows only active students. Each row gets an **Archive**
-  action that writes `active = false` — one boolean write, nothing else. No new
-  column, no new table.
-- **New "Archived" section** below the list, collapsed by default with a count.
-  Each archived row shows name, belt and former class label, plus **Restore**
-  (`active = true`).
-- **Delete** appears only inside the Archived section. Active rows have no delete
-  control at all — an admin must archive first, then find the student in the
-  archive.
-- **Delete confirmation dialog**:
-  - On open, queries the real counts for that student: attendance records, point
-    entries, class enrolments (and poll votes, if any) — read from the database,
-    never estimated.
-  - Sentence built from those counts: "This permanently deletes Billy Bishop,
-    47 attendance records, 12 point entries and 2 class enrolments. This cannot
-    be undone."
-  - States plainly that archiving is reversible and deleting is not.
-  - The delete button stays disabled until the admin types the student's full
-    name exactly.
-  - One student at a time. No bulk or multi-select delete.
+On every curriculum requirement row, next to the existing "Move to" control, a
+**Copy to…** button opening a dialog:
 
-Reader functions, RLS policies and points/attendance recording are untouched.
+- **Destination list** — the same options "Move to" offers: all four tiers
+  ("All Beginner students" …) and every rank with its belt system named. Rendered as
+  checkboxes so several can be picked at once.
+- **The row's own current target is not offered at all** — if the item sits on Camo
+  Green, Camo Green is absent from the list, so a row can never be duplicated onto
+  itself.
+- **Live preview**, updating as boxes are ticked:
+  - "This will create 3 new requirements." (count of destinations that will actually
+    be written, after skips)
+  - One line per destination with the plain-language audience sentence from the
+    existing `rowAudience`/`audienceSentence` logic, reused as-is.
+  - Any destination that already has a requirement with the same technique and the
+    same `video_youtube_id` is listed separately as **"Skipped — already there"**,
+    named, and excluded from the count.
+  - Standing sentence: "These become separate requirements. Editing one later will
+    not change the others."
+- **Confirm** writes the copies. Cancel writes nothing.
 
-## Section B — Add Student: parent has no account yet
+## How a copy is written
 
-The Add New Student form gets a two-way choice:
+Per destination, sequentially:
 
-1. **Parent already has an account** — current behaviour, unchanged.
-2. **Parent hasn't signed up yet** — the student is saved as a parked row in
-   `pending_student_imports`, carrying `belt_rank_id` and `class_id` straight
-   from the form's selectors (no belt text re-resolution).
+1. Call the existing `next_curriculum_sort_order` RPC with
+   `(_belt_rank_id, _curriculum_tier)` for that destination — the same advisory-locked
+   path `retargetItem` uses. No second copy of that logic, and the source's
+   `sort_order` is never carried across.
+2. Insert one row copying `technique`, `category`, `notes`, `program_id`,
+   `video_youtube_id`, `video_title`, `video_seconds`, `video_orientation`, with
+   exactly one of `belt_rank_id` / `curriculum_tier` set (never both, never neither —
+   guaranteed by the destination list's shape) and the fresh `sort_order`.
 
-Rules:
+The source row is never updated or read-modified. Copying is additive only.
 
-- The CSV importer's parking insert is extracted into one shared helper used by
-  both the importer and the form, so there is a single writer with one set of
-  rules. Email is trimmed and lowercased there, exactly as the importer does.
-- **If a profile already exists with that email**, parking would create a row
-  nobody ever consumes. The form refuses and names the existing account, telling
-  the admin to switch to the "already has an account" path. That state is never
-  created.
-- **Duplicate guard**: before parking, check for an existing parked row *and* an
-  existing active student with the same first and last name under that parent
-  email. If either exists, refuse with a clear message and create nothing.
-- Plain-language preview under the form: "Ellie Rodriguez will be held until a
-  parent signs up with sarah@example.com, then linked automatically."
-- Rows created this way appear in the existing parked-row management view exactly
-  like imported ones (same table, same columns).
+**Partial failure is reported honestly.** Each destination's outcome is collected;
+the result toast/summary names which destinations were created, which were skipped as
+duplicates, and which failed with their error. If any failed, it is not reported as a
+success.
 
-`handle_new_user` is not touched.
+Admin-only through the existing curriculum RLS policies; nothing about permissions
+changes.
 
-## Verification (real output, ZZ-labelled test rows, deleted afterwards)
+## Verification (real output, ZZ-labelled rows, deleted afterwards)
 
-Section A: archive a ZZ student and show `active` before/after plus their
-disappearance from the leaderboard and class counts; restore and show attendance
-and points intact; screenshot showing no delete control on an active row; delete
-an archived ZZ student and paste the exact counts the dialog displayed, then show
-zero remaining rows in all four child tables. Report `students` row count before
-and after.
-
-Section B: park a ZZ student for an unknown email and show the stored row with a
-trimmed, lowercase email; sign up with that email in mixed case and show the
-child linked and the parked row consumed; attempt to park for an email that
-already has an account and show the refusal; attempt a duplicate park and show
-the refusal. Report `pending_student_imports` and `students` counts before and
-after and confirm the 92 pre-existing parked rows are untouched.
-
-## Technical notes
-
-- New file `src/lib/park-student.ts`: normalisation, duplicate/profile checks and
-  the single `pending_student_imports` insert; the CSV importer switches to it.
-- Changes confined to `src/routes/_authenticated/admin.tsx` plus that helper.
-- `server.ts`, the CSP, `client.ts` and all database functions unchanged.
+- Create one `ZZ` requirement with video fields on a single rank; copy it to three
+  destinations across different belt systems, one of them a tier. Paste the resulting
+  rows' `id`, `belt_rank_id`, `curriculum_tier`, `sort_order` and video fields —
+  showing distinct ids, correct targets, copied video data, and each `sort_order` at
+  the end of its own destination group.
+- Show the source row unchanged, `sort_order` included.
+- Screenshot the admin list showing each copy at the bottom of its destination group.
+- Show the source's own target is not selectable.
+- Re-run the same copy and paste the duplicate-skip message naming the destinations.
+- Paste the exact preview text, including the "independent copies" wording.
+- `curriculum_items` row count before and after, all `ZZ` rows deleted, and
+  confirmation that no constraint, function or policy changed.
