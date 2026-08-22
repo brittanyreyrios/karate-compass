@@ -819,7 +819,14 @@ function ManageStudentsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const visibleStudents = allStudents.filter(
+  /**
+   * The roster list shows active students only. Archived ones live in their own
+   * section below, which is also the only place a delete control exists.
+   */
+  const activeStudents = allStudents.filter((s) => s.active);
+  const archivedStudents = allStudents.filter((s) => !s.active);
+
+  const visibleStudents = activeStudents.filter(
     (s) =>
       (!noRankOnly || !s.belt_rank_id) &&
       (!noClassOnly || !byStudent.get(s.id)?.length) &&
@@ -834,6 +841,12 @@ function ManageStudentsTab() {
   const [classId, setClassId] = useState<string>("");
   const [systemId, setSystemId] = useState<string | null>(null);
   const [rankId, setRankId] = useState<string | null>(null);
+  /**
+   * Two paths. "linked" is the original behaviour. "parked" writes to
+   * pending_student_imports instead, where handle_new_user picks the child up the
+   * moment their parent signs up with the same email.
+   */
+  const [addMode, setAddMode] = useState<"linked" | "parked">("linked");
 
   const addStudent = useMutation({
     mutationFn: async () => {
@@ -842,14 +855,55 @@ function ManageStudentsTab() {
       }
       if (!rankId) throw new Error("Choose a belt system and rank for this student.");
       if (!classId) throw new Error("Choose the class this student trains in.");
-      const emailNorm = parentEmail.trim().toLowerCase();
-      const { data: profile, error: profErr } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("email", emailNorm)
-        .maybeSingle();
-      if (profErr) throw profErr;
-      if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first.`);
+      const emailNorm = normalizeParentEmail(parentEmail);
+      const profile = await findProfileByEmail(emailNorm);
+
+      if (addMode === "parked") {
+        // A parked row for an account that already exists is never consumed:
+        // handle_new_user only runs at signup. Refuse rather than create a child
+        // who silently never appears.
+        if (profile) {
+          throw new Error(
+            `${emailNorm} already has an account (${profile.family_name}). Switch to "Parent already has an account" — parking this student would never link them.`,
+          );
+        }
+        const dupe = await findDuplicateStudent({
+          firstName,
+          lastName,
+          parentEmail: emailNorm,
+          parentId: null,
+        });
+        if (dupe) {
+          throw new Error(
+            `${firstName.trim()} ${lastName.trim()} is already waiting for ${emailNorm}. No second copy created.`,
+          );
+        }
+        const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
+        await parkStudent({
+          firstName,
+          lastName,
+          parentEmail: emailNorm,
+          className: classes.find((c) => c.id === classId)?.class_name ?? "Unassigned",
+          classId,
+          currentBelt: rank?.name ?? "White",
+          beltRankId: rankId,
+        });
+        return { parked: true as const, email: emailNorm };
+      }
+
+      if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first, or choose "Parent hasn't signed up yet".`);
+
+      const dupe = await findDuplicateStudent({
+        firstName,
+        lastName,
+        parentEmail: emailNorm,
+        parentId: profile.id,
+      });
+      if (dupe) {
+        throw new Error(
+          `${firstName.trim()} ${lastName.trim()} is already ${dupe.kind === "parked" ? `waiting for ${emailNorm}` : `on the roster for ${emailNorm}`}. No second copy created.`,
+        );
+      }
 
       // class_name is never written from here: the enrollment row below is the
       // source of truth and a trigger derives the display label from it.
@@ -869,15 +923,22 @@ function ManageStudentsTab() {
         .from("student_classes")
         .insert({ student_id: created.id, class_id: classId, is_primary: true });
       if (enrErr) throw enrErr;
+      return { parked: false as const, email: emailNorm };
     },
-    onSuccess: () => {
-      toast.success("Student added and enrolled");
+    onSuccess: (res) => {
+      toast.success(
+        res.parked
+          ? `Held for ${res.email} — they'll be linked automatically at signup`
+          : "Student added and enrolled",
+      );
       setFirstName(""); setLastName(""); setParentEmail("");
       setClassId(""); setSystemId(null); setRankId(null);
+      qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
       for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <div className="space-y-6">
