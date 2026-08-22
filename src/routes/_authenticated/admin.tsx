@@ -1199,13 +1199,267 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </Button>
       </div>
 
-      <Button size="sm" variant="outline" className="mt-2 h-11 w-full sm:mt-0 sm:h-9 sm:w-auto" onClick={onEdit}>
-        <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-      </Button>
+      <div className="mt-2 flex w-full gap-2 sm:mt-0 sm:w-auto">
+        <Button size="sm" variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={onEdit}>
+          <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+        </Button>
+        {/* Archive is the reversible action, and the ONLY removal control on an
+            active student. Deleting requires archiving first — see the Archived
+            Students section. */}
+        <ArchiveStudentButton student={student} />
+      </div>
     </div>
   );
 
 }
+
+/** Sets `active = false`. One boolean write, nothing else. */
+function ArchiveStudentButton({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const archive = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("students").update({ active: false }).eq("id", student.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`${student.first_name} archived — restore them any time`);
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none">
+          <UserX className="mr-1 h-3.5 w-3.5" /> Archive
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Archive {student.first_name} {student.last_name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            They come off the attendance sheet, the leaderboard, class counts and their
+            parent's dashboard, but nothing is deleted — their attendance, points and history
+            stay exactly as they are. You can restore them at any time from the Archived
+            Students section.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={archive.isPending} onClick={() => archive.mutate()}>
+            Archive student
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * Archived students. Collapsed by default, and the only place in the app with a
+ * delete control: an admin must archive a student first and then find them here.
+ * That ordering is the safety mechanism — there is deliberately no shortcut, and
+ * no bulk or multi-select delete.
+ */
+function ArchivedStudentsPanel({ students }: { students: Student[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const restore = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("students").update({ active: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Student restored with their attendance and points intact");
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div>
+          <h2 className="font-display text-lg font-bold uppercase">
+            Archived Students ({students.length})
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Archived students are hidden everywhere in the app but keep their full history.
+            Restore is instant. Deleting is permanent and only possible from here.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-5 space-y-3">
+          {students.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nobody is archived right now.</p>
+          )}
+          {students.map((s) => (
+            <div
+              key={s.id}
+              className="rounded-xl border border-border bg-background p-3 sm:flex sm:items-center sm:gap-3"
+            >
+              <div className="min-w-0 sm:flex-1">
+                <div className="break-words font-semibold">
+                  {s.first_name} {s.last_name}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />
+                  <span>Former class: {s.class_name}</span>
+                  <span>{s.attendance_count} classes</span>
+                  <span>{s.points} Dojo pts</span>
+                </div>
+              </div>
+              <div className="mt-2 flex gap-2 sm:mt-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  disabled={restore.isPending}
+                  onClick={() => restore.mutate(s.id)}
+                >
+                  <Check className="mr-1 h-3.5 w-3.5" /> Restore
+                </Button>
+                <DeleteStudentDialog student={s} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Permanent delete. The counts in the sentence are read from the database when
+ * the dialog opens — never estimated — because deleting cascades to attendance
+ * events, point events, poll votes and class enrolments, and there is no undo.
+ * The button stays disabled until the admin types the student's full name.
+ */
+function DeleteStudentDialog({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const fullName = `${student.first_name} ${student.last_name}`;
+
+  const countsQ = useQuery({
+    queryKey: ["student-delete-counts", student.id],
+    enabled: open,
+    queryFn: async () => {
+      const head = { count: "exact" as const, head: true };
+      const [att, pts, votes, enr] = await Promise.all([
+        supabase.from("attendance_events").select("id", head).eq("student_id", student.id),
+        supabase.from("point_events").select("id", head).eq("student_id", student.id),
+        supabase.from("poll_votes").select("id", head).eq("student_id", student.id),
+        supabase.from("student_classes").select("id", head).eq("student_id", student.id),
+      ]);
+      for (const r of [att, pts, votes, enr]) if (r.error) throw r.error;
+      return {
+        attendance: att.count ?? 0,
+        points: pts.count ?? 0,
+        votes: votes.count ?? 0,
+        enrolments: enr.count ?? 0,
+      };
+    },
+  });
+
+  const del = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("students").delete().eq("id", student.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`${fullName} deleted permanently`);
+      setOpen(false);
+      setTyped("");
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const c = countsQ.data;
+  const sentence = c
+    ? `This permanently deletes ${fullName}, ${count(c.attendance, "attendance record")}, ${count(
+        c.points,
+        "point entry",
+        "point entries",
+      )}${c.votes > 0 ? `, ${count(c.votes, "poll vote")}` : ""} and ${count(
+        c.enrolments,
+        "class enrolment",
+      )}. This cannot be undone.`
+    : null;
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setTyped("");
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-11 flex-1 border-destructive/50 text-destructive sm:h-9 sm:flex-none">
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {fullName} for good?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>
+                {countsQ.isLoading && "Reading this student's records…"}
+                {countsQ.isError && "Could not read this student's records — nothing has been deleted."}
+                {sentence}
+              </p>
+              <p>
+                Archiving is the reversible option: an archived student is already hidden from
+                every screen and can be restored at any time. Deleting is not reversible — their
+                whole history goes with them.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor={`confirm-${student.id}`} className="text-xs">
+            Type <span className="font-bold text-foreground">{fullName}</span> to confirm
+          </Label>
+          <Input
+            id={`confirm-${student.id}`}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            className="mt-1"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={typed.trim() !== fullName || !c || del.isPending}
+            onClick={() => del.mutate()}
+          >
+            {del.isPending ? "Deleting…" : "Delete permanently"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 
 function StudentEditRow({ student, onDone }: { student: Student; onDone: () => void }) {
   const qc = useQueryClient();
