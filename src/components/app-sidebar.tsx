@@ -7,13 +7,13 @@ import {
   BookOpen,
   Image,
   Megaphone,
-  Flame,
   ShieldCheck,
   LogOut,
   Trophy,
   BarChart3,
   Settings,
   Swords,
+
 } from "lucide-react";
 import {
   Sidebar,
@@ -74,9 +74,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-red shadow-red-glow">
-            <Flame className="h-5 w-5 text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/tigers-den-logo.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <div className="font-display text-lg font-bold uppercase leading-none tracking-wider text-sidebar-foreground">
               Tiger's Den
