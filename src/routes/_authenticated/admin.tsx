@@ -1117,14 +1117,21 @@ function ManageStudentsTab() {
 
           <div className="mt-5 space-y-3">
             {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
+            {!studentsQ.isLoading && activeStudents.length === 0 && archivedStudents.length === 0 && (
               <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
             )}
-            {!studentsQ.isLoading && (studentsQ.data ?? []).length > 0 && visibleStudents.length === 0 && (
+            {!studentsQ.isLoading && activeStudents.length === 0 && archivedStudents.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                Every student has a belt rank set. Nothing to fix here.
+                No active students. {archivedStudents.length} archived — restore them from the Archived
+                Students section below.
               </p>
             )}
+            {!studentsQ.isLoading && activeStudents.length > 0 && visibleStudents.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No active students match this filter. Nothing to fix here.
+              </p>
+            )}
+
             {visibleStudents.map((s) =>
               editingId === s.id ? (
                 <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
