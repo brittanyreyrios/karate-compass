@@ -1136,10 +1136,13 @@ function ManageStudentsTab() {
         </div>
       </div>
 
+      <ArchivedStudentsPanel students={archivedStudents} />
+
       <CsvImporter />
 
       <UnassignedClassPanel />
       <UnlinkedAudit />
+
 
     </div>
   );
