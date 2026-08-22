@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Flame, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 
 export const Route = createFileRoute("/privacy-policy")({
   head: () => ({
@@ -52,9 +52,7 @@ function PrivacyPolicyPage() {
           to="/"
           className="inline-flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-red shadow-red-glow">
-            <Flame className="h-5 w-5 text-white" strokeWidth={2.5} aria-hidden="true" />
-          </span>
+          <img src="/tigers-den-logo.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
           <span>
             <span className="block font-display text-lg font-bold uppercase leading-none tracking-wider">
               Tiger's Den

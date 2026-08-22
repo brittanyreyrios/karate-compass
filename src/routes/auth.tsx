@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { Flame, MailCheck, Check, X, Loader2 } from "lucide-react";
+import { MailCheck, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -176,9 +176,7 @@ function AuthPage() {
     <div className="grid min-h-dvh place-items-center bg-background p-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-elevated">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-lg bg-gradient-red shadow-red-glow">
-            <Flame className="h-5 w-5 text-white" strokeWidth={2.5} aria-hidden="true" />
-          </div>
+          <img src="/tigers-den-logo.png" alt="" className="h-11 w-11 shrink-0 object-contain" />
           <div>
             <div className="font-display text-lg font-bold uppercase leading-none tracking-wider">
               Tiger's Den
