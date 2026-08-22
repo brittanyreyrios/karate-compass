@@ -78,6 +78,13 @@ import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
+import {
+  parkStudent,
+  findProfileByEmail,
+  findDuplicateStudent,
+  normalizeParentEmail,
+} from "@/lib/park-student";
+
 
 import {
   ConsentAttentionItem,
@@ -812,7 +819,14 @@ function ManageStudentsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const visibleStudents = allStudents.filter(
+  /**
+   * The roster list shows active students only. Archived ones live in their own
+   * section below, which is also the only place a delete control exists.
+   */
+  const activeStudents = allStudents.filter((s) => s.active);
+  const archivedStudents = allStudents.filter((s) => !s.active);
+
+  const visibleStudents = activeStudents.filter(
     (s) =>
       (!noRankOnly || !s.belt_rank_id) &&
       (!noClassOnly || !byStudent.get(s.id)?.length) &&
@@ -827,6 +841,12 @@ function ManageStudentsTab() {
   const [classId, setClassId] = useState<string>("");
   const [systemId, setSystemId] = useState<string | null>(null);
   const [rankId, setRankId] = useState<string | null>(null);
+  /**
+   * Two paths. "linked" is the original behaviour. "parked" writes to
+   * pending_student_imports instead, where handle_new_user picks the child up the
+   * moment their parent signs up with the same email.
+   */
+  const [addMode, setAddMode] = useState<"linked" | "parked">("linked");
 
   const addStudent = useMutation({
     mutationFn: async () => {
@@ -835,14 +855,55 @@ function ManageStudentsTab() {
       }
       if (!rankId) throw new Error("Choose a belt system and rank for this student.");
       if (!classId) throw new Error("Choose the class this student trains in.");
-      const emailNorm = parentEmail.trim().toLowerCase();
-      const { data: profile, error: profErr } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("email", emailNorm)
-        .maybeSingle();
-      if (profErr) throw profErr;
-      if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first.`);
+      const emailNorm = normalizeParentEmail(parentEmail);
+      const profile = await findProfileByEmail(emailNorm);
+
+      if (addMode === "parked") {
+        // A parked row for an account that already exists is never consumed:
+        // handle_new_user only runs at signup. Refuse rather than create a child
+        // who silently never appears.
+        if (profile) {
+          throw new Error(
+            `${emailNorm} already has an account (${profile.family_name}). Switch to "Parent already has an account" — parking this student would never link them.`,
+          );
+        }
+        const dupe = await findDuplicateStudent({
+          firstName,
+          lastName,
+          parentEmail: emailNorm,
+          parentId: null,
+        });
+        if (dupe) {
+          throw new Error(
+            `${firstName.trim()} ${lastName.trim()} is already waiting for ${emailNorm}. No second copy created.`,
+          );
+        }
+        const rank = (ranksQ.data ?? []).find((r) => r.id === rankId);
+        await parkStudent({
+          firstName,
+          lastName,
+          parentEmail: emailNorm,
+          className: classes.find((c) => c.id === classId)?.class_name ?? "Unassigned",
+          classId,
+          currentBelt: rank?.name ?? "White",
+          beltRankId: rankId,
+        });
+        return { parked: true as const, email: emailNorm };
+      }
+
+      if (!profile) throw new Error(`No parent account found for ${emailNorm}. Ask the parent to sign up first, or choose "Parent hasn't signed up yet".`);
+
+      const dupe = await findDuplicateStudent({
+        firstName,
+        lastName,
+        parentEmail: emailNorm,
+        parentId: profile.id,
+      });
+      if (dupe) {
+        throw new Error(
+          `${firstName.trim()} ${lastName.trim()} is already ${dupe.kind === "parked" ? `waiting for ${emailNorm}` : `on the roster for ${emailNorm}`}. No second copy created.`,
+        );
+      }
 
       // class_name is never written from here: the enrollment row below is the
       // source of truth and a trigger derives the display label from it.
@@ -862,15 +923,22 @@ function ManageStudentsTab() {
         .from("student_classes")
         .insert({ student_id: created.id, class_id: classId, is_primary: true });
       if (enrErr) throw enrErr;
+      return { parked: false as const, email: emailNorm };
     },
-    onSuccess: () => {
-      toast.success("Student added and enrolled");
+    onSuccess: (res) => {
+      toast.success(
+        res.parked
+          ? `Held for ${res.email} — they'll be linked automatically at signup`
+          : "Student added and enrolled",
+      );
       setFirstName(""); setLastName(""); setParentEmail("");
       setClassId(""); setSystemId(null); setRankId(null);
+      qc.invalidateQueries({ queryKey: ["unlinked-imports"] });
       for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <div className="space-y-6">
@@ -885,8 +953,31 @@ function ManageStudentsTab() {
             <h2 className="font-display text-lg font-bold uppercase">Add New Student</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            The parent must already have an account for their email to match.
+            Add a student to a parent's account, or hold them until that parent signs up.
           </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { key: "linked", label: "Parent already has an account" },
+                { key: "parked", label: "Parent hasn't signed up yet" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                aria-pressed={addMode === opt.key}
+                onClick={() => setAddMode(opt.key)}
+                className={`rounded-xl border p-3 text-left text-xs font-semibold ${
+                  addMode === opt.key
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -926,9 +1017,26 @@ function ManageStudentsTab() {
 
           </div>
 
+          {addMode === "parked" && (
+            <p className="mt-4 rounded-xl border border-border bg-background/60 p-3 text-xs text-muted-foreground">
+              {firstName.trim() || lastName.trim()
+                ? `${firstName.trim()} ${lastName.trim()}`.trim()
+                : "This student"}{" "}
+              will be held until a parent signs up with{" "}
+              <span className="font-semibold text-foreground">
+                {parentEmail.trim() ? normalizeParentEmail(parentEmail) : "their email address"}
+              </span>
+              , then linked automatically with this class and rank. They appear in the
+              Unlinked Students Audit below until then.
+            </p>
+          )}
+
           <Button type="submit" disabled={addStudent.isPending} className="mt-6 w-full bg-gradient-red">
-            {addStudent.isPending ? "Adding…" : "Add Student"}
+            {addStudent.isPending
+              ? addMode === "parked" ? "Holding…" : "Adding…"
+              : addMode === "parked" ? "Hold For Signup" : "Add Student"}
           </Button>
+
         </form>
 
         {/* List */}
@@ -1009,14 +1117,21 @@ function ManageStudentsTab() {
 
           <div className="mt-5 space-y-3">
             {studentsQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {!studentsQ.isLoading && (studentsQ.data ?? []).length === 0 && (
+            {!studentsQ.isLoading && activeStudents.length === 0 && archivedStudents.length === 0 && (
               <p className="text-sm text-muted-foreground">No students yet. Add your first above.</p>
             )}
-            {!studentsQ.isLoading && (studentsQ.data ?? []).length > 0 && visibleStudents.length === 0 && (
+            {!studentsQ.isLoading && activeStudents.length === 0 && archivedStudents.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                Every student has a belt rank set. Nothing to fix here.
+                No active students. {archivedStudents.length} archived — restore them from the Archived
+                Students section below.
               </p>
             )}
+            {!studentsQ.isLoading && activeStudents.length > 0 && visibleStudents.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No active students match this filter. Nothing to fix here.
+              </p>
+            )}
+
             {visibleStudents.map((s) =>
               editingId === s.id ? (
                 <StudentEditRow key={s.id} student={s} onDone={() => setEditingId(null)} />
@@ -1028,10 +1143,13 @@ function ManageStudentsTab() {
         </div>
       </div>
 
+      <ArchivedStudentsPanel students={archivedStudents} />
+
       <CsvImporter />
 
       <UnassignedClassPanel />
       <UnlinkedAudit />
+
 
     </div>
   );
@@ -1081,13 +1199,273 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </Button>
       </div>
 
-      <Button size="sm" variant="outline" className="mt-2 h-11 w-full sm:mt-0 sm:h-9 sm:w-auto" onClick={onEdit}>
-        <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-      </Button>
+      <div className="mt-2 flex w-full gap-2 sm:mt-0 sm:w-auto">
+        <Button size="sm" variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={onEdit}>
+          <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+        </Button>
+        {/* Archive is the reversible action, and the ONLY removal control on an
+            active student. Deleting requires archiving first — see the Archived
+            Students section. */}
+        <ArchiveStudentButton student={student} />
+      </div>
     </div>
   );
 
 }
+
+/** "1 attendance record" / "47 attendance records" — counts always come from the DB. */
+function count(n: number, singular: string, plural = `${singular}s`) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Sets `active = false`. One boolean write, nothing else. */
+
+function ArchiveStudentButton({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const archive = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("students").update({ active: false }).eq("id", student.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`${student.first_name} archived — restore them any time`);
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none">
+          <UserX className="mr-1 h-3.5 w-3.5" /> Archive
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Archive {student.first_name} {student.last_name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            They come off the attendance sheet, the leaderboard, class counts and their
+            parent's dashboard, but nothing is deleted — their attendance, points and history
+            stay exactly as they are. You can restore them at any time from the Archived
+            Students section.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={archive.isPending} onClick={() => archive.mutate()}>
+            Archive student
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * Archived students. Collapsed by default, and the only place in the app with a
+ * delete control: an admin must archive a student first and then find them here.
+ * That ordering is the safety mechanism — there is deliberately no shortcut, and
+ * no bulk or multi-select delete.
+ */
+function ArchivedStudentsPanel({ students }: { students: Student[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const restore = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("students").update({ active: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Student restored with their attendance and points intact");
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div>
+          <h2 className="font-display text-lg font-bold uppercase">
+            Archived Students ({students.length})
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Archived students are hidden everywhere in the app but keep their full history.
+            Restore is instant. Deleting is permanent and only possible from here.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-5 space-y-3">
+          {students.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nobody is archived right now.</p>
+          )}
+          {students.map((s) => (
+            <div
+              key={s.id}
+              className="rounded-xl border border-border bg-background p-3 sm:flex sm:items-center sm:gap-3"
+            >
+              <div className="min-w-0 sm:flex-1">
+                <div className="break-words font-semibold">
+                  {s.first_name} {s.last_name}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />
+                  <span>Former class: {s.class_name}</span>
+                  <span>{s.attendance_count} classes</span>
+                  <span>{s.points} Dojo pts</span>
+                </div>
+              </div>
+              <div className="mt-2 flex gap-2 sm:mt-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  disabled={restore.isPending}
+                  onClick={() => restore.mutate(s.id)}
+                >
+                  <Check className="mr-1 h-3.5 w-3.5" /> Restore
+                </Button>
+                <DeleteStudentDialog student={s} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Permanent delete. The counts in the sentence are read from the database when
+ * the dialog opens — never estimated — because deleting cascades to attendance
+ * events, point events, poll votes and class enrolments, and there is no undo.
+ * The button stays disabled until the admin types the student's full name.
+ */
+function DeleteStudentDialog({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const fullName = `${student.first_name} ${student.last_name}`;
+
+  const countsQ = useQuery({
+    queryKey: ["student-delete-counts", student.id],
+    enabled: open,
+    queryFn: async () => {
+      const head = { count: "exact" as const, head: true };
+      const [att, pts, votes, enr] = await Promise.all([
+        supabase.from("attendance_events").select("id", head).eq("student_id", student.id),
+        supabase.from("point_events").select("id", head).eq("student_id", student.id),
+        supabase.from("poll_votes").select("id", head).eq("student_id", student.id),
+        supabase.from("student_classes").select("id", head).eq("student_id", student.id),
+      ]);
+      for (const r of [att, pts, votes, enr]) if (r.error) throw r.error;
+      return {
+        attendance: att.count ?? 0,
+        points: pts.count ?? 0,
+        votes: votes.count ?? 0,
+        enrolments: enr.count ?? 0,
+      };
+    },
+  });
+
+  const del = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("students").delete().eq("id", student.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`${fullName} deleted permanently`);
+      setOpen(false);
+      setTyped("");
+      for (const key of ENROLLMENT_KEYS) qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const c = countsQ.data;
+  const sentence = c
+    ? `This permanently deletes ${fullName}, ${count(c.attendance, "attendance record")}, ${count(
+        c.points,
+        "point entry",
+        "point entries",
+      )}${c.votes > 0 ? `, ${count(c.votes, "poll vote")}` : ""} and ${count(
+        c.enrolments,
+        "class enrolment",
+      )}. This cannot be undone.`
+    : null;
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setTyped("");
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-11 flex-1 border-destructive/50 text-destructive sm:h-9 sm:flex-none">
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {fullName} for good?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>
+                {countsQ.isLoading && "Reading this student's records…"}
+                {countsQ.isError && "Could not read this student's records — nothing has been deleted."}
+                {sentence}
+              </p>
+              <p>
+                Archiving is the reversible option: an archived student is already hidden from
+                every screen and can be restored at any time. Deleting is not reversible — their
+                whole history goes with them.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor={`confirm-${student.id}`} className="text-xs">
+            Type <span className="font-bold text-foreground">{fullName}</span> to confirm
+          </Label>
+          <Input
+            id={`confirm-${student.id}`}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            className="mt-1"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={typed.trim() !== fullName || !c || del.isPending}
+            onClick={() => del.mutate()}
+          >
+            {del.isPending ? "Deleting…" : "Delete permanently"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 
 function StudentEditRow({ student, onDone }: { student: Student; onDone: () => void }) {
   const qc = useQueryClient();
@@ -2124,17 +2502,20 @@ function CsvImporter() {
           // class is resolved to an *id* here, where a human is watching, so the
           // child arrives enrolled — not merely labelled — when their parent
           // signs up later (AS5).
-          const { error } = await supabase.from("pending_student_imports").insert({
-            first_name: row.first_name.trim(),
-            last_name: row.last_name.trim(),
-            parent_email: email,
-            class_name: assignedClassName,
-            class_id: assignedClass,
-            current_belt: belt,
-            ...(rank ? { belt_rank_id: rank.id } : {}),
-            ...(startDate ? { start_date: startDate } : {}),
+          // One writer for parked rows (src/lib/park-student.ts), shared with the
+          // single Add Student form: email normalisation lives there, because a
+          // stray capital is a child who never links at signup.
+          await parkStudent({
+            firstName: row.first_name,
+            lastName: row.last_name,
+            parentEmail: email,
+            className: assignedClassName,
+            classId: assignedClass,
+            currentBelt: belt,
+            beltRankId: rank?.id ?? null,
+            startDate,
           });
-          if (error) throw error;
+
           out.push({
             student: name,
             status: "unlinked",

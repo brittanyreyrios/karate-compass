@@ -95,10 +95,13 @@ function Curriculum() {
   const studentsQ = useQuery({
     queryKey: ["students-mine-curriculum"],
     queryFn: async () => {
+      // Archived students (active = false) are hidden everywhere in the app.
       const { data, error } = await supabase
         .from("students")
         .select("id, first_name, belt_rank_id, created_at")
+        .eq("active", true)
         .order("created_at");
+
       if (error) throw error;
       return (data ?? []) as {
         id: string;

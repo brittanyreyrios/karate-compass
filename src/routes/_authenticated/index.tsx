@@ -103,7 +103,15 @@ function Dashboard() {
   const studentsQ = useQuery({
     queryKey: ["students-mine"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("students").select("*").order("created_at");
+      // Archived students are hidden from the leaderboard, curriculum and class
+      // counts, so they must be hidden from their own parent's switcher too —
+      // half-archived reads as a bug.
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .eq("active", true)
+        .order("created_at");
+
       if (error) throw error;
       return (data ?? []) as Student[];
     },
@@ -242,15 +250,21 @@ function Dashboard() {
   }
 
   if (!student) {
+    // Covers both "never linked" and "their only child is archived": an archived
+    // student is hidden here, so this page must still render something sensible.
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold uppercase">Welcome, {profileQ.data?.family_name ?? "Family"}</h1>
         <p className="mt-3 text-muted-foreground">
-          No students are linked to your account yet. Ask a Tiger's Den admin to link a student to your account and their progress appears here.
+          There are no active students on your account right now. If your child has just joined,
+          or if their place is on hold because they stopped training for a while, ask a Tiger's Den
+          admin to link or reactivate them — their belt, points and attendance history are kept
+          safe and their progress reappears here straight away.
         </p>
       </div>
     );
   }
+
 
   const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
