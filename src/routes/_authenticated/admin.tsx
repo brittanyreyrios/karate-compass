@@ -2124,17 +2124,20 @@ function CsvImporter() {
           // class is resolved to an *id* here, where a human is watching, so the
           // child arrives enrolled — not merely labelled — when their parent
           // signs up later (AS5).
-          const { error } = await supabase.from("pending_student_imports").insert({
-            first_name: row.first_name.trim(),
-            last_name: row.last_name.trim(),
-            parent_email: email,
-            class_name: assignedClassName,
-            class_id: assignedClass,
-            current_belt: belt,
-            ...(rank ? { belt_rank_id: rank.id } : {}),
-            ...(startDate ? { start_date: startDate } : {}),
+          // One writer for parked rows (src/lib/park-student.ts), shared with the
+          // single Add Student form: email normalisation lives there, because a
+          // stray capital is a child who never links at signup.
+          await parkStudent({
+            firstName: row.first_name,
+            lastName: row.last_name,
+            parentEmail: email,
+            className: assignedClassName,
+            classId: assignedClass,
+            currentBelt: belt,
+            beltRankId: rank?.id ?? null,
+            startDate,
           });
-          if (error) throw error;
+
           out.push({
             student: name,
             status: "unlinked",
