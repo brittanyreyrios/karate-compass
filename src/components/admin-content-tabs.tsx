@@ -514,6 +514,7 @@ function CopyToDialog({
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [didWrite, setDidWrite] = useState(false);
   const [report, setReport] = useState<
     { created: string[]; skipped: string[]; failed: string[] } | null
   >(null);
@@ -691,12 +692,22 @@ function CopyToDialog({
         onClick={() => {
           setReport(null);
           setPicked([]);
+          setDidWrite(false);
           setOpen(true);
         }}
       >
         <Copy className="mr-1 h-4 w-4" aria-hidden="true" /> Copy to…
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v && didWrite) {
+            setDidWrite(false);
+            onCopied();
+          }
+        }}
+      >
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Copy “{item.technique}” to other ranks</DialogTitle>
