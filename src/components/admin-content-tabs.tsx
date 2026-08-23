@@ -668,7 +668,11 @@ function CopyToDialog({
     setRunning(false);
     setReport({ created, skipped, failed });
     setPicked([]);
-    onCopied();
+    // The refresh is deliberately deferred to closeDialog(): invalidating here
+    // re-renders the admin list, which remounts this row and would wipe the
+    // per-destination success/skip/failure report the admin still needs to read.
+    setDidWrite(true);
+
     if (failed.length > 0) {
       toast.error(`${created.length} copied, ${failed.length} failed. See the list.`);
     } else if (created.length === 0) {
