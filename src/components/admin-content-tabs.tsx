@@ -1222,7 +1222,21 @@ export function CurriculumAdminTab() {
             ))}
           </SelectContent>
         </Select>
+        {/* Round 20 — additive sibling of "Move to": same destination list, several
+            at once, and the source row is left untouched. */}
+        <CopyToDialog
+          item={it}
+          ranks={ranks}
+          systems={systems}
+          programName={programName}
+          onCopied={() => {
+            qc.invalidateQueries({ queryKey: ["admin-curriculum-items"] });
+            qc.invalidateQueries({ queryKey: ["curriculum-items"] });
+            qc.invalidateQueries({ queryKey: ["curriculum-for-children"] });
+          }}
+        />
       </div>
+
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
