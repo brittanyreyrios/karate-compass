@@ -479,6 +479,309 @@ function audienceSentence(opts: {
   return `Every student at ${opts.rankName} and above on the ${opts.systemName ?? ""} ${rankWord} ladder, ${where}, will see this.`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Round 20 — "Copy to…": one requirement onto several other targets   */
+/* ------------------------------------------------------------------ */
+
+type CopyDestination =
+  | { kind: "tier"; tier: CurriculumTier }
+  | { kind: "rank"; rankId: string };
+
+const destKey = (d: CopyDestination) => (d.kind === "tier" ? `tier:${d.tier}` : `rank:${d.rankId}`);
+
+/**
+ * Module-level, NOT nested in the tab component: a dialog holding checkbox state
+ * must survive the parent re-rendering on every query invalidation.
+ *
+ * Everything is additive. The source row is never read-modified or updated, and
+ * each copy claims its own end-of-group sort_order from the same advisory-locked
+ * next_curriculum_sort_order RPC that retargetItem uses — the source's number is
+ * never carried across.
+ */
+function CopyToDialog({
+  item,
+  ranks,
+  systems,
+  programName,
+  onCopied,
+}: {
+  item: CurriculumItem;
+  ranks: { id: string; name: string; system_id: string }[];
+  systems: { id: string; name: string; uses_belts: boolean; program_id: string | null }[];
+  programName: (id: string | null) => string | null;
+  onCopied: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [running, setRunning] = useState(false);
+  const [report, setReport] = useState<
+    { created: string[]; skipped: string[]; failed: string[] } | null
+  >(null);
+
+  const sourceKey = item.belt_rank_id
+    ? `rank:${item.belt_rank_id}`
+    : item.curriculum_tier
+      ? `tier:${item.curriculum_tier}`
+      : null;
+
+  // Exactly the same destinations "Move to" offers — the three curriculum tiers
+  // and every rank with its belt system named — minus the row's own current
+  // target, so a row can never be duplicated onto itself.
+  const destinations = useMemo(() => {
+    const list: { key: string; label: string; dest: CopyDestination }[] = [];
+    for (const t of CURRICULUM_TIERS) {
+      list.push({ key: `tier:${t}`, label: `All ${TIER_LABELS[t]} students`, dest: { kind: "tier", tier: t } });
+    }
+    for (const r of ranks) {
+      const sys = systems.find((s) => s.id === r.system_id);
+      list.push({
+        key: `rank:${r.id}`,
+        label: sys ? `${r.name} · ${sys.name}` : r.name,
+        dest: { kind: "rank", rankId: r.id },
+      });
+    }
+    return list.filter((d) => d.key !== sourceKey);
+  }, [ranks, systems, sourceKey]);
+
+  /**
+   * Duplicate guard, null-safe. A requirement with no video has a NULL video id,
+   * and NULL = NULL is never true, so comparing ids directly would let two
+   * identical text-only requirements both be created with no skip reported. The
+   * check below compares technique plus "same video id, or both without a video".
+   */
+  const sameRequirement = (row: CurriculumItem) =>
+    row.technique.trim().toLowerCase() === item.technique.trim().toLowerCase() &&
+    (row.video_youtube_id ?? null) === (item.video_youtube_id ?? null);
+
+  /**
+   * The audience is computed FOR THE DESTINATION, not copied from the source: a
+   * copy keeps the source's programme but lands on a different rank, so the
+   * sentence genuinely differs — which is the whole point when copying across
+   * belt systems.
+   */
+  const previewFor = (d: CopyDestination) => {
+    const rank = d.kind === "rank" ? ranks.find((r) => r.id === d.rankId) : undefined;
+    const sys = rank ? systems.find((s) => s.id === rank.system_id) : undefined;
+    const sentence =
+      audienceSentence({
+        target: d.kind,
+        tier: d.kind === "tier" ? d.tier : "beginner",
+        rankName: rank?.name ?? null,
+        systemName: sys?.name ?? null,
+        usesBelts: sys ? sys.uses_belts !== false : true,
+        programChoice: item.program_id ?? EVERY_PROGRAM,
+        programName: programName(item.program_id),
+      }) ?? "";
+    // Surfaced, never auto-fixed: if the destination rank's belt system belongs to
+    // a different programme than the one this requirement carries, nobody at that
+    // rank will see the copy.
+    const mismatch =
+      d.kind === "rank" &&
+      item.program_id &&
+      sys?.program_id &&
+      sys.program_id !== item.program_id
+        ? `Heads up: ${sys.name} belongs to ${programName(sys.program_id) ?? "another programme"}, but this copy keeps ${programName(item.program_id) ?? "its programme"}. Students at this rank will NOT see it unless you change "Who sees this" on the copy afterwards.`
+        : null;
+    return { sentence, mismatch };
+  };
+
+  const chosen = destinations.filter((d) => picked.includes(d.key));
+
+  // Skips are decided against what is on screen for the preview, and re-checked
+  // against the database immediately before each insert.
+  const [existing, setExisting] = useState<CurriculumItem[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void (async () => {
+      const { data } = await supabase.from("curriculum_items").select("*");
+      if (live) setExisting((data ?? []) as CurriculumItem[]);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [open]);
+
+  const wouldSkip = (d: { key: string; dest: CopyDestination }) =>
+    existing.some((row) => {
+      const matchesTarget =
+        d.dest.kind === "tier"
+          ? row.belt_rank_id === null && row.curriculum_tier === d.dest.tier
+          : row.belt_rank_id === d.dest.rankId;
+      return matchesTarget && row.id !== item.id && sameRequirement(row);
+    });
+
+  const toCreate = chosen.filter((d) => !wouldSkip(d));
+  const toSkip = chosen.filter((d) => wouldSkip(d));
+
+  const run = async () => {
+    setRunning(true);
+    const created: string[] = [];
+    const skipped: string[] = [];
+    const failed: string[] = [];
+    for (const d of chosen) {
+      try {
+        const rankId = d.dest.kind === "rank" ? d.dest.rankId : null;
+        const tier = d.dest.kind === "tier" ? d.dest.tier : null;
+
+        // Fresh, null-safe duplicate check in the database.
+        let q = supabase
+          .from("curriculum_items")
+          .select("id")
+          .eq("technique", item.technique);
+        q = rankId ? q.eq("belt_rank_id", rankId) : q.is("belt_rank_id", null).eq("curriculum_tier", tier!);
+        q = item.video_youtube_id
+          ? q.eq("video_youtube_id", item.video_youtube_id)
+          : q.is("video_youtube_id", null);
+        const { data: dupes, error: dupeErr } = await q;
+        if (dupeErr) throw dupeErr;
+        if ((dupes ?? []).length > 0) {
+          skipped.push(d.label);
+          continue;
+        }
+
+        const { data: nextOrder, error: orderErr } = await supabase.rpc(
+          "next_curriculum_sort_order",
+          { _belt_rank_id: rankId as string, _curriculum_tier: tier as string },
+        );
+        if (orderErr) throw orderErr;
+
+        const { error } = await supabase.from("curriculum_items").insert({
+          technique: item.technique,
+          category: item.category,
+          notes: item.notes,
+          program_id: item.program_id,
+          video_youtube_id: item.video_youtube_id,
+          video_title: item.video_title,
+          video_seconds: item.video_seconds,
+          video_orientation: item.video_orientation,
+          belt_rank_id: rankId,
+          curriculum_tier: tier,
+          sort_order: nextOrder ?? 0,
+        });
+        if (error) throw error;
+        created.push(d.label);
+      } catch (e) {
+        failed.push(`${d.label} — ${(e as Error).message}`);
+      }
+    }
+    setRunning(false);
+    setReport({ created, skipped, failed });
+    setPicked([]);
+    onCopied();
+    if (failed.length > 0) {
+      toast.error(`${created.length} copied, ${failed.length} failed. See the list.`);
+    } else if (created.length === 0) {
+      toast.error("Nothing copied — every destination already had it.");
+    } else {
+      toast.success(`Created ${created.length} new requirement${created.length === 1 ? "" : "s"}.`);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-11"
+        onClick={() => {
+          setReport(null);
+          setPicked([]);
+          setOpen(true);
+        }}
+      >
+        <Copy className="mr-1 h-4 w-4" aria-hidden="true" /> Copy to…
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Copy “{item.technique}” to other ranks</DialogTitle>
+            <DialogDescription>
+              Pick every rank or tier that should also have this requirement. The original stays
+              exactly where it is. These become separate requirements — editing one later will not
+              change the others.
+            </DialogDescription>
+          </DialogHeader>
+
+          <fieldset className="space-y-2">
+            <legend className="text-xs uppercase tracking-widest text-muted-foreground">
+              Destinations
+            </legend>
+            {destinations.map((d) => (
+              <label key={d.key} className="flex min-h-[36px] items-center gap-3 text-sm">
+                <Checkbox
+                  checked={picked.includes(d.key)}
+                  onCheckedChange={(v) =>
+                    setPicked((prev) => (v ? [...prev, d.key] : prev.filter((k) => k !== d.key)))
+                  }
+                />
+                {d.label}
+              </label>
+            ))}
+          </fieldset>
+
+          <div className="rounded-xl border border-border bg-background/60 p-3 text-sm">
+            <p className="font-semibold">
+              {toCreate.length === 0
+                ? "Nothing will be created yet."
+                : `This will create ${toCreate.length} new requirement${toCreate.length === 1 ? "" : "s"}.`}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {toCreate.map((d) => {
+                const { sentence, mismatch } = previewFor(d.dest);
+                return (
+                  <li key={d.key}>
+                    <span className="font-medium">{d.label}</span>
+                    <span className="block text-xs text-muted-foreground">{sentence}</span>
+                    {mismatch && <span className="block text-xs text-primary">{mismatch}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            {toSkip.length > 0 && (
+              <p className="mt-3 text-xs text-primary">
+                Skipped — already there: {toSkip.map((d) => d.label).join(", ")}. A requirement with
+                the same name and the same video (or no video) already exists at{" "}
+                {toSkip.length === 1 ? "that destination" : "those destinations"}.
+              </p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              These become separate requirements. Editing one later will not change the others.
+            </p>
+          </div>
+
+          {report && (
+            <div className="rounded-xl border border-border p-3 text-xs">
+              <p>Created: {report.created.length ? report.created.join(", ") : "none"}</p>
+              <p className="mt-1">
+                Skipped as duplicates: {report.skipped.length ? report.skipped.join(", ") : "none"}
+              </p>
+              <p className="mt-1 text-destructive">
+                Failed: {report.failed.length ? report.failed.join("; ") : "none"}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Close
+            </Button>
+            <Button
+              className="bg-gradient-red"
+              disabled={running || toCreate.length === 0}
+              onClick={() => void run()}
+            >
+              {running ? "Copying…" : `Create ${toCreate.length} cop${toCreate.length === 1 ? "y" : "ies"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+
+
 export function CurriculumAdminTab() {
   const qc = useQueryClient();
   const systemsQ = useBeltSystems();
