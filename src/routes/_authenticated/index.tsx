@@ -28,7 +28,8 @@ import { LevelChip } from "@/components/level-chip";
 import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
-import { CHIP_BASE, EVENT_TYPE_META, type DojoEvent } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
+import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
 
 import { plural, count } from "@/lib/plural";
@@ -566,7 +567,7 @@ function NextUpStrip() {
     queryFn: async () => {
       const { data } = await supabase
         .from("events")
-        .select("id, title, event_type, starts_at, all_day, location, audience_label")
+        .select("id, title, event_type, starts_at, all_day, location, audience_label, disciplines")
         .eq("published", true)
         .gte("starts_at", new Date().toISOString())
         .order("starts_at", { ascending: true })
@@ -595,9 +596,12 @@ function NextUpStrip() {
       <ul className="mt-4 grid gap-3 sm:grid-cols-3">
         {events.map((event) => (
           <li key={event.id} className="rounded-xl border border-border bg-background/50 p-4">
-            <span className={`${CHIP_BASE} ${EVENT_TYPE_META[event.event_type].badge}`}>
-              {EVENT_TYPE_META[event.event_type].label}
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`${CHIP_BASE} ${EVENT_TYPE_META[event.event_type].badge}`}>
+                {EVENT_TYPE_META[event.event_type].label}
+              </span>
+              <DisciplineTags disciplines={cleanDisciplines(event.disciplines)} />
+            </div>
             <h3 className="mt-3 font-semibold text-foreground">{event.title}</h3>
             <div className="mt-1 text-xs text-muted-foreground">
               {new Date(event.starts_at).toLocaleDateString(undefined, {
