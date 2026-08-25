@@ -352,6 +352,7 @@ export function buildCalendarItems(options: {
 
   for (const t of tournaments) {
     const days = dateKeyRange(t.event_date, t.event_end_date);
+    const tags = disciplinesOf(t);
     days.forEach((dateKey, i) => {
       items.push({
         key: days.length > 1 ? `tournament-${t.id}-${dateKey}` : `tournament-${t.id}`,
