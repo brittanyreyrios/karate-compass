@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           discipline: string | null
+          disciplines: string[] | null
           divisions: string | null
           event_date: string | null
           event_end_date: string | null
@@ -41,6 +42,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discipline?: string | null
+          disciplines?: string[] | null
           divisions?: string | null
           event_date?: string | null
           event_end_date?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discipline?: string | null
+          disciplines?: string[] | null
           divisions?: string | null
           event_date?: string | null
           event_end_date?: string | null
@@ -409,6 +412,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          disciplines: string[] | null
           ends_at: string | null
           event_type: string
           id: string
@@ -425,6 +429,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          disciplines?: string[] | null
           ends_at?: string | null
           event_type?: string
           id?: string
@@ -441,6 +446,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          disciplines?: string[] | null
           ends_at?: string | null
           event_type?: string
           id?: string
