@@ -30,16 +30,55 @@ export type DojoEvent = {
   audience_label: string | null;
   published: boolean;
   announcement_id: string | null;
+  disciplines: string[] | null;
 };
 
 
+/**
+ * The four disciplines, defined ONCE. Adding a fifth is a one-line change here —
+ * deliberately not a CHECK constraint, matching how the technique library's
+ * labels already work.
+ */
+export const DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"] as const;
+export type Discipline = (typeof DISCIPLINES)[number];
 
+export function isKnownDiscipline(value: string): value is Discipline {
+  return (DISCIPLINES as readonly string[]).includes(value);
+}
+
+/**
+ * Discipline chips reuse the CHIP_BASE recipe, so they match the existing
+ * event-type badges in shape and sizing. Each carries its text label — a
+ * colour-blind parent reads "Jiu Jitsu", never just a blue dot. Hues are
+ * deliberately distinct from the event-type palette so "Tournament · Jiu Jitsu"
+ * reads as two different kinds of fact.
+ */
+export const DISCIPLINE_META: Record<Discipline, { label: string; badge: string }> = {
+  Karate: { label: "Karate", badge: "border-dsc-karate-line bg-dsc-karate text-dsc-karate-fg" },
+  "Jiu Jitsu": { label: "Jiu Jitsu", badge: "border-dsc-jj-line bg-dsc-jj text-dsc-jj-fg" },
+  Wrestling: { label: "Wrestling", badge: "border-dsc-wrestling-line bg-dsc-wrestling text-dsc-wrestling-fg" },
+  Striking: { label: "Striking", badge: "border-dsc-striking-line bg-dsc-striking text-dsc-striking-fg" },
+};
+
+/** Unknown values still render, in a neutral chip, so a typo is visible rather than silent. */
+const UNKNOWN_DISCIPLINE_BADGE = "border-ev-other-line bg-ev-other text-ev-other-fg";
+
+export function disciplineBadge(value: string): string {
+  return isKnownDiscipline(value) ? DISCIPLINE_META[value].badge : UNKNOWN_DISCIPLINE_BADGE;
+}
+
+/** Trimmed, de-duplicated, empty values dropped. Unknown values are KEPT. */
+export function cleanDisciplines(value: string[] | null | undefined): string[] {
+  if (!value) return [];
+  return [...new Set(value.map((v) => v.trim()).filter(Boolean))];
+}
 
 export type TournamentRow = {
   id: string;
   title: string;
   body: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   venue: string | null;
   address: string | null;
@@ -49,6 +88,7 @@ export type TournamentRow = {
   registration_deadline: string | null;
   event_url: string | null;
 };
+
 
 export type HolidayRow = {
   id: string;
