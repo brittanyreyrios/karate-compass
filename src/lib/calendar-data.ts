@@ -73,6 +73,22 @@ export function cleanDisciplines(value: string[] | null | undefined): string[] {
   return [...new Set(value.map((v) => v.trim()).filter(Boolean))];
 }
 
+/**
+ * THE single legacy-fallback rule, so no reader can drift from another: the
+ * `disciplines` array when it has anything in it, otherwise the legacy
+ * single-value `discipline` column for rows written before the array existed,
+ * otherwise nothing. Every card, the calendar and the tournament editor call
+ * this — there is deliberately no second copy of these three branches.
+ */
+export function disciplinesOf(row: {
+  disciplines?: string[] | null;
+  discipline?: string | null;
+}): string[] {
+  const fromArray = cleanDisciplines(row.disciplines);
+  if (fromArray.length > 0) return fromArray;
+  return cleanDisciplines(row.discipline ? [row.discipline] : []);
+}
+
 export type TournamentRow = {
   id: string;
   title: string;
@@ -288,7 +304,23 @@ export function buildCalendarItems(options: {
     });
   }
 
+  /**
+   * De-duplication: an event row can be the calendar copy of a tournament
+   * announcement (event_type 'tournament', announcement_id pointing at it). When
+   * both are in THIS call the day would draw the same competition twice, and the
+   * two copies can carry different tags, so a discipline filter would hide one
+   * and keep the other.
+   *
+   * This keys off the actual tournament ids being built, never off "the event has
+   * an announcement_id" — several events link to ordinary school-news
+   * announcements and must stay. And when the tournament falls outside the
+   * fetched window, its id is absent here, so the event copy remains the only
+   * record of that day and still renders.
+   */
+  const tournamentIds = new Set(tournaments.map((t) => t.id));
+
   for (const e of events) {
+    if (e.announcement_id && tournamentIds.has(e.announcement_id)) continue;
     const starts = new Date(e.starts_at);
     const dateKey = toDateKey(starts);
     const ends = e.ends_at ? new Date(e.ends_at) : null;
@@ -320,6 +352,7 @@ export function buildCalendarItems(options: {
 
   for (const t of tournaments) {
     const days = dateKeyRange(t.event_date, t.event_end_date);
+    const tags = disciplinesOf(t);
     days.forEach((dateKey, i) => {
       items.push({
         key: days.length > 1 ? `tournament-${t.id}-${dateKey}` : `tournament-${t.id}`,
@@ -331,7 +364,10 @@ export function buildCalendarItems(options: {
         timeLabel: days.length > 1 ? `Day ${i + 1} of ${days.length}` : "All day",
         sortMinutes: -1,
         location: t.venue || t.location,
-        audienceLabel: t.divisions ?? t.discipline,
+        // Divisions still win when the promoter published them. Without them we
+        // fall back to ALL the tags, not the single legacy column, so a
+        // Karate + Jiu Jitsu tournament does not lose one of them here.
+        audienceLabel: t.divisions ?? (tags.length > 0 ? tags.join(" · ") : null),
         description: t.body,
         eventType: "tournament",
         cancelled: false,
@@ -341,12 +377,7 @@ export function buildCalendarItems(options: {
         address: t.address,
         registrationDeadline: t.registration_deadline,
         eventUrl: t.event_url,
-        // Tournaments come from announcements, so their tags come from the
-        // array there; the legacy `discipline` column is the fallback for any
-        // row written before this feature existed.
-        disciplines: cleanDisciplines(
-          t.disciplines && t.disciplines.length > 0 ? t.disciplines : t.discipline ? [t.discipline] : [],
-        ),
+        disciplines: tags,
       });
     });
   }

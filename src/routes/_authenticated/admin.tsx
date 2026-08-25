@@ -77,7 +77,7 @@ import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab }
 import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { DisciplinePicker } from "@/components/discipline-tags";
-import { cleanDisciplines } from "@/lib/calendar-data";
+import { cleanDisciplines, disciplinesOf } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
@@ -1798,15 +1798,9 @@ function TournamentManager() {
 function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onSaved: () => void }) {
   const [form, setForm] = useState<Tournament>({
     ...tournament,
-    // A row written before disciplines existed still has its legacy value; seed
-    // from it so saving cannot silently blank the tag.
-    disciplines: cleanDisciplines(
-      tournament.disciplines && tournament.disciplines.length > 0
-        ? tournament.disciplines
-        : tournament.discipline
-          ? [tournament.discipline]
-          : [],
-    ),
+    // A row written before disciplines existed still has its legacy value; the
+    // shared helper seeds from it so saving cannot silently blank the tag.
+    disciplines: disciplinesOf(tournament),
   });
   const set = (key: keyof Tournament, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const optional = (value: string | null) => value?.trim() || null;

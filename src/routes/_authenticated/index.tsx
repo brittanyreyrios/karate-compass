@@ -28,7 +28,7 @@ import { LevelChip } from "@/components/level-chip";
 import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
-import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, disciplinesOf, type DojoEvent } from "@/lib/calendar-data";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
 
@@ -71,6 +71,7 @@ type Announcement = {
   body: string;
   tag: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   event_date: string | null;
   event_end_date: string | null;
@@ -80,7 +81,7 @@ type Announcement = {
 };
 
 const DASHBOARD_ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, created_at";
 
 function Dashboard() {
   const qc = useQueryClient();
@@ -525,6 +526,7 @@ function Dashboard() {
             <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
               {tournaments.map((t) => {
                 const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
+                const tags = disciplinesOf(t);
                 return (
                   <li key={t.id} className="relative">
                     <span className="absolute -left-[31px] top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-primary bg-background">
@@ -532,9 +534,15 @@ function Dashboard() {
                     </span>
                     <div className="rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50">
                       <div className="flex items-center justify-between gap-2">
-                        <Badge className={t.discipline === "Jiu Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
-                          {t.discipline ?? "Event"}
-                        </Badge>
+                        {/* Untagged tournaments keep the neutral "Event" badge: the row
+                            needs something beside the "Nd away" counter. */}
+                        {tags.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <DisciplineTags disciplines={tags} />
+                          </div>
+                        ) : (
+                          <Badge className="bg-foreground/10 text-foreground hover:bg-foreground/15">Event</Badge>
+                        )}
                         {days !== null && (
                           <span className="text-xs font-bold uppercase tracking-widest text-primary">{days}d away</span>
                         )}

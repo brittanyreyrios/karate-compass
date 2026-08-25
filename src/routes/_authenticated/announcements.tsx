@@ -10,6 +10,8 @@ import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
 import { useTournaments } from "@/lib/announcements";
+import { DisciplineTags } from "@/components/discipline-tags";
+import { disciplinesOf } from "@/lib/calendar-data";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -29,6 +31,7 @@ type Announcement = {
   body: string;
   tag: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   event_date: string | null;
   event_end_date: string | null;
@@ -42,7 +45,7 @@ type Announcement = {
 };
 
 const ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
 
 /** One page of announcements. The archive grows forever; the feed must not. */
 const PAGE_SIZE = 20;
@@ -159,6 +162,7 @@ function Announcements() {
 
             {tournaments.map((t) => {
               const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
+              const tags = disciplinesOf(t);
               return (
                 <li key={t.id} className="relative">
                   <span className="absolute -left-[31px] top-4 grid h-6 w-6 place-items-center rounded-full border-2 border-primary bg-background shadow-red-glow">
@@ -166,9 +170,15 @@ function Announcements() {
                   </span>
                   <article className="rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/60">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge className={t.discipline === "Jiu Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
-                        {t.discipline ?? "Event"}
-                      </Badge>
+                      {/* Untagged tournaments keep the neutral "Event" badge so the
+                          row still has something beside the days counter. */}
+                      {tags.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <DisciplineTags disciplines={tags} />
+                        </div>
+                      ) : (
+                        <Badge className="bg-foreground/10 text-foreground hover:bg-foreground/15">Event</Badge>
+                      )}
                       {days !== null && <span className="font-display text-xs font-bold uppercase tracking-widest text-primary">{days} days</span>}
                     </div>
                     <h3 className="mt-3 font-display text-lg font-bold uppercase leading-tight">{t.title}</h3>

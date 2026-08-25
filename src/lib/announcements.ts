@@ -25,6 +25,7 @@ export type Tournament = {
   body: string;
   tag: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   event_date: string | null;
   event_end_date: string | null;
@@ -38,7 +39,7 @@ export type Tournament = {
 };
 
 const TOURNAMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
 
 /** Local calendar day, not UTC — a date-only column must not shift timezone. */
 function todayKey() {
