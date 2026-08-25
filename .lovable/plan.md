@@ -59,5 +59,7 @@ Every changed location will be reported by file and line.
 3. A ZZ event tagged with two disciplines: stored value and both tags rendering.
 4. Filter to one discipline: matching ZZ event present, differently-tagged ZZ event gone, untagged ZZ event still present.
 5. **Filter to "Jiu Jitsu": a real Jiu Jitsu tournament visible, the Karate ISKF Open gone, and a school closure plus a belt testing date still visible.**
-6. Page with no tagged items in view: chip bar absent.
-7. The four real events still render, untagged and unmodified; `events` and `announcements` row counts before/after; all ZZ rows deleted; RLS policies and functions unchanged.
+6. A ZZ event tagged `{Judo}` only: with a filter active, it still appears.
+7. A ZZ tournament edited through the **edit** form: `discipline` and `disciplines` agreeing afterwards.
+8. Page with no tagged items in view: chip bar absent.
+9. The four real events still render, untagged and unmodified; `events` and `announcements` row counts before/after; all ZZ rows deleted; RLS policies and functions unchanged.
