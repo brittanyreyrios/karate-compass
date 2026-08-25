@@ -10,6 +10,8 @@ import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
 import { useTournaments } from "@/lib/announcements";
+import { DisciplineTags } from "@/components/discipline-tags";
+import { disciplinesOf } from "@/lib/calendar-data";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -43,7 +45,7 @@ type Announcement = {
 };
 
 const ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
 
 /** One page of announcements. The archive grows forever; the feed must not. */
 const PAGE_SIZE = 20;

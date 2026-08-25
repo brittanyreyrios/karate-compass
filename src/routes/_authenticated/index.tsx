@@ -71,6 +71,7 @@ type Announcement = {
   body: string;
   tag: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   event_date: string | null;
   event_end_date: string | null;
@@ -80,7 +81,7 @@ type Announcement = {
 };
 
 const DASHBOARD_ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, location, event_date, event_end_date, venue, address, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, created_at";
 
 function Dashboard() {
   const qc = useQueryClient();
