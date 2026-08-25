@@ -173,8 +173,16 @@ function CalendarPage() {
   const [selected, setSelected] = useState<Date>(today);
   const [view, setView] = useState<"list" | "month">("list");
 
-  const { items, loading: rawLoading, failed, retry } = useCalendarData(month);
+  const { items: allItems, loading: rawLoading, failed, retry } = useCalendarData(month);
   const loading = useDelayedLoading(rawLoading);
+
+  /**
+   * Session-only, deliberately: no profile column, no localStorage. Filtering
+   * happens on the client over the items already loaded.
+   */
+  const [picked, setPicked] = useState<string[]>([]);
+  const items = useMemo(() => filterByDisciplines(allItems, picked), [allItems, picked]);
+  const showChips = hasKnownDisciplineTags(allItems);
 
   const todayKey = toDateKey(today);
   /**
@@ -183,14 +191,16 @@ function CalendarPage() {
    * else, and last season is reachable from the default view.
    */
   const monthPrefix = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
-  const agenda = useMemo(
-    () => groupByDate(items.filter((i) => i.dateKey.startsWith(monthPrefix))),
+  const monthItems = useMemo(
+    () => items.filter((i) => i.dateKey.startsWith(monthPrefix)),
     [items, monthPrefix],
   );
+  const agenda = useMemo(() => groupByDate(monthItems), [monthItems]);
   const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   const selectedKey = toDateKey(selected);
   const selectedItems = items.filter((i) => i.dateKey === selectedKey);
+
 
 
   const goToday = () => {
