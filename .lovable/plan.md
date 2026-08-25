@@ -1,43 +1,39 @@
-# Two read-side display fixes: discipline chips everywhere, NAGA drawn once
+# Round 20: merge tags instead of dropping, tournaments without announcements, write-through
 
-No migration, no database change, no admin form change — neither is needed. Both bugs are in read code: two pages don't select `disciplines`, and `buildCalendarItems` has no de-duplication.
+No migration, no database change. The announcements news feed keeps its `category = 'school_news'` filter and its pagination exactly as they are.
 
-## Shared helper (extracted, as you suggested)
+## 1 — De-dup merges the tags instead of discarding them
 
-`src/lib/calendar-data.ts` gains:
+`src/lib/calendar-data.ts`, `buildCalendarItems`:
 
-```ts
-export function disciplinesOf(row: { disciplines?: string[] | null; discipline?: string | null }): string[]
-```
+- Before the tournament loop, build `eventTagsByAnnouncement: Map<string, string[]>` from the events that are being suppressed — key `e.announcement_id`, value `cleanDisciplines(e.disciplines)`, only when non-empty.
+- The existing `tournamentIds` set and the event-skip rule stay byte-for-byte as they are: an event with no linked tournament, or one whose tournament is outside the fetched window, behaves exactly as today.
+- In the tournament loop: `const tags = disciplinesOf(t)` becomes "announcement tags when non-empty, else the suppressed event's tags, else empty". Announcement tags always win.
+- `audienceLabel` already derives from `tags`, so Westchase picks up "Wrestling" there too when divisions are unset.
 
-`disciplines` when non-empty, else `[discipline]` when the legacy value is set, else `[]` — all through `cleanDisciplines`. Yes, worth extracting: the same three-branch fallback currently exists twice (tournament branch of `buildCalendarItems`, `TournamentEditor` seed in `admin.tsx`) and would become four copies. Both existing copies get replaced by the helper so no reader can drift.
+Result for Westchase WC Kickoff: one card, the tournament copy (venue, divisions, deadline, URL), tagged Wrestling.
 
-Note this touches `admin.tsx` by one call site — a pure refactor of already-existing logic, no form behaviour change. If you'd rather `admin.tsx` stay out of the diff entirely, say so and I'll leave its copy in place.
+## 2 — Upcoming Tournaments lists every tournament
 
-## Bug 1 — dashboard and announcements page
+`src/lib/announcements.ts`, `useTournaments(limit?)` becomes a union of two independently ordered branches, run in parallel:
 
-`src/routes/_authenticated/index.tsx`
-- `disciplines: string[] | null` on the `Announcement` type; `disciplines` added to `DASHBOARD_ANNOUNCEMENT_COLUMNS`.
-- Badge block at ~535 becomes: compute `const tags = disciplinesOf(t)`; render `<DisciplineTags disciplines={tags} />` when non-empty, otherwise the existing neutral `<Badge className="bg-foreground/10 …">Event</Badge>` exactly as it looks today, so something always sits beside the "Nd away" counter.
+- **Announcements branch** — unchanged: `category = 'tournament'`, the same "still current" `.or(...)` on `event_date`/`event_end_date`, `event_date` ascending nulls last, `.limit(limit)` when given.
+- **Events branch** — `events` where `event_type = 'tournament'`, `announcement_id IS NULL` (that null check is the de-dup, so an announced tournament is never listed twice), `published = true`, and the same still-current rule expressed against the timestamp columns: `ends_at >= todayStart` OR (`ends_at IS NULL` AND `starts_at >= todayStart`), ordered by `starts_at` ascending, same `.limit(limit)`.
 
-`src/routes/_authenticated/announcements.tsx`
-- Same three changes; its neutral fallback keeps that page's own `hover:bg-foreground/15` badge markup verbatim.
+Each event row is mapped into the existing `Tournament` shape: `category: 'tournament'`, `body` from `description`, `event_date` from the local date of `starts_at`, `event_end_date` from the local date of `ends_at`, `location` from `location`, `disciplines` from `disciplines`, and `null` for `venue`, `address`, `divisions`, `registration_deadline`, `spectator_info`, `event_url`, `tag`, `discipline`. Ids are prefixed (`event:<id>`) so a React key can never collide with an announcement id.
 
-No filtering of unknown values anywhere — `DisciplineTags` already renders them as neutral chips.
+**Limit handling:** each branch fetches `limit` rows, the two arrays are merged, sorted by `event_date` ascending with nulls last, then `.slice(0, limit)`. Because each branch is individually ordered, the merged top-N is provably the true top-N. Without a limit both branches fetch everything.
 
-## Bug 2 — NAGA de-duplication
+Query key stays `["announcements", "tournaments", limit ?? "all", today]` so existing realtime invalidation keeps hitting it. Both realtime subscriptions (dashboard and announcements page) will also invalidate on `events` changes if they do not already — the events admin tab already invalidates `["announcements"]` on save.
 
-In `buildCalendarItems`, before the events loop:
+Neither the news-feed query nor its pagination is touched.
 
-```ts
-const tournamentIds = new Set(tournaments.map((t) => t.id));
-```
+## 3 — Prevention: single writer for a linked pair
 
-The events loop skips an event only when `e.announcement_id` is non-null **and** present in that set. Consequences, deliberately:
-- Events pointing at school-news announcements ("After School Program Starts", "Level Up Your Board Breaking") have ids not in the set, so they stay.
-- A tournament outside the fetched window puts nothing in the set, so the event copy is the only record of the day and still renders.
-- The tournament copy is kept because it carries venue, divisions, registration deadline and event URL.
+`src/components/admin-events-tab.tsx`, in the save mutation's linked-announcement branch: `announcementPayload(form)` gains `disciplines: form.disciplines.length > 0 ? form.disciplines : null`, so both the update path and the insert path write the event's disciplines onto the announcement row. The event is the single writer; the two rows can no longer disagree. Unlink/delete behaviour is unchanged.
+
+Note the tournament editor in `admin.tsx` can still edit an announcement's disciplines directly — that stays, and since announcement tags win in step 1, an admin edit there is still respected until the event is next saved.
 
 ## Verification I will paste back
 
-`git diff --stat`; the final JSX of both badge blocks; the final de-dup code; a signed-in parent view of 31 October (NAGA once, tagged Jiu Jitsu, plus Belt Testing); the two school-news-linked events on 10 and 28 August; ISKF Open + the three Jiu Jitsu tournaments showing identical chips on calendar, dashboard and announcements; and a temporary two-tag tournament (Karate + Jiu Jitsu) shown on all three surfaces, then reverted and re-confirmed.
+`git diff --stat` (expected: `calendar-data.ts`, `announcements.ts`, `admin-events-tab.tsx`, plus any realtime-invalidation line); the final merge fallback and the final `useTournaments`; a signed-in parent view of Westchase on calendar, dashboard and announcements page (Wrestling chip on all three); Grand Oaks Takedown (24 Oct) and Brazoria County Hurricane Classic (31 Oct) present in Upcoming Tournaments on both pages, tagged, in date order; NAGA exactly once on 31 October and exactly once in each tournament list; the news feed still school-news-only and still paginated with no tournament leakage; and a real Westchase edit in the Events tab followed by the `disciplines` value of both the event row and announcement `215378aa-…`.
