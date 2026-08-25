@@ -1,65 +1,43 @@
-# Discipline tags on events + tournaments, and a parent calendar filter
+# Two read-side display fixes: discipline chips everywhere, NAGA drawn once
 
-You are right: tournaments come from `announcements` (category = 'tournament'), and `announcements.discipline` is already populated — the four real rows read `Jiu Jitsu`, `Jiu Jitsu`, `Karate`, `Jiu Jitsu` (confirmed against the database). Revised accordingly.
+No migration, no database change, no admin form change — neither is needed. Both bugs are in read code: two pages don't select `disciplines`, and `buildCalendarItems` has no de-duplication.
 
-## Part 1 — one migration, two columns, one backfill
+## Shared helper (extracted, as you suggested)
 
-```sql
-ALTER TABLE public.events ADD COLUMN disciplines text[];
-ALTER TABLE public.announcements ADD COLUMN disciplines text[];
+`src/lib/calendar-data.ts` gains:
 
-UPDATE public.announcements
-SET disciplines = ARRAY[btrim(discipline)]
-WHERE discipline IS NOT NULL AND btrim(discipline) <> '';
+```ts
+export function disciplinesOf(row: { disciplines?: string[] | null; discipline?: string | null }): string[]
 ```
 
-Nullable, no defaults, no CHECK constraint, no policy/function/grant/trigger change, no other column touched. `announcements.discipline` stays exactly as it is — three readers still use it (`announcements.tsx` 169, `index.tsx` 534, `calendar-data.ts` 263 audience fallback). Before/after for the four tournament rows will be shown.
+`disciplines` when non-empty, else `[discipline]` when the legacy value is set, else `[]` — all through `cleanDisciplines`. Yes, worth extracting: the same three-branch fallback currently exists twice (tournament branch of `buildCalendarItems`, `TournamentEditor` seed in `admin.tsx`) and would become four copies. Both existing copies get replaced by the helper so no reader can drift.
 
-## Part 2 — one source of truth for the list, in code
+Note this touches `admin.tsx` by one call site — a pure refactor of already-existing logic, no form behaviour change. If you'd rather `admin.tsx` stay out of the diff entirely, say so and I'll leave its copy in place.
 
-New exports in `src/lib/calendar-data.ts`:
+## Bug 1 — dashboard and announcements page
 
-- `DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"]` — adding a fifth is one line, no migration.
-- `DISCIPLINE_META` — badge classes built on the existing `CHIP_BASE` recipe (same shape, padding, radius, text size as `EVENT_TYPE_META`), backed by four new `--dsc-*` token trios in `src/styles.css` following the existing `--ev-*` pattern for the dark theme. Karate red-orange, Jiu Jitsu blue, Wrestling green, Striking violet — distinct from the event-type hues, contrast measured in the browser.
-- Every tag renders its text label; colour is never the only signal. Existing event-type badges are not restyled.
+`src/routes/_authenticated/index.tsx`
+- `disciplines: string[] | null` on the `Announcement` type; `disciplines` added to `DASHBOARD_ANNOUNCEMENT_COLUMNS`.
+- Badge block at ~535 becomes: compute `const tags = disciplinesOf(t)`; render `<DisciplineTags disciplines={tags} />` when non-empty, otherwise the existing neutral `<Badge className="bg-foreground/10 …">Event</Badge>` exactly as it looks today, so something always sits beside the "Nd away" counter.
 
-`CalendarItem` gains `disciplines: string[]` populated from **both** sources — `events.disciplines` for events, and the tournament row's `disciplines` for tournaments — so the filter works on one field regardless of origin. Closures and testing dates get `[]`.
+`src/routes/_authenticated/announcements.tsx`
+- Same three changes; its neutral fallback keeps that page's own `hover:bg-foreground/15` badge markup verbatim.
 
-## Part 3 — the hyphen inconsistency
+No filtering of unknown values anywhere — `DisciplineTags` already renders them as neutral chips.
 
-Standardise on `Jiu Jitsu` (no hyphen), matching the stored data:
+## Bug 2 — NAGA de-duplication
 
-- `admin.tsx` 1652 default state and 1711 `SelectItem` value/label — the tournament form now writes the `disciplines` array *and* keeps `discipline` populated with the first selected value, so legacy readers keep working.
-- `announcements.tsx` 169 and `index.tsx` 534 badge comparisons — currently compare to `"Jiu-Jitsu"` and therefore never match real data; fixed to `"Jiu Jitsu"`.
+In `buildCalendarItems`, before the events loop:
 
-Every changed location will be reported by file and line.
+```ts
+const tournamentIds = new Set(tournaments.map((t) => t.id));
+```
 
-## Part 4 — admin forms (there are three, not two)
+The events loop skips an event only when `e.announcement_id` is non-null **and** present in that set. Consequences, deliberately:
+- Events pointing at school-news announcements ("After School Program Starts", "Level Up Your Board Breaking") have ids not in the set, so they stay.
+- A tournament outside the fetched window puts nothing in the set, so the event copy is the only record of the day and still renders.
+- The tournament copy is kept because it carries venue, divisions, registration deadline and event URL.
 
-- Events form (`admin-events-tab.tsx`): four discipline toggles (`aria-pressed`); none selected is valid and stores `null`. Event type unchanged.
-- Tournament **create** form (`admin.tsx` ~1652–1711): the single-value `Select` becomes the same multi-select, writing `disciplines` plus legacy `discipline` = first selected value.
-- Tournament **edit** form (`admin.tsx` ~1845–1846): the free-text `discipline` `Input` is replaced by the same multi-select, writing both fields the same way. Confirmed by reading the file. Leaving it free-text would let one editor change `discipline` while the array went stale, so the badge and the filter would disagree about the same tournament — the free-text field does not survive.
-- Existing values outside the four (none today, but possible) are preserved: the multi-select seeds from the stored array/`discipline` and keeps any unknown value selected rather than dropping it on save.
-- Both `events` selects (admin + calendar), the calendar tournament select, and the announcements/tournament column lists gain `disciplines`.
+## Verification I will paste back
 
-## Part 5 — parent-facing filter chips
-
-- Session-only `useState` on the calendar page. No preference stored, no new query, no change to query shape, filtering purely client-side over loaded items.
-- Chips render only when at least one item currently in view carries a **known** tag.
-- **The rule:** no chips selected = everything. Chips selected = every item that has no known-discipline tag, plus every item carrying at least one selected discipline. This covers three cases identically: no tags at all, and tags that are entirely outside `DISCIPLINES` (e.g. "Judo" or a typo) — such an item is treated as untagged and is always shown. Unknown values are never dropped from the data or rewritten; they simply cannot hide an item. Its unknown tag still renders as a neutral chip so the admin can see the typo.
-- Closures and belt testing dates have no tags and therefore never disappear.
-- One filtered array feeds the agenda list, month grid and selected-day panel.
-- "Show everything" reset. Real `<button aria-pressed>` chips, 44px targets, existing focus rings, polite `aria-live` count. Mobile-first wrapping row.
-
-
-## Verification (real output, ZZ rows deleted afterwards)
-
-1. Migration file contents plus `information_schema` proof of exactly the two new columns and no new constraint.
-2. Before/after of the four tournament rows' `discipline` and `disciplines`.
-3. A ZZ event tagged with two disciplines: stored value and both tags rendering.
-4. Filter to one discipline: matching ZZ event present, differently-tagged ZZ event gone, untagged ZZ event still present.
-5. **Filter to "Jiu Jitsu": a real Jiu Jitsu tournament visible, the Karate ISKF Open gone, and a school closure plus a belt testing date still visible.**
-6. A ZZ event tagged `{Judo}` only: with a filter active, it still appears.
-7. A ZZ tournament edited through the **edit** form: `discipline` and `disciplines` agreeing afterwards.
-8. Page with no tagged items in view: chip bar absent.
-9. The four real events still render, untagged and unmodified; `events` and `announcements` row counts before/after; all ZZ rows deleted; RLS policies and functions unchanged.
+`git diff --stat`; the final JSX of both badge blocks; the final de-dup code; a signed-in parent view of 31 October (NAGA once, tagged Jiu Jitsu, plus Belt Testing); the two school-news-linked events on 10 and 28 August; ISKF Open + the three Jiu Jitsu tournaments showing identical chips on calendar, dashboard and announcements; and a temporary two-tag tournament (Karate + Jiu Jitsu) shown on all three surfaces, then reverted and re-confirmed.
