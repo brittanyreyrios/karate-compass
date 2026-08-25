@@ -304,7 +304,23 @@ export function buildCalendarItems(options: {
     });
   }
 
+  /**
+   * De-duplication: an event row can be the calendar copy of a tournament
+   * announcement (event_type 'tournament', announcement_id pointing at it). When
+   * both are in THIS call the day would draw the same competition twice, and the
+   * two copies can carry different tags, so a discipline filter would hide one
+   * and keep the other.
+   *
+   * This keys off the actual tournament ids being built, never off "the event has
+   * an announcement_id" — several events link to ordinary school-news
+   * announcements and must stay. And when the tournament falls outside the
+   * fetched window, its id is absent here, so the event copy remains the only
+   * record of that day and still renders.
+   */
+  const tournamentIds = new Set(tournaments.map((t) => t.id));
+
   for (const e of events) {
+    if (e.announcement_id && tournamentIds.has(e.announcement_id)) continue;
     const starts = new Date(e.starts_at);
     const dateKey = toDateKey(starts);
     const ends = e.ends_at ? new Date(e.ends_at) : null;
