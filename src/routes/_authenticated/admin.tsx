@@ -76,6 +76,8 @@ import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
 import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
+import { DisciplinePicker } from "@/components/discipline-tags";
+import { cleanDisciplines } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
