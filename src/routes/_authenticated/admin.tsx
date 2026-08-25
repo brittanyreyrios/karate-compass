@@ -76,6 +76,8 @@ import { useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
 import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
+import { DisciplinePicker } from "@/components/discipline-tags";
+import { cleanDisciplines } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
@@ -1649,7 +1651,7 @@ function AnnouncementForm() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tag, setTag] = useState("");
-  const [discipline, setDiscipline] = useState("Jiu-Jitsu");
+  const [disciplines, setDisciplines] = useState<string[]>(["Jiu Jitsu"]);
   const [location, setLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
 
@@ -1662,7 +1664,10 @@ function AnnouncementForm() {
         body: body.trim(),
         created_by: u.user?.id ?? null,
         tag: category === "school_news" ? (tag.trim() || "News") : null,
-        discipline: category === "tournament" ? discipline : null,
+        // Legacy `discipline` stays populated with the first selection so the
+        // places that still read it keep working.
+        discipline: category === "tournament" ? (disciplines[0] ?? null) : null,
+        disciplines: category === "tournament" && disciplines.length > 0 ? disciplines : null,
         location: category === "tournament" ? location.trim() : null,
         event_date: category === "tournament" && eventDate ? eventDate : null,
       };
@@ -1703,17 +1708,7 @@ function AnnouncementForm() {
             <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Schedule, Facility, Gear…" className="mt-1" />
           </div>
         ) : (
-          <div>
-            <Label>Discipline</Label>
-            <Select value={discipline} onValueChange={setDiscipline}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Jiu-Jitsu">Jiu-Jitsu</SelectItem>
-                <SelectItem value="Karate">Karate</SelectItem>
-                <SelectItem value="Mixed">Mixed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <DisciplinePicker idPrefix="new-tournament" value={disciplines} onChange={setDisciplines} />
         )}
 
         <div className="sm:col-span-2">
@@ -1754,6 +1749,7 @@ type Tournament = {
   title: string;
   body: string;
   discipline: string | null;
+  disciplines: string[] | null;
   event_date: string | null;
   event_end_date: string | null;
   venue: string | null;
@@ -1771,7 +1767,7 @@ function TournamentManager() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("announcements")
-        .select("id, title, body, discipline, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url")
+        .select("id, title, body, discipline, disciplines, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url")
         .eq("category", "tournament")
         .order("event_date");
       if (error) throw error;
@@ -1800,7 +1796,18 @@ function TournamentManager() {
 }
 
 function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onSaved: () => void }) {
-  const [form, setForm] = useState(tournament);
+  const [form, setForm] = useState<Tournament>({
+    ...tournament,
+    // A row written before disciplines existed still has its legacy value; seed
+    // from it so saving cannot silently blank the tag.
+    disciplines: cleanDisciplines(
+      tournament.disciplines && tournament.disciplines.length > 0
+        ? tournament.disciplines
+        : tournament.discipline
+          ? [tournament.discipline]
+          : [],
+    ),
+  });
   const set = (key: keyof Tournament, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const optional = (value: string | null) => value?.trim() || null;
   const save = useMutation({
@@ -1810,7 +1817,10 @@ function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onS
         .update({
           title: form.title.trim(),
           body: form.body.trim(),
-          discipline: optional(form.discipline),
+          // Both fields are written together from one control, so the badge and
+          // the calendar filter can never disagree about the same tournament.
+          discipline: form.disciplines?.[0] ?? null,
+          disciplines: form.disciplines && form.disciplines.length > 0 ? form.disciplines : null,
           event_date: optional(form.event_date),
           event_end_date: optional(form.event_end_date),
           venue: optional(form.venue),
@@ -1842,8 +1852,11 @@ function TournamentEditor({ tournament, onSaved }: { tournament: Tournament; onS
           <Input id={`tournament-title-${tournament.id}`} value={form.title} onChange={(e) => set("title", e.target.value)} required className="mt-1" />
         </div>
         <div>
-          <Label htmlFor={`tournament-discipline-${tournament.id}`}>Discipline</Label>
-          <Input id={`tournament-discipline-${tournament.id}`} value={form.discipline ?? ""} onChange={(e) => set("discipline", e.target.value)} className="mt-1" />
+          <DisciplinePicker
+            idPrefix={`tournament-${tournament.id}`}
+            value={form.disciplines ?? []}
+            onChange={(disciplines) => setForm((current) => ({ ...current, disciplines }))}
+          />
         </div>
         <div>
           <Label htmlFor={`tournament-venue-${tournament.id}`}>Venue</Label>

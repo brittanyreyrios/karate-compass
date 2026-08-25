@@ -30,16 +30,55 @@ export type DojoEvent = {
   audience_label: string | null;
   published: boolean;
   announcement_id: string | null;
+  disciplines: string[] | null;
 };
 
 
+/**
+ * The four disciplines, defined ONCE. Adding a fifth is a one-line change here —
+ * deliberately not a CHECK constraint, matching how the technique library's
+ * labels already work.
+ */
+export const DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"] as const;
+export type Discipline = (typeof DISCIPLINES)[number];
 
+export function isKnownDiscipline(value: string): value is Discipline {
+  return (DISCIPLINES as readonly string[]).includes(value);
+}
+
+/**
+ * Discipline chips reuse the CHIP_BASE recipe, so they match the existing
+ * event-type badges in shape and sizing. Each carries its text label — a
+ * colour-blind parent reads "Jiu Jitsu", never just a blue dot. Hues are
+ * deliberately distinct from the event-type palette so "Tournament · Jiu Jitsu"
+ * reads as two different kinds of fact.
+ */
+export const DISCIPLINE_META: Record<Discipline, { label: string; badge: string }> = {
+  Karate: { label: "Karate", badge: "border-dsc-karate-line bg-dsc-karate text-dsc-karate-fg" },
+  "Jiu Jitsu": { label: "Jiu Jitsu", badge: "border-dsc-jj-line bg-dsc-jj text-dsc-jj-fg" },
+  Wrestling: { label: "Wrestling", badge: "border-dsc-wrestling-line bg-dsc-wrestling text-dsc-wrestling-fg" },
+  Striking: { label: "Striking", badge: "border-dsc-striking-line bg-dsc-striking text-dsc-striking-fg" },
+};
+
+/** Unknown values still render, in a neutral chip, so a typo is visible rather than silent. */
+const UNKNOWN_DISCIPLINE_BADGE = "border-ev-other-line bg-ev-other text-ev-other-fg";
+
+export function disciplineBadge(value: string): string {
+  return isKnownDiscipline(value) ? DISCIPLINE_META[value].badge : UNKNOWN_DISCIPLINE_BADGE;
+}
+
+/** Trimmed, de-duplicated, empty values dropped. Unknown values are KEPT. */
+export function cleanDisciplines(value: string[] | null | undefined): string[] {
+  if (!value) return [];
+  return [...new Set(value.map((v) => v.trim()).filter(Boolean))];
+}
 
 export type TournamentRow = {
   id: string;
   title: string;
   body: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   venue: string | null;
   address: string | null;
@@ -49,6 +88,7 @@ export type TournamentRow = {
   registration_deadline: string | null;
   event_url: string | null;
 };
+
 
 export type HolidayRow = {
   id: string;
@@ -141,7 +181,35 @@ export type CalendarItem = {
   address: string | null;
   registrationDeadline: string | null;
   eventUrl: string | null;
+  /**
+   * One field, both sources: events.disciplines and the tournament row's
+   * disciplines both land here, so the filter never has to care which table an
+   * item came from. Closures and testing dates are always [].
+   */
+  disciplines: string[];
 };
+
+/**
+ * Client-side filter. The rule that matters: an item is hidden ONLY if it
+ * carries at least one KNOWN discipline and none of them is selected. Untagged
+ * items — closures, belt testing dates, general events — and items tagged only
+ * with values outside DISCIPLINES always survive, because there is no chip that
+ * could ever bring them back.
+ */
+export function filterByDisciplines(items: CalendarItem[], selected: string[]): CalendarItem[] {
+  if (selected.length === 0) return items;
+  return items.filter((item) => {
+    const known = item.disciplines.filter(isKnownDiscipline);
+    if (known.length === 0) return true;
+    return known.some((d) => selected.includes(d));
+  });
+}
+
+/** Chips only appear when something in view actually carries a known tag. */
+export function hasKnownDisciplineTags(items: CalendarItem[]): boolean {
+  return items.some((item) => item.disciplines.some(isKnownDiscipline));
+}
+
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -189,6 +257,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: [],
     });
   }
 
@@ -215,6 +284,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: [],
     });
   }
 
@@ -244,6 +314,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: cleanDisciplines(e.disciplines),
     });
   }
 
@@ -270,6 +341,12 @@ export function buildCalendarItems(options: {
         address: t.address,
         registrationDeadline: t.registration_deadline,
         eventUrl: t.event_url,
+        // Tournaments come from announcements, so their tags come from the
+        // array there; the legacy `discipline` column is the fallback for any
+        // row written before this feature existed.
+        disciplines: cleanDisciplines(
+          t.disciplines && t.disciplines.length > 0 ? t.disciplines : t.discipline ? [t.discipline] : [],
+        ),
       });
     });
   }

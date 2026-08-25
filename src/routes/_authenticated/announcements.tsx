@@ -166,7 +166,7 @@ function Announcements() {
                   </span>
                   <article className="rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/60">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge className={t.discipline === "Jiu-Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
+                      <Badge className={t.discipline === "Jiu Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
                         {t.discipline ?? "Event"}
                       </Badge>
                       {days !== null && <span className="font-display text-xs font-bold uppercase tracking-widest text-primary">{days} days</span>}

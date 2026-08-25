@@ -59,6 +59,19 @@
   --color-ev-closure: var(--ev-closure-bg);
   --color-ev-closure-fg: var(--ev-closure-fg);
   --color-ev-closure-line: var(--ev-closure-line);
+  /* Discipline chips: same recipe as event types, deliberately different hues. */
+  --color-dsc-karate: var(--dsc-karate-bg);
+  --color-dsc-karate-fg: var(--dsc-karate-fg);
+  --color-dsc-karate-line: var(--dsc-karate-line);
+  --color-dsc-jj: var(--dsc-jj-bg);
+  --color-dsc-jj-fg: var(--dsc-jj-fg);
+  --color-dsc-jj-line: var(--dsc-jj-line);
+  --color-dsc-wrestling: var(--dsc-wrestling-bg);
+  --color-dsc-wrestling-fg: var(--dsc-wrestling-fg);
+  --color-dsc-wrestling-line: var(--dsc-wrestling-line);
+  --color-dsc-striking: var(--dsc-striking-bg);
+  --color-dsc-striking-fg: var(--dsc-striking-fg);
+  --color-dsc-striking-line: var(--dsc-striking-line);
   --font-display: "Oswald", "Bebas Neue", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -139,6 +152,27 @@
   --ev-closure-bg: oklch(0.26 0.02 250);
   --ev-closure-fg: oklch(0.87 0.02 250);
   --ev-closure-line: oklch(0.55 0.03 250);
+
+  /*
+    Discipline palette. Same construction as the event-type chips: solid tinted
+    surface, paired foreground, no alpha, so text contrast never depends on the
+    surface underneath. Hues sit clear of the event-type set.
+  */
+  --dsc-karate-bg: oklch(0.31 0.09 45);
+  --dsc-karate-fg: oklch(0.93 0.09 55);
+  --dsc-karate-line: oklch(0.52 0.14 45);
+
+  --dsc-jj-bg: oklch(0.3 0.08 235);
+  --dsc-jj-fg: oklch(0.91 0.09 230);
+  --dsc-jj-line: oklch(0.52 0.13 235);
+
+  --dsc-wrestling-bg: oklch(0.29 0.08 150);
+  --dsc-wrestling-fg: oklch(0.91 0.11 150);
+  --dsc-wrestling-line: oklch(0.5 0.12 150);
+
+  --dsc-striking-bg: oklch(0.29 0.09 330);
+  --dsc-striking-fg: oklch(0.91 0.09 330);
+  --dsc-striking-line: oklch(0.51 0.15 330);
 
   --gradient-primary: linear-gradient(135deg, oklch(0.62 0.24 25), oklch(0.5 0.22 20));
   --gradient-hero: linear-gradient(135deg, oklch(0.16 0.006 260) 0%, oklch(0.12 0.005 260) 50%, oklch(0.28 0.18 25 / 0.35) 100%);
