@@ -317,6 +317,65 @@ function CalendarPage() {
   );
 }
 
+/**
+ * Session-only discipline filter.
+ *
+ * The rule that matters: this hides tagged items that are not yours — it never
+ * becomes "show only tagged items". Closures and belt testing dates carry no
+ * tags and are always visible, so nobody filters their way into a locked door.
+ */
+function DisciplineFilter({
+  picked,
+  onChange,
+  shownCount,
+}: {
+  picked: string[];
+  onChange: (next: string[]) => void;
+  shownCount: number;
+}) {
+  const toggle = (d: string) =>
+    onChange(picked.includes(d) ? picked.filter((v) => v !== d) : [...picked, d]);
+
+  return (
+    <section className="mt-4" aria-label="Filter by discipline">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Discipline
+        </span>
+        {DISCIPLINES.map((d) => {
+          const on = picked.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(d)}
+              className={`min-h-11 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                on
+                  ? DISCIPLINE_META[d].badge
+                  : "border-border bg-background text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              {on ? "\u2713 " : ""}
+              {DISCIPLINE_META[d].label}
+            </button>
+          );
+        })}
+        {picked.length > 0 && (
+          <Button variant="ghost" className="h-11" onClick={() => onChange([])}>
+            Show everything
+          </Button>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+        {picked.length === 0
+          ? `Showing everything \u2014 ${shownCount} item${shownCount === 1 ? "" : "s"}.`
+          : `Showing ${shownCount} item${shownCount === 1 ? "" : "s"}: ${picked.join(", ")}, plus everything with no discipline (closures and testing dates always show).`}
+      </p>
+    </section>
+  );
+}
+
 function Legend() {
   return (
     <ul className="mt-6 flex flex-wrap gap-2" aria-label="Calendar key">
@@ -363,6 +422,7 @@ function ItemCard({ item }: { item: CalendarItem }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className={`${CHIP_BASE} ${meta.badge}`}>{meta.label}</span>
+        <DisciplineTags disciplines={item.disciplines} />
         {item.dayLabel && (
           <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {item.dayLabel}
