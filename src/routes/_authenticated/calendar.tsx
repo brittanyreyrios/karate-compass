@@ -257,6 +257,15 @@ function CalendarPage() {
 
       <Legend />
 
+      {!loading && !failed && showChips && (
+        <DisciplineFilter
+          picked={picked}
+          onChange={setPicked}
+          shownCount={view === "month" ? items.length : monthItems.length}
+        />
+      )}
+
+
       {loading && <CalendarSkeleton />}
 
       {!loading && failed && (
