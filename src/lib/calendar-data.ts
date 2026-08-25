@@ -181,7 +181,35 @@ export type CalendarItem = {
   address: string | null;
   registrationDeadline: string | null;
   eventUrl: string | null;
+  /**
+   * One field, both sources: events.disciplines and the tournament row's
+   * disciplines both land here, so the filter never has to care which table an
+   * item came from. Closures and testing dates are always [].
+   */
+  disciplines: string[];
 };
+
+/**
+ * Client-side filter. The rule that matters: an item is hidden ONLY if it
+ * carries at least one KNOWN discipline and none of them is selected. Untagged
+ * items — closures, belt testing dates, general events — and items tagged only
+ * with values outside DISCIPLINES always survive, because there is no chip that
+ * could ever bring them back.
+ */
+export function filterByDisciplines(items: CalendarItem[], selected: string[]): CalendarItem[] {
+  if (selected.length === 0) return items;
+  return items.filter((item) => {
+    const known = item.disciplines.filter(isKnownDiscipline);
+    if (known.length === 0) return true;
+    return known.some((d) => selected.includes(d));
+  });
+}
+
+/** Chips only appear when something in view actually carries a known tag. */
+export function hasKnownDisciplineTags(items: CalendarItem[]): boolean {
+  return items.some((item) => item.disciplines.some(isKnownDiscipline));
+}
+
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
