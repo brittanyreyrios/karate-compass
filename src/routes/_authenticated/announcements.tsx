@@ -162,6 +162,7 @@ function Announcements() {
 
             {tournaments.map((t) => {
               const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
+              const tags = disciplinesOf(t);
               return (
                 <li key={t.id} className="relative">
                   <span className="absolute -left-[31px] top-4 grid h-6 w-6 place-items-center rounded-full border-2 border-primary bg-background shadow-red-glow">
@@ -169,9 +170,15 @@ function Announcements() {
                   </span>
                   <article className="rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/60">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge className={t.discipline === "Jiu Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
-                        {t.discipline ?? "Event"}
-                      </Badge>
+                      {/* Untagged tournaments keep the neutral "Event" badge so the
+                          row still has something beside the days counter. */}
+                      {tags.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <DisciplineTags disciplines={tags} />
+                        </div>
+                      ) : (
+                        <Badge className="bg-foreground/10 text-foreground hover:bg-foreground/15">Event</Badge>
+                      )}
                       {days !== null && <span className="font-display text-xs font-bold uppercase tracking-widest text-primary">{days} days</span>}
                     </div>
                     <h3 className="mt-3 font-display text-lg font-bold uppercase leading-tight">{t.title}</h3>
