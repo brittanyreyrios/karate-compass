@@ -34,19 +34,23 @@ Standardise on `Jiu Jitsu` (no hyphen), matching the stored data:
 
 Every changed location will be reported by file and line.
 
-## Part 4 — admin forms
+## Part 4 — admin forms (there are three, not two)
 
 - Events form (`admin-events-tab.tsx`): four discipline toggles (`aria-pressed`); none selected is valid and stores `null`. Event type unchanged.
-- Tournament form (`admin.tsx`): same multi-select, writing `disciplines` plus the legacy `discipline` first value.
-- Both `events` selects (admin + calendar) and the calendar's tournament select gain `disciplines`.
+- Tournament **create** form (`admin.tsx` ~1652–1711): the single-value `Select` becomes the same multi-select, writing `disciplines` plus legacy `discipline` = first selected value.
+- Tournament **edit** form (`admin.tsx` ~1845–1846): the free-text `discipline` `Input` is replaced by the same multi-select, writing both fields the same way. Confirmed by reading the file. Leaving it free-text would let one editor change `discipline` while the array went stale, so the badge and the filter would disagree about the same tournament — the free-text field does not survive.
+- Existing values outside the four (none today, but possible) are preserved: the multi-select seeds from the stored array/`discipline` and keeps any unknown value selected rather than dropping it on save.
+- Both `events` selects (admin + calendar), the calendar tournament select, and the announcements/tournament column lists gain `disciplines`.
 
 ## Part 5 — parent-facing filter chips
 
 - Session-only `useState` on the calendar page. No preference stored, no new query, no change to query shape, filtering purely client-side over loaded items.
-- Chips render only when at least one item currently in view carries a tag.
-- **The rule:** untagged items always show. No chips selected = everything. Chips selected = every untagged item, plus every item carrying at least one selected discipline. Closures and belt testing dates have no tags and therefore never disappear.
+- Chips render only when at least one item currently in view carries a **known** tag.
+- **The rule:** no chips selected = everything. Chips selected = every item that has no known-discipline tag, plus every item carrying at least one selected discipline. This covers three cases identically: no tags at all, and tags that are entirely outside `DISCIPLINES` (e.g. "Judo" or a typo) — such an item is treated as untagged and is always shown. Unknown values are never dropped from the data or rewritten; they simply cannot hide an item. Its unknown tag still renders as a neutral chip so the admin can see the typo.
+- Closures and belt testing dates have no tags and therefore never disappear.
 - One filtered array feeds the agenda list, month grid and selected-day panel.
 - "Show everything" reset. Real `<button aria-pressed>` chips, 44px targets, existing focus rings, polite `aria-live` count. Mobile-first wrapping row.
+
 
 ## Verification (real output, ZZ rows deleted afterwards)
 
