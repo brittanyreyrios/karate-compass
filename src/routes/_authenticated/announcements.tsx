@@ -29,6 +29,7 @@ type Announcement = {
   body: string;
   tag: string | null;
   discipline: string | null;
+  disciplines: string[] | null;
   location: string | null;
   event_date: string | null;
   event_end_date: string | null;
