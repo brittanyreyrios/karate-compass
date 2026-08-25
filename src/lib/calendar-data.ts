@@ -257,6 +257,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: [],
     });
   }
 
@@ -283,6 +284,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: [],
     });
   }
 
@@ -312,6 +314,7 @@ export function buildCalendarItems(options: {
       address: null,
       registrationDeadline: null,
       eventUrl: null,
+      disciplines: cleanDisciplines(e.disciplines),
     });
   }
 
