@@ -1,35 +1,59 @@
-# Discipline tags on events + parent calendar filter
+# Discipline tags on events + tournaments, and a parent calendar filter
 
-## Part 1 — the column and the tag
+You are right: tournaments come from `announcements` (category = 'tournament'), and `announcements.discipline` is already populated — the four real rows read `Jiu Jitsu`, `Jiu Jitsu`, `Karate`, `Jiu Jitsu` (confirmed against the database). Revised accordingly.
 
-**Migration (one column, nothing else):**
+## Part 1 — one migration, two columns, one backfill
 
 ```sql
 ALTER TABLE public.events ADD COLUMN disciplines text[];
+ALTER TABLE public.announcements ADD COLUMN disciplines text[];
+
+UPDATE public.announcements
+SET disciplines = ARRAY[btrim(discipline)]
+WHERE discipline IS NOT NULL AND btrim(discipline) <> '';
 ```
 
-No default, nullable, no CHECK constraint, no policy/function/grant change.
+Nullable, no defaults, no CHECK constraint, no policy/function/grant/trigger change, no other column touched. `announcements.discipline` stays exactly as it is — three readers still use it (`announcements.tsx` 169, `index.tsx` 534, `calendar-data.ts` 263 audience fallback). Before/after for the four tournament rows will be shown.
 
-**One source of truth in the front end** — a new exported constant in `src/lib/calendar-data.ts`:
+## Part 2 — one source of truth for the list, in code
 
-- `DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"]`
-- `DISCIPLINE_META` maps each to a token-based badge class, built with the existing `CHIP_BASE` recipe (same shape/padding/radius/size as `EVENT_TYPE_META`). Adding a fifth discipline later is one line here.
-- Four new semantic token trios in `src/styles.css` (`--dsc-karate-bg/-fg/-line`, etc.) following the existing `--ev-*` pattern, so the dark theme is handled the same way. Hues: Karate red-orange, Jiu Jitsu blue, Wrestling green, Striking violet — deliberately distinct from the existing event-type hues, and contrast measured in the browser, not assumed.
-- Each tag always renders its text label; colour is never the only signal.
+New exports in `src/lib/calendar-data.ts`:
 
-**Admin events form** (`src/components/admin-events-tab.tsx`): four toggle buttons (`aria-pressed`) for the disciplines. None selected is valid and saves `null`. Existing event-type select and badges untouched.
+- `DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"]` — adding a fifth is one line, no migration.
+- `DISCIPLINE_META` — badge classes built on the existing `CHIP_BASE` recipe (same shape, padding, radius, text size as `EVENT_TYPE_META`), backed by four new `--dsc-*` token trios in `src/styles.css` following the existing `--ev-*` pattern for the dark theme. Karate red-orange, Jiu Jitsu blue, Wrestling green, Striking violet — distinct from the event-type hues, contrast measured in the browser.
+- Every tag renders its text label; colour is never the only signal. Existing event-type badges are not restyled.
 
-**Rendering:** `disciplines` added to `DojoEvent`, to both event `select` lists (admin + calendar), and to `CalendarItem`; tags shown on the calendar day panel, the agenda list, the month-grid chips row, and the admin event list, alongside the unchanged event-type badge.
+`CalendarItem` gains `disciplines: string[]` populated from **both** sources — `events.disciplines` for events, and the tournament row's `disciplines` for tournaments — so the filter works on one field regardless of origin. Closures and testing dates get `[]`.
 
-## Part 2 — client-side filter chips
+## Part 3 — the hyphen inconsistency
 
-- Session-only `useState` on the calendar page. Nothing persisted, no new query, no change to the events query shape.
+Standardise on `Jiu Jitsu` (no hyphen), matching the stored data:
+
+- `admin.tsx` 1652 default state and 1711 `SelectItem` value/label — the tournament form now writes the `disciplines` array *and* keeps `discipline` populated with the first selected value, so legacy readers keep working.
+- `announcements.tsx` 169 and `index.tsx` 534 badge comparisons — currently compare to `"Jiu-Jitsu"` and therefore never match real data; fixed to `"Jiu Jitsu"`.
+
+Every changed location will be reported by file and line.
+
+## Part 4 — admin forms
+
+- Events form (`admin-events-tab.tsx`): four discipline toggles (`aria-pressed`); none selected is valid and stores `null`. Event type unchanged.
+- Tournament form (`admin.tsx`): same multi-select, writing `disciplines` plus the legacy `discipline` first value.
+- Both `events` selects (admin + calendar) and the calendar's tournament select gain `disciplines`.
+
+## Part 5 — parent-facing filter chips
+
+- Session-only `useState` on the calendar page. No preference stored, no new query, no change to query shape, filtering purely client-side over loaded items.
 - Chips render only when at least one item currently in view carries a tag.
-- **The rule:** an item with no discipline tags is always shown. With chips selected, visible = untagged items + items carrying at least one selected discipline. No chips selected = everything. Closures (`class_holidays`), belt testing dates (`class_schedules`) and tournaments carry no `disciplines` and therefore always appear.
-- Filter applies to the agenda list, the month grid and the selected-day panel from the same filtered array.
-- "Show everything" reset button, real `<button aria-pressed>` chips, min 44px targets, existing focus rings, and a polite `aria-live` count of what is shown.
-- Mobile first: chips wrap in a horizontal flex row.
+- **The rule:** untagged items always show. No chips selected = everything. Chips selected = every untagged item, plus every item carrying at least one selected discipline. Closures and belt testing dates have no tags and therefore never disappear.
+- One filtered array feeds the agenda list, month grid and selected-day panel.
+- "Show everything" reset. Real `<button aria-pressed>` chips, 44px targets, existing focus rings, polite `aria-live` count. Mobile-first wrapping row.
 
-## Verification (with ZZ rows, deleted after)
+## Verification (real output, ZZ rows deleted afterwards)
 
-Migration file contents plus `information_schema` proof that `events` gained exactly one column and no constraint. Then, in the real browser: a ZZ event tagged with two disciplines rendering both tags; filtering to one discipline showing the match present, the other-tagged ZZ event gone, and an untagged ZZ event still present; a closure and a testing date still visible with a filter active; the chip bar absent once tagged events are removed. Row counts before/after and confirmation the four real events are unmodified and untagged.
+1. Migration file contents plus `information_schema` proof of exactly the two new columns and no new constraint.
+2. Before/after of the four tournament rows' `discipline` and `disciplines`.
+3. A ZZ event tagged with two disciplines: stored value and both tags rendering.
+4. Filter to one discipline: matching ZZ event present, differently-tagged ZZ event gone, untagged ZZ event still present.
+5. **Filter to "Jiu Jitsu": a real Jiu Jitsu tournament visible, the Karate ISKF Open gone, and a school closure plus a belt testing date still visible.**
+6. Page with no tagged items in view: chip bar absent.
+7. The four real events still render, untagged and unmodified; `events` and `announcements` row counts before/after; all ZZ rows deleted; RLS policies and functions unchanged.
