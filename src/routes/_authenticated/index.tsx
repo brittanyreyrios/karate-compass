@@ -531,7 +531,7 @@ function Dashboard() {
                     </span>
                     <div className="rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50">
                       <div className="flex items-center justify-between gap-2">
-                        <Badge className={t.discipline === "Jiu-Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
+                        <Badge className={t.discipline === "Jiu Jitsu" ? "bg-primary/15 text-primary hover:bg-primary/20" : "bg-foreground/10 text-foreground hover:bg-foreground/15"}>
                           {t.discipline ?? "Event"}
                         </Badge>
                         {days !== null && (

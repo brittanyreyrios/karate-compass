@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { CHIP_BASE, EVENT_TYPES, EVENT_TYPE_META, type DojoEvent, type EventType } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPES, EVENT_TYPE_META, cleanDisciplines, type DojoEvent, type EventType } from "@/lib/calendar-data";
+import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
 
 type FormState = {
   title: string;
@@ -21,6 +22,7 @@ type FormState = {
   audience_label: string;
   published: boolean;
   postToAnnouncements: boolean;
+  disciplines: string[];
 };
 
 const EMPTY: FormState = {
@@ -34,6 +36,7 @@ const EMPTY: FormState = {
   audience_label: "",
   published: true,
   postToAnnouncements: false,
+  disciplines: [],
 };
 
 function toLocalInput(iso: string | null): string {
@@ -64,7 +67,7 @@ export function EventsAdminTab() {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id",
+          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id, disciplines",
         )
         .order("starts_at", { ascending: true });
       if (error) throw error;
@@ -85,6 +88,7 @@ export function EventsAdminTab() {
       audience_label: editing.audience_label ?? "",
       published: editing.published,
       postToAnnouncements: !!editing.announcement_id,
+      disciplines: cleanDisciplines(editing.disciplines),
     });
   }, [editing]);
 
@@ -109,6 +113,9 @@ export function EventsAdminTab() {
         location: form.location.trim() || null,
         audience_label: form.audience_label.trim() || null,
         published: form.published,
+        // No disciplines is a normal, valid state — a closure is not
+        // discipline-specific — so it stores null rather than an empty array.
+        disciplines: form.disciplines.length > 0 ? form.disciplines : null,
       };
 
       let eventId = editing?.id ?? null;
@@ -234,6 +241,12 @@ export function EventsAdminTab() {
             </select>
           </div>
 
+          <DisciplinePicker
+            idPrefix="event"
+            value={form.disciplines}
+            onChange={(disciplines) => setForm({ ...form, disciplines })}
+          />
+
           <div>
             <Label htmlFor="event-description">Description</Label>
             <Textarea
@@ -353,6 +366,7 @@ export function EventsAdminTab() {
                   <span className={`${CHIP_BASE} ${EVENT_TYPE_META[event.event_type].badge}`}>
                     {EVENT_TYPE_META[event.event_type].label}
                   </span>
+                  <DisciplineTags disciplines={cleanDisciplines(event.disciplines)} />
                   {!event.published && (
                     <Badge variant="outline" className="border-border text-muted-foreground">
                       Hidden
