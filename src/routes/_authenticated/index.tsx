@@ -526,6 +526,7 @@ function Dashboard() {
             <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
               {tournaments.map((t) => {
                 const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
+                const tags = disciplinesOf(t);
                 return (
                   <li key={t.id} className="relative">
                     <span className="absolute -left-[31px] top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-primary bg-background">
