@@ -1,67 +1,35 @@
-# Copy a curriculum requirement to other ranks
+# Discipline tags on events + parent calendar filter
 
-Front-end only, confined to `src/components/admin-content-tabs.tsx` (plus one small
-dialog component if the row grows unwieldy). No migrations, no schema changes, no
-policy changes. `next_curriculum_sort_order`, the entitlement/curriculum functions,
-`handle_new_user`, `server.ts`, the CSP and `client.ts` are untouched.
+## Part 1 — the column and the tag
 
-## What gets added
+**Migration (one column, nothing else):**
 
-On every curriculum requirement row, next to the existing "Move to" control, a
-**Copy to…** button opening a dialog:
+```sql
+ALTER TABLE public.events ADD COLUMN disciplines text[];
+```
 
-- **Destination list** — the same options "Move to" offers: all four tiers
-  ("All Beginner students" …) and every rank with its belt system named. Rendered as
-  checkboxes so several can be picked at once.
-- **The row's own current target is not offered at all** — if the item sits on Camo
-  Green, Camo Green is absent from the list, so a row can never be duplicated onto
-  itself.
-- **Live preview**, updating as boxes are ticked:
-  - "This will create 3 new requirements." (count of destinations that will actually
-    be written, after skips)
-  - One line per destination with the plain-language audience sentence from the
-    existing `rowAudience`/`audienceSentence` logic, reused as-is.
-  - Any destination that already has a requirement with the same technique and the
-    same `video_youtube_id` is listed separately as **"Skipped — already there"**,
-    named, and excluded from the count.
-  - Standing sentence: "These become separate requirements. Editing one later will
-    not change the others."
-- **Confirm** writes the copies. Cancel writes nothing.
+No default, nullable, no CHECK constraint, no policy/function/grant change.
 
-## How a copy is written
+**One source of truth in the front end** — a new exported constant in `src/lib/calendar-data.ts`:
 
-Per destination, sequentially:
+- `DISCIPLINES = ["Karate", "Jiu Jitsu", "Wrestling", "Striking"]`
+- `DISCIPLINE_META` maps each to a token-based badge class, built with the existing `CHIP_BASE` recipe (same shape/padding/radius/size as `EVENT_TYPE_META`). Adding a fifth discipline later is one line here.
+- Four new semantic token trios in `src/styles.css` (`--dsc-karate-bg/-fg/-line`, etc.) following the existing `--ev-*` pattern, so the dark theme is handled the same way. Hues: Karate red-orange, Jiu Jitsu blue, Wrestling green, Striking violet — deliberately distinct from the existing event-type hues, and contrast measured in the browser, not assumed.
+- Each tag always renders its text label; colour is never the only signal.
 
-1. Call the existing `next_curriculum_sort_order` RPC with
-   `(_belt_rank_id, _curriculum_tier)` for that destination — the same advisory-locked
-   path `retargetItem` uses. No second copy of that logic, and the source's
-   `sort_order` is never carried across.
-2. Insert one row copying `technique`, `category`, `notes`, `program_id`,
-   `video_youtube_id`, `video_title`, `video_seconds`, `video_orientation`, with
-   exactly one of `belt_rank_id` / `curriculum_tier` set (never both, never neither —
-   guaranteed by the destination list's shape) and the fresh `sort_order`.
+**Admin events form** (`src/components/admin-events-tab.tsx`): four toggle buttons (`aria-pressed`) for the disciplines. None selected is valid and saves `null`. Existing event-type select and badges untouched.
 
-The source row is never updated or read-modified. Copying is additive only.
+**Rendering:** `disciplines` added to `DojoEvent`, to both event `select` lists (admin + calendar), and to `CalendarItem`; tags shown on the calendar day panel, the agenda list, the month-grid chips row, and the admin event list, alongside the unchanged event-type badge.
 
-**Partial failure is reported honestly.** Each destination's outcome is collected;
-the result toast/summary names which destinations were created, which were skipped as
-duplicates, and which failed with their error. If any failed, it is not reported as a
-success.
+## Part 2 — client-side filter chips
 
-Admin-only through the existing curriculum RLS policies; nothing about permissions
-changes.
+- Session-only `useState` on the calendar page. Nothing persisted, no new query, no change to the events query shape.
+- Chips render only when at least one item currently in view carries a tag.
+- **The rule:** an item with no discipline tags is always shown. With chips selected, visible = untagged items + items carrying at least one selected discipline. No chips selected = everything. Closures (`class_holidays`), belt testing dates (`class_schedules`) and tournaments carry no `disciplines` and therefore always appear.
+- Filter applies to the agenda list, the month grid and the selected-day panel from the same filtered array.
+- "Show everything" reset button, real `<button aria-pressed>` chips, min 44px targets, existing focus rings, and a polite `aria-live` count of what is shown.
+- Mobile first: chips wrap in a horizontal flex row.
 
-## Verification (real output, ZZ-labelled rows, deleted afterwards)
+## Verification (with ZZ rows, deleted after)
 
-- Create one `ZZ` requirement with video fields on a single rank; copy it to three
-  destinations across different belt systems, one of them a tier. Paste the resulting
-  rows' `id`, `belt_rank_id`, `curriculum_tier`, `sort_order` and video fields —
-  showing distinct ids, correct targets, copied video data, and each `sort_order` at
-  the end of its own destination group.
-- Show the source row unchanged, `sort_order` included.
-- Screenshot the admin list showing each copy at the bottom of its destination group.
-- Show the source's own target is not selectable.
-- Re-run the same copy and paste the duplicate-skip message naming the destinations.
-- Paste the exact preview text, including the "independent copies" wording.
-- `curriculum_items` row count before and after, all `ZZ` rows deleted, and
-  confirmation that no constraint, function or policy changed.
+Migration file contents plus `information_schema` proof that `events` gained exactly one column and no constraint. Then, in the real browser: a ZZ event tagged with two disciplines rendering both tags; filtering to one discipline showing the match present, the other-tagged ZZ event gone, and an untagged ZZ event still present; a closure and a testing date still visible with a filter active; the chip bar absent once tagged events are removed. Row counts before/after and confirmation the four real events are unmodified and untagged.
