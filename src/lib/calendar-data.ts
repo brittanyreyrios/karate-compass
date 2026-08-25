@@ -377,12 +377,7 @@ export function buildCalendarItems(options: {
         address: t.address,
         registrationDeadline: t.registration_deadline,
         eventUrl: t.event_url,
-        // Tournaments come from announcements, so their tags come from the
-        // array there; the legacy `discipline` column is the fallback for any
-        // row written before this feature existed.
-        disciplines: cleanDisciplines(
-          t.disciplines && t.disciplines.length > 0 ? t.disciplines : t.discipline ? [t.discipline] : [],
-        ),
+        disciplines: tags,
       });
     });
   }
