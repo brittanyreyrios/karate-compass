@@ -73,6 +73,22 @@ export function cleanDisciplines(value: string[] | null | undefined): string[] {
   return [...new Set(value.map((v) => v.trim()).filter(Boolean))];
 }
 
+/**
+ * THE single legacy-fallback rule, so no reader can drift from another: the
+ * `disciplines` array when it has anything in it, otherwise the legacy
+ * single-value `discipline` column for rows written before the array existed,
+ * otherwise nothing. Every card, the calendar and the tournament editor call
+ * this — there is deliberately no second copy of these three branches.
+ */
+export function disciplinesOf(row: {
+  disciplines?: string[] | null;
+  discipline?: string | null;
+}): string[] {
+  const fromArray = cleanDisciplines(row.disciplines);
+  if (fromArray.length > 0) return fromArray;
+  return cleanDisciplines(row.discipline ? [row.discipline] : []);
+}
+
 export type TournamentRow = {
   id: string;
   title: string;
