@@ -77,7 +77,7 @@ import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab }
 import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
 import { DisciplinePicker } from "@/components/discipline-tags";
-import { cleanDisciplines } from "@/lib/calendar-data";
+import { cleanDisciplines, disciplinesOf } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
