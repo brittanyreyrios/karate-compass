@@ -23,4 +23,4 @@ Grep over `src/` for writes returns exactly three, matching your list — `src/l
 
 ## Verification I will paste back
 
-`git diff --stat` (admin.tsx only); the final save mutation; the grep output for `students.points` writes; on a test student with a nonzero balance — edit the points value, save, then the student's `points` plus their full `point_events` rows showing the correcting delta; and a second save changing only the name/belt, showing the `point_events` row count unchanged.
+`git diff --stat` (admin.tsx only); the final save mutation; the grep output for `students.points` writes; on a test student with a nonzero balance — edit the points value, save, then the student's `points` plus their full `point_events` rows showing the correcting delta; a second save changing only the name/belt, showing the `point_events` row count unchanged; and the concurrency case — with the edit form open, award points to that same student from the roster stepper, then save the edit form without touching the points field, pasting the student's `points` and `point_events` rows afterwards to show the stepper's award survives and no spurious correcting row is written.
