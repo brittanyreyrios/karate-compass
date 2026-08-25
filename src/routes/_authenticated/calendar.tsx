@@ -8,12 +8,17 @@ import { MonthGrid, MonthNav } from "@/components/month-grid";
 import { CalendarSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
+import { DisciplineTags } from "@/components/discipline-tags";
 import {
   CHIP_BASE,
   EVENT_TYPE_META,
   chipMeta,
   CLOSURE_META,
   buildCalendarItems,
+  filterByDisciplines,
+  hasKnownDisciplineTags,
+  DISCIPLINES,
+  DISCIPLINE_META,
   groupByDate,
   formatDayHeading,
   toDateKey,
@@ -79,7 +84,7 @@ export function useCalendarData(month: Date) {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id",
+          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id, disciplines",
         )
         .eq("published", true)
         .gte("starts_at", `${fromKey}T00:00:00Z`)
@@ -103,7 +108,7 @@ export function useCalendarData(month: Date) {
       const { data, error } = await supabase
         .from("announcements")
         .select(
-          "id, title, body, discipline, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url",
+          "id, title, body, discipline, disciplines, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url",
         )
         .eq("category", "tournament")
         .not("event_date", "is", null)
