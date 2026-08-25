@@ -364,7 +364,10 @@ export function buildCalendarItems(options: {
         timeLabel: days.length > 1 ? `Day ${i + 1} of ${days.length}` : "All day",
         sortMinutes: -1,
         location: t.venue || t.location,
-        audienceLabel: t.divisions ?? t.discipline,
+        // Divisions still win when the promoter published them. Without them we
+        // fall back to ALL the tags, not the single legacy column, so a
+        // Karate + Jiu Jitsu tournament does not lose one of them here.
+        audienceLabel: t.divisions ?? (tags.length > 0 ? tags.join(" · ") : null),
         description: t.body,
         eventType: "tournament",
         cancelled: false,
