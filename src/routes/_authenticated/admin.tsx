@@ -1480,6 +1480,10 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   // No class field here: membership lives in student_classes and students.class_name
   // is a trigger-derived label. Writing it here would recreate the drift trap.
   const [points, setPoints] = useState(String(student.points));
+  // Baseline is captured once when the form opens and deliberately never
+  // re-synced from the live prop: the delta must be measured against what the
+  // admin saw, so a concurrent roster award is preserved rather than clobbered.
+  const [pointsBaseline] = useState(student.points);
   const [attendance, setAttendance] = useState(String(student.attendance_count));
 
   // Keep the belt system in sync once the ranks list resolves.
@@ -1500,21 +1504,41 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           last_name: lastName.trim(),
           belt_rank_id: rankId,
           ...(rank ? { current_belt: rank.name } : {}),
-          points: Math.max(0, parseInt(points || "0", 10) || 0),
           attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
         .eq("id", student.id);
       if (error) throw error;
+
+      // Points never get written straight to students: awardPoints() is the one
+      // funnel that also writes the point_events audit row the leaderboard sums.
+      const entered = Math.max(0, parseInt(points || "0", 10) || 0);
+      const delta = entered - pointsBaseline;
+      if (delta !== 0) {
+        const { data: fresh, error: readErr } = await supabase
+          .from("students")
+          .select("points")
+          .eq("id", student.id)
+          .maybeSingle();
+        if (readErr) throw readErr;
+        await awardPoints({
+          studentId: student.id,
+          currentPoints: fresh?.points ?? pointsBaseline,
+          delta,
+          reason: "Manual correction (edit student)",
+        });
+      }
     },
 
 
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
       onDone();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
