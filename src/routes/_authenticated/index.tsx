@@ -287,19 +287,19 @@ function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+      <header className="grid grid-cols-1 items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="min-w-0">
           <div className="text-xs uppercase tracking-[0.3em] text-primary">Welcome back</div>
-          <h1 className="mt-2 truncate font-display text-3xl font-bold uppercase leading-tight tracking-wide sm:text-4xl lg:text-5xl">
+          <h1 className="mt-2 break-words font-display text-3xl font-bold uppercase leading-tight tracking-wide sm:text-4xl lg:text-5xl">
             The <span className="text-gradient-red">{profileQ.data?.family_name ?? "Family"}</span> Family Dashboard
           </h1>
         </div>
 
         {students.length > 1 && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
             <span className="hidden text-xs uppercase tracking-[0.2em] text-muted-foreground sm:inline">Viewing</span>
             <Select value={student.id} onValueChange={setActiveId}>
-              <SelectTrigger className="w-[200px] border-border bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full border-border bg-card sm:w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {students.map((s) => {
                   /**
