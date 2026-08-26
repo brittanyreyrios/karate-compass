@@ -1484,6 +1484,9 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   // admin saw, so a concurrent roster award is preserved rather than clobbered.
   const [pointsBaseline] = useState(student.points);
   const [attendance, setAttendance] = useState(String(student.attendance_count));
+  // Same baseline rule as points: captured once when the form opens and never
+  // re-synced, so a check-in made from the roster meanwhile survives.
+  const [attendanceBaseline] = useState(student.attendance_count);
 
   // Keep the belt system in sync once the ranks list resolves.
   useEffect(() => {
@@ -1503,7 +1506,6 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           last_name: lastName.trim(),
           belt_rank_id: rankId,
           ...(rank ? { current_belt: rank.name } : {}),
-          attendance_count: Math.max(0, parseInt(attendance || "0", 10) || 0),
         })
         .eq("id", student.id);
       if (error) throw error;
@@ -1526,13 +1528,43 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           reason: "Manual correction (edit student)",
         });
       }
+
+      // Attendance is the same story one column over: changeAttendance() keeps the
+      // counter and the attendance_events log in step. Unchanged field = no write.
+      const enteredAtt = Math.max(0, parseInt(attendance || "0", 10) || 0);
+      const attDelta = enteredAtt - attendanceBaseline;
+      let attendanceResult: { delta: number; requested: number } | null = null;
+      if (attDelta !== 0) {
+        const { data: freshAtt, error: attReadErr } = await supabase
+          .from("students")
+          .select("attendance_count")
+          .eq("id", student.id)
+          .maybeSingle();
+        if (attReadErr) throw attReadErr;
+        const change = await changeAttendance({
+          studentId: student.id,
+          currentAttendance: freshAtt?.attendance_count ?? attendanceBaseline,
+          delta: attDelta,
+        });
+        attendanceResult = { delta: change.delta, requested: change.requested };
+      }
+      return { attendanceResult };
     },
 
 
-    onSuccess: () => {
-      toast.success("Saved");
+    onSuccess: (res) => {
+      const att = res?.attendanceResult;
+      if (att && att.delta !== att.requested) {
+        // Partial removals must not look like full ones: name both numbers.
+        toast.warning(
+          `Saved, but only ${Math.abs(att.delta)} of the ${Math.abs(att.requested)} classes you asked to remove were on file — attendance was lowered by ${Math.abs(att.delta)}.`,
+        );
+      } else {
+        toast.success("Saved");
+      }
       qc.invalidateQueries({ queryKey: ["admin-students"] });
       qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["attendance-year"] });
       onDone();
     },
     onError: (e: Error) => toast.error(e.message),
