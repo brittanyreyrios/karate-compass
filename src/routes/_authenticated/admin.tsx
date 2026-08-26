@@ -97,6 +97,7 @@ import {
   useAcknowledgeConsentEvents,
 } from "@/components/admin-photo-consent";
 import { awardPoints, revertPointEvent } from "@/lib/points";
+import { changeAttendance } from "@/lib/attendance";
 import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/components/admin-roles";
 
 
@@ -486,27 +487,25 @@ function AttendanceTab() {
 
   const checkIn = useMutation({
     mutationFn: async (student: Student) => {
+      // changeAttendance() is the single funnel that bumps the counter and writes
+      // the dated attendance_events row the parent dashboard counts.
+      await changeAttendance({
+        studentId: student.id,
+        currentAttendance: student.attendance_count,
+        delta: 1,
+      });
+      // Absence streak is not attendance accounting, so it stays out of the funnel.
       const { error } = await supabase
         .from("students")
-        .update({
-          attendance_count: student.attendance_count + 1,
-          consecutive_absences: 0,
-        })
+        .update({ consecutive_absences: 0 })
         .eq("id", student.id);
       if (error) throw error;
-      // Yearly log entry — drives the parent dashboard's per-calendar-year total.
-      const { data: u } = await supabase.auth.getUser();
-      const { error: logErr } = await supabase.from("attendance_events").insert({
-        student_id: student.id,
-        occurred_on: new Date().toISOString().slice(0, 10),
-        created_by: u.user?.id ?? null,
-      });
-      if (logErr) throw logErr;
       return student.id;
     },
     onSuccess: (id) => {
       lockButton(setPresentLock, id);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["attendance-year"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
