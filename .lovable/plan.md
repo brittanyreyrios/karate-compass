@@ -1,26 +1,17 @@
-# One writer for students.points: route the Edit Student field through awardPoints
+# Parent dashboard header layout: stack on mobile, keep side-by-side at sm+
 
-No migration, no database change, no change to `get_leaderboard`, and no change to `points.ts`. One file changes: `src/routes/_authenticated/admin.tsx`.
+No data change, no query change, no database change. One file: `src/routes/_authenticated/index.tsx`.
 
 ## The change
 
-`StudentEditRow`'s save mutation (admin.tsx ~1489–1508):
+Lines ~290 header:
 
-1. `points` is removed from the `students` update payload entirely. That update keeps `first_name`, `last_name`, `belt_rank_id`, the `current_belt` fallback, and `attendance_count` — all saving exactly as they do today.
-2. The form captures a baseline when it opens: `const [pointsBaseline] = useState(student.points)`, populated from the same value as the input's `useState(String(student.points))`. The delta is computed against that baseline, never against the live prop. I will not re-sync the field or the baseline when the prop changes — the displayed number and the baseline stay the same number for the life of the open form, which is the only way the correction means what the admin sees.
-3. After the profile update succeeds, compute `const entered = Math.max(0, parseInt(points || "0", 10) || 0)`. If `entered !== pointsBaseline`, call
-   `awardPoints({ studentId: student.id, currentPoints: pointsBaseline, delta: entered - pointsBaseline, reason: "Manual correction (edit student)" })`.
-   Negative deltas are already supported — `awardPoints` clamps the new total at 0 and logs the actually-applied amount, so the ledger row and the balance always agree.
-4. If `entered === pointsBaseline`, nothing is written: no `students.points` write, no `point_events` row. Changing only a name or belt therefore produces no ledger row — and an award that landed from elsewhere while the form was open survives untouched.
-5. `awardPoints` is imported from `@/lib/points` in this file if it is not already; `onSuccess` also invalidates `["leaderboard"]` alongside `["admin-students"]` so the corrected month total is visible immediately.
-
-Order matters: the profile fields save first, then the points correction, so a failing ledger write surfaces as an error toast rather than silently leaving the balance edited without an audit row.
-
-
-## Other writers to students.points
-
-Grep over `src/` for writes returns exactly three, matching your list — `src/lib/points.ts:27` and `:59` (inside the funnel, correct) and `src/routes/_authenticated/admin.tsx:1503` (the bug being removed). `admin.tsx:1380` is the `point_events` count for the delete dialog, untouched. There is no fourth writer; the CSV importer and the parking path never set `points`. I will paste the grep output in the report.
+- On mobile, change the heading/select container from `grid grid-cols-[minmax(0,1fr)_auto]` to a single-column stack. The heading `<div>` gets `w-full` so the family name occupies the full mobile width; the select wrapper is moved to a new row beneath it. Both rows remain within the same `<header>`.
+- At `sm:` and above, keep the existing `flex flex-wrap justify-between` layout exactly as it is today.
+- Remove `truncate` from the `<h1>` and add `break-words`. Long family names wrap onto a second line instead of clipping; a very long single word wraps without overflowing.
+- On mobile, the `<SelectTrigger>` uses `w-full` rather than `w-[200px]`. At `sm:` it keeps the existing `w-[200px]`.
+- Leave the eyebrow text "Welcome back", the red gradient span on the family name, the wording "The {family} Family Dashboard", the hidden-on-mobile "Viewing" label, and the full Select content untouched.
 
 ## Verification I will paste back
 
-`git diff --stat` (admin.tsx only); the final save mutation; the grep output for `students.points` writes; on a test student with a nonzero balance — edit the points value, save, then the student's `points` plus their full `point_events` rows showing the correcting delta; a second save changing only the name/belt, showing the `point_events` row count unchanged; and the concurrency case — with the edit form open, award points to that same student from the roster stepper, then save the edit form without touching the points field, pasting the student's `points` and `point_events` rows afterwards to show the stepper's award survives and no spurious correcting row is written.
+`git diff --stat` (index.tsx only); the final header JSX; a signed-in parent with multiple students on a narrow phone viewport showing the full family name plus "Family Dashboard" fully visible and the dropdown on its own line; the desktop layout at sm+ visually unchanged; and a test with a family name of at least 20 characters wrapping cleanly instead of clipping or overflowing.
