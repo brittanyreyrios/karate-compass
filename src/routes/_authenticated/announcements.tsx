@@ -86,6 +86,12 @@ function Announcements() {
       .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
       })
+      // Round 20: unannounced tournament EVENTS are part of the tournament
+      // union, so an events change must refresh it too.
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+        qc.invalidateQueries({ queryKey: ["announcements"] });
+      })
+
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [qc]);

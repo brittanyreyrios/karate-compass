@@ -53,8 +53,13 @@ function announcementPayload(form: FormState) {
     body: form.description.trim() || "Details coming soon.",
     location: form.location.trim() || null,
     event_date: form.starts_at ? form.starts_at.slice(0, 10) : null,
+    // Round 20 prevention: the linked announcement carries the event's tags, so
+    // the two copies can never disagree and the calendar de-dup has nothing to
+    // reconcile. Same null-when-empty rule as the event row.
+    disciplines: form.disciplines.length > 0 ? form.disciplines : null,
   };
 }
+
 
 export function EventsAdminTab() {
   const qc = useQueryClient();
