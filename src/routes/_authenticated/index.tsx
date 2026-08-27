@@ -513,12 +513,24 @@ function Dashboard() {
                 <li key={n.id} className="group cursor-pointer rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50 hover:bg-background">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="border-primary/40 text-primary">{n.tag ?? "News"}</Badge>
-                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                      {new Date(n.created_at).toLocaleDateString()}
-                    </span>
+                    {n.event_date ? (
+                      <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-foreground">
+                        <Calendar className="h-3 w-3" aria-hidden="true" />
+                        {formatDateRange(n.event_date, n.event_end_date)}
+                      </span>
+                    ) : (
+                      <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                        Posted {new Date(n.created_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                   <h3 className="mt-3 font-semibold text-foreground group-hover:text-primary">{n.title}</h3>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
+                  {n.event_date && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Posted {new Date(n.created_at).toLocaleDateString()}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
