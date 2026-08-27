@@ -138,8 +138,14 @@ function Announcements() {
                 {n.tag && <Badge variant="outline" className="border-primary/40 text-primary">{n.tag}</Badge>}
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
-                <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
-                  {new Date(n.created_at).toLocaleDateString()}
+                <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                  {n.event_date && (
+                    <div className="flex items-center gap-1 font-semibold text-foreground">
+                      <Calendar className="h-3 w-3" aria-hidden="true" />
+                      {formatDateRange(n.event_date, n.event_end_date)}
+                    </div>
+                  )}
+                  <div>Posted {new Date(n.created_at).toLocaleDateString()}</div>
                 </div>
               </article>
             ))}
