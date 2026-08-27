@@ -107,6 +107,35 @@ export function useTournaments(limit?: number) {
       if (evRes.error) throw evRes.error;
 
       const fromAnnouncements = (annRes.data ?? []) as Tournament[];
+
+      /**
+       * Same merge rule as the calendar: an announcement with no tags of its own
+       * inherits the tags of the event that links to it (Westchase WC Kickoff is
+       * tagged Wrestling on the event and NULL on the announcement). Announcement
+       * tags always win when it has any.
+       */
+      const annIds = fromAnnouncements.map((a) => a.id);
+      if (annIds.length > 0) {
+        const { data: linked, error: linkedErr } = await supabase
+          .from("events")
+          .select("announcement_id, disciplines")
+          .in("announcement_id", annIds);
+        if (linkedErr) throw linkedErr;
+        const tagsByAnnouncement = new Map<string, string[]>();
+        for (const row of linked ?? []) {
+          const tags = (row.disciplines ?? []).filter((d): d is string => !!d && d.trim() !== "");
+          if (row.announcement_id && tags.length > 0)
+            tagsByAnnouncement.set(row.announcement_id, tags);
+        }
+        for (const a of fromAnnouncements) {
+          const own = (a.disciplines ?? []).filter((d) => !!d && d.trim() !== "");
+          if (own.length === 0 && !a.discipline) {
+            const inherited = tagsByAnnouncement.get(a.id);
+            if (inherited) a.disciplines = inherited;
+          }
+        }
+      }
+
       const fromEvents: Tournament[] = (evRes.data ?? []).map((e) => ({
         // Prefixed so a React key can never collide with an announcement id.
         id: `event:${e.id}`,
