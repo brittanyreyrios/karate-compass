@@ -1152,6 +1152,14 @@ export type Database = {
         Returns: Json
       }
       assign_jiu_jitsu_levels: { Args: never; Returns: Json }
+      award_points: {
+        Args: { _delta: number; _reason?: string; _student_id: string }
+        Returns: Json
+      }
+      change_attendance: {
+        Args: { _delta: number; _student_id: string }
+        Returns: Json
+      }
       check_invite_code: { Args: { _code: string }; Returns: boolean }
       class_student_counts: {
         Args: never
@@ -1270,6 +1278,7 @@ export type Database = {
         Returns: number
       }
       resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
+      revert_point_event: { Args: { _event_id: string }; Returns: Json }
       set_class_test_date: {
         Args: {
           _date: string
