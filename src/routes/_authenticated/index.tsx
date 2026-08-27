@@ -161,6 +161,13 @@ function Dashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
       })
+      // Round 20: the events table feeds both the dashboard events section and
+      // the tournament union, and had no live update at all until now.
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+        qc.invalidateQueries({ queryKey: ["announcements"] });
+        qc.invalidateQueries({ queryKey: ["dashboard-events"] });
+      })
+
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
