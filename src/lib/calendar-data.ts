@@ -319,8 +319,23 @@ export function buildCalendarItems(options: {
    */
   const tournamentIds = new Set(tournaments.map((t) => t.id));
 
+  /**
+   * Suppressing the event copy must not throw away its tags. The Events admin is
+   * where disciplines get set, so the event row is often the only tagged copy —
+   * Westchase WC Kickoff carries ['Wrestling'] on the event and NULL on the
+   * announcement. We keep the suppressed event's tags here and fall back to them
+   * in the tournament loop; announcement tags always win when it has any.
+   */
+  const suppressedEventTags = new Map<string, string[]>();
+  for (const e of events) {
+    if (!e.announcement_id || !tournamentIds.has(e.announcement_id)) continue;
+    const tags = cleanDisciplines(e.disciplines);
+    if (tags.length > 0) suppressedEventTags.set(e.announcement_id, tags);
+  }
+
   for (const e of events) {
     if (e.announcement_id && tournamentIds.has(e.announcement_id)) continue;
+
     const starts = new Date(e.starts_at);
     const dateKey = toDateKey(starts);
     const ends = e.ends_at ? new Date(e.ends_at) : null;
