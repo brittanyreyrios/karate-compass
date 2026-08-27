@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.divisions_of(uuid) FROM anon;
