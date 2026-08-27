@@ -31,7 +31,7 @@ export async function awardPoints(opts: {
   const { data, error } = await supabase.rpc("award_points", {
     _student_id: opts.studentId,
     _delta: opts.delta,
-    _reason: opts.reason ?? null,
+    _reason: opts.reason ?? undefined,
   });
   if (error) throw error;
 
