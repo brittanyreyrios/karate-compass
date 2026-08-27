@@ -161,18 +161,31 @@ function Dashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
       })
-      // Round 20: the events table feeds both the dashboard events section and
-      // the tournament union, and had no live update at all until now.
+      .subscribe();
+
+    /**
+     * Round 20: the events binding lives on its OWN channel deliberately.
+     * Measured behaviour: a channel that binds a table which is NOT in the
+     * supabase_realtime publication (attendance_events, above) receives no
+     * postgres_changes payloads AT ALL — every other binding on that same
+     * channel is silently starved too. Keeping events separate means the
+     * tournament union and events section live-update regardless of that,
+     * and this channel can never be poisoned by an unpublished sibling.
+     */
+    const evCh = supabase
+      .channel("dash-events-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
         qc.invalidateQueries({ queryKey: ["announcements"] });
         qc.invalidateQueries({ queryKey: ["dashboard-events"] });
       })
-
       .subscribe();
+
     return () => {
       supabase.removeChannel(ch);
+      supabase.removeChannel(evCh);
     };
   }, [qc]);
+
 
   const students = studentsQ.data ?? [];
   const [activeId, setActiveId] = useState<string | null>(null);
