@@ -556,38 +556,9 @@ function Dashboard() {
 
           ) : (
             <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
-              {tournaments.map((t) => {
-                const days = t.event_date ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000)) : null;
-                const tags = disciplinesOf(t);
-                return (
-                  <li key={t.id} className="relative">
-                    <span className="absolute -left-[31px] top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-primary bg-background">
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    </span>
-                    <div className="rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50">
-                      <div className="flex items-center justify-between gap-2">
-                        {/* Untagged tournaments keep the neutral "Event" badge: the row
-                            needs something beside the "Nd away" counter. */}
-                        {tags.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <DisciplineTags disciplines={tags} />
-                          </div>
-                        ) : (
-                          <Badge className="bg-foreground/10 text-foreground hover:bg-foreground/15">Event</Badge>
-                        )}
-                        {days !== null && (
-                          <span className="text-xs font-bold uppercase tracking-widest text-primary">{days}d away</span>
-                        )}
-                      </div>
-                      <h3 className="mt-3 font-semibold">{t.title}</h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                         {(t.venue || t.address || t.location) && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {[t.venue, t.address].filter(Boolean).join(" · ") || t.location}</span>}
-                         {t.event_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateRange(t.event_date, t.event_end_date)}</span>}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {tournaments.map((t) => (
+                <TournamentCard key={t.id} tournament={t} variant="condensed" />
+              ))}
             </ol>
           )}
         </div>
