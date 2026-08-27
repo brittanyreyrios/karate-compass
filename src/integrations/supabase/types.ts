@@ -1161,6 +1161,7 @@ export type Database = {
         }[]
       }
       division_of: { Args: { _student_id: string }; Returns: string }
+      divisions_of: { Args: { _student_id: string }; Returns: string[] }
       get_curriculum_for_all_children: {
         Args: never
         Returns: {
