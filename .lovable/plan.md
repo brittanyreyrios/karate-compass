@@ -1,31 +1,30 @@
-# Merge discipline tags, union the tournament list, prevent future drift
+# Jiu Jitsu leaderboard: a student can sit on two boards
 
-No migration, no database change. The news feed stays `category = 'school_news'` and stays paginated exactly as it is.
+One migration, no front-end changes, no schema changes to tables.
 
-## 1. Calendar de-dup merges tags instead of discarding them
+## 1. New `public.divisions_of(_student_id uuid) RETURNS text[]`
 
-`src/lib/calendar-data.ts`, `buildCalendarItems`:
+`SECURITY DEFINER`, `STABLE`, `SET search_path = public`, matching the existing functions.
 
-- Keep the existing `tournamentIds` set and the existing event-skip rule (`if (e.announcement_id && tournamentIds.has(e.announcement_id)) continue;`) exactly as they are.
-- Build, before the tournament loop, a `Map<string, string[]>` from `announcement_id` → `cleanDisciplines(event.disciplines)` for each suppressed event, entered only when that list is non-empty.
-- In the tournament loop resolve tags as: announcement tags when non-empty, else the suppressed event's tags, else empty. Announcement tags always win.
-- `audienceLabel` and the chip list both read the resolved tags, so Westchase WC Kickoff shows Wrestling on the calendar and dashboard.
+Body assembles an array with no NULLs and no duplicates:
 
-## 2. `useTournaments()` becomes a union of two ordered branches
+- The primary division from `public.division_of(_student_id)` — called, not re-implemented, so the two can never drift.
+- `'jiu_jitsu'` when the student has any `student_classes` row whose `class_schedules.program_id` is the "Jiu Jitsu & Wrestling" programme (`679fb4c1-8004-4db1-a88b-11e910de640d`), commented by name in the SQL.
 
-`src/lib/announcements.ts`:
+Result rules: primary NULL + jiu jitsu class → `{jiu_jitsu}`; neither → `{}`; a jiu-jitsu student whose primary is already `jiu_jitsu` → `{jiu_jitsu}` once.
 
-- Branch A (unchanged): `announcements` where `category = 'tournament'`, same still-current `.or(...)`, `event_date` ascending nulls last, `.limit(limit)`.
-- Branch B (new): `events` where `event_type = 'tournament'`, `announcement_id is null` (that null check is the de-dup), `published = true`, still-current against the timestamp columns, ordered by `starts_at`, same `.limit(limit)`.
-- Each event maps into the existing `Tournament` shape: `body` from `description`, `event_date` from the local date of `starts_at`, `event_end_date` from the local date of `ends_at`, `disciplines` from `disciplines`; `venue`, `address`, `divisions`, `registration_deadline`, `spectator_info`, `event_url`, `tag`, `discipline` all null. Ids prefixed `event:<id>` so React keys cannot collide.
-- Limit handling: fetch `limit` from each branch, merge, sort by `event_date` ascending nulls last, then slice to `limit`. Because each branch is individually ordered, the merged top-N is provably the true top-N.
-- Query key stays under the `["announcements", ...]` prefix.
-- Realtime: the parent-facing channels (`ann-live`, `dash-live`) subscribe to `announcements` only — they do **not** listen for `events` changes. This union therefore does not live-update when an unannounced tournament event changes; it refreshes on next fetch/navigation. Not changed in this round unless you ask.
+Execute granted to `authenticated` (and `service_role`) only, matching `division_of`'s current grants.
 
-## 3. Prevention in the admin save path
+## 2. `public.get_leaderboard` — one line changed
 
-`src/components/admin-events-tab.tsx`: when an event has a linked announcement, the announcement update also writes the event's `disciplines` (same null-when-empty rule), so event and announcement can never disagree again.
+`AND public.division_of(st.id) = _division` becomes `AND _division = ANY(public.divisions_of(st.id))`. The `bounds` CTE, the `point_events` sum, `COALESCE(pts.total, 0) > 0`, the ordering, `LIMIT 10` and the returned columns are re-issued byte-identical.
+
+## 3. Untouched
+
+`public.division_of` and `public.get_my_division` are not re-created — no signature, body or grant change. No table columns, no programme changes, no class moves, no `leaderboard_divisions` change, no front-end file.
 
 ## Evidence I will report
 
-`git diff --stat`; the final merge fallback and final `useTournaments`; signed in as a parent — Westchase Wrestling chip on calendar, dashboard and announcements; Grand Oaks Takedown and Brazoria County Hurricane Classic present and tagged in date order in both tournament lists; NAGA exactly once on 31 Oct and once per list; news feed unchanged (school-news only, paginated, no tournament leakage); the exact four titles/dates the dashboard renders via `useTournaments(4)`; and a Westchase discipline edit in the Events tab with the resulting `disciplines` from both the event row and announcement `215378aa-…`.
+The full migration SQL as committed and confirmation it is the only one; `git diff --stat`; the `first_name / primary / all_divisions` table for all active students; `get_leaderboard('jiu_jitsu','month')`; all five other boards before and after; and `md5(prosrc)` for `division_of` and `get_my_division` before and after to prove they are byte-identical.
+
+Note: the read-only query tool lacks EXECUTE on these functions, so the before/after board captures run through the privileged SQL path instead.
