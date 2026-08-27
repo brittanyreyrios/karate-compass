@@ -7,10 +7,20 @@ export type PointAward = {
   eventId: string | null;
 };
 
+type AwardRow = {
+  student_id: string;
+  delta: number;
+  new_total: number;
+  event_id: string | null;
+};
+
 /**
- * Single funnel for every Dojo Point change: updates students.points (the source
- * of truth) and writes an audit row to point_events. Returns the amount added
- * and the new total so the UI can show both.
+ * Single funnel for every Dojo Point change. The counter update on students and
+ * the point_events audit row are now one transaction inside
+ * public.award_points(), so the two can no longer drift apart if a call fails
+ * halfway. The database re-reads the student's total under a row lock, which is
+ * why `currentPoints` is no longer used for the arithmetic — it is kept in the
+ * options only so existing call sites need no change.
  */
 export async function awardPoints(opts: {
   studentId: string;
@@ -18,35 +28,36 @@ export async function awardPoints(opts: {
   delta: number;
   reason?: string | null;
 }): Promise<PointAward> {
-  const newTotal = Math.max(0, opts.currentPoints + opts.delta);
-  const applied = newTotal - opts.currentPoints;
-  if (applied === 0) return { studentId: opts.studentId, delta: 0, newTotal, eventId: null };
-
-  const { error } = await supabase
-    .from("students")
-    .update({ points: newTotal })
-    .eq("id", opts.studentId);
+  const { data, error } = await supabase.rpc("award_points", {
+    _student_id: opts.studentId,
+    _delta: opts.delta,
+    _reason: opts.reason ?? null,
+  });
   if (error) throw error;
 
-  const { data: u } = await supabase.auth.getUser();
-  const { data, error: logErr } = await supabase
-    .from("point_events")
-    .insert({
-      student_id: opts.studentId,
-      delta: applied,
-      reason: opts.reason ?? null,
-      awarded_by: u.user?.id ?? null,
-    })
-    .select("id")
-    .maybeSingle();
-  if (logErr) throw logErr;
+  const row = data as unknown as AwardRow;
 
-  return { studentId: opts.studentId, delta: applied, newTotal, eventId: data?.id ?? null };
+  // event_id is null ONLY on the zero-change path, where nothing was written.
+  // If the counter moved and we still have no audit row id, something is wrong
+  // and we must say so: a silent null here would let the Undo action report
+  // success while reverting nothing.
+  if (row.delta !== 0 && !row.event_id) {
+    throw new Error("Points were recorded without an audit row — refresh and check the student's total");
+  }
+
+  return {
+    studentId: row.student_id,
+    delta: row.delta,
+    newTotal: row.new_total,
+    eventId: row.event_id,
+  };
 }
 
 /**
- * Undo: subtracts the exact amount again and deletes the audit row rather than
- * writing a negative one, so the log stays truthful.
+ * Undo: public.revert_point_event() reads the amount from the audit row itself
+ * and deletes it, rather than trusting numbers the client cached. A null
+ * eventId therefore means the award wrote nothing at all (zero delta), so
+ * there is nothing to revert.
  */
 export async function revertPointEvent(opts: {
   studentId: string;
@@ -54,13 +65,7 @@ export async function revertPointEvent(opts: {
   delta: number;
   eventId: string | null;
 }): Promise<void> {
-  const { error } = await supabase
-    .from("students")
-    .update({ points: Math.max(0, opts.currentPoints - opts.delta) })
-    .eq("id", opts.studentId);
+  if (!opts.eventId) return;
+  const { error } = await supabase.rpc("revert_point_event", { _event_id: opts.eventId });
   if (error) throw error;
-  if (opts.eventId) {
-    const { error: delErr } = await supabase.from("point_events").delete().eq("id", opts.eventId);
-    if (delErr) throw delErr;
-  }
 }
