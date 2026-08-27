@@ -28,7 +28,8 @@ import { LevelChip } from "@/components/level-chip";
 import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
-import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, disciplinesOf, type DojoEvent } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
+import { TournamentCard } from "@/components/tournament-card";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
 

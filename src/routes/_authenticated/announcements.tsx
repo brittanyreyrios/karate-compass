@@ -1,17 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Trophy, MapPin, Calendar, Pin, ExternalLink } from "lucide-react";
+import { Megaphone, Trophy, Calendar, Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDateOnly, formatDateRange } from "@/lib/date-only";
+import { formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
 import { useTournaments } from "@/lib/announcements";
-import { DisciplineTags } from "@/components/discipline-tags";
-import { disciplinesOf } from "@/lib/calendar-data";
+import { TournamentCard } from "@/components/tournament-card";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
