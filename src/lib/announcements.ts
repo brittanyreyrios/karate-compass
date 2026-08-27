@@ -47,6 +47,31 @@ function todayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Local yyyy-mm-dd of a timestamptz — the calendar day the parent sees. */
+function localDateKey(ts: string | null): string | null {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** event_date ascending, NULLS LAST — matches the server ordering of each branch. */
+function byEventDate(a: Tournament, b: Tournament) {
+  if (a.event_date === b.event_date) return 0;
+  if (!a.event_date) return 1;
+  if (!b.event_date) return -1;
+  return a.event_date < b.event_date ? -1 : 1;
+}
+
+/**
+ * Round 20: announcing a tournament controls whether it also gets a news-feed
+ * post, NOT whether it counts as a tournament. So this is a union of two
+ * independently ordered branches — tournament announcements, plus published
+ * tournament EVENTS that have no announcement (the null check is the de-dup).
+ *
+ * Top-N correctness: each branch is ordered server-side and fetched with the
+ * same `limit`, so the true top-N of the union is guaranteed to be inside the
+ * merged 2N rows. We merge, sort, then slice.
+ */
 export function useTournaments(limit?: number) {
   const today = todayKey();
   return useQuery({
@@ -54,7 +79,7 @@ export function useTournaments(limit?: number) {
     // invalidation keeps hitting it.
     queryKey: ["announcements", "tournaments", limit ?? "all", today],
     queryFn: async () => {
-      let query = supabase
+      let annQuery = supabase
         .from("announcements")
         .select(TOURNAMENT_COLUMNS)
         .eq("category", "tournament")
@@ -64,10 +89,48 @@ export function useTournaments(limit?: number) {
           `event_end_date.gte.${today},and(event_end_date.is.null,event_date.gte.${today}),and(event_end_date.is.null,event_date.is.null)`,
         )
         .order("event_date", { ascending: true, nullsFirst: false });
-      if (limit) query = query.limit(limit);
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data ?? []) as Tournament[];
+      if (limit) annQuery = annQuery.limit(limit);
+
+      let evQuery = supabase
+        .from("events")
+        .select("id, title, description, starts_at, ends_at, location, disciplines")
+        .eq("event_type", "tournament")
+        .is("announcement_id", null)
+        .eq("published", true)
+        // Same still-current rule, against the timestamp columns.
+        .or(`ends_at.gte.${today},and(ends_at.is.null,starts_at.gte.${today})`)
+        .order("starts_at", { ascending: true });
+      if (limit) evQuery = evQuery.limit(limit);
+
+      const [annRes, evRes] = await Promise.all([annQuery, evQuery]);
+      if (annRes.error) throw annRes.error;
+      if (evRes.error) throw evRes.error;
+
+      const fromAnnouncements = (annRes.data ?? []) as Tournament[];
+      const fromEvents: Tournament[] = (evRes.data ?? []).map((e) => ({
+        // Prefixed so a React key can never collide with an announcement id.
+        id: `event:${e.id}`,
+        category: "tournament",
+        title: e.title,
+        body: e.description ?? "",
+        tag: null,
+        discipline: null,
+        disciplines: e.disciplines,
+        location: e.location,
+        event_date: localDateKey(e.starts_at),
+        event_end_date: localDateKey(e.ends_at),
+        venue: null,
+        address: null,
+        divisions: null,
+        registration_deadline: null,
+        spectator_info: null,
+        event_url: null,
+        created_at: e.starts_at,
+      }));
+
+      const merged = [...fromAnnouncements, ...fromEvents].sort(byEventDate);
+      return limit ? merged.slice(0, limit) : merged;
     },
   });
 }
+
