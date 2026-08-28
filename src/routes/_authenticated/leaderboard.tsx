@@ -230,7 +230,13 @@ function LeaderboardPage() {
             )}
             {podium[0] && (
               <div className="flex scale-105 sm:-translate-y-4 sm:scale-110">
-                <PodiumCard rank={1} row={podium[0]} accent="gold" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+                <PodiumCard
+                  rank={1}
+                  row={podium[0]}
+                  accent="gold"
+                  featured
+                  isJiuJitsu={divisionKey === "jiu_jitsu"}
+                />
               </div>
             )}
             {podium[2] && (
