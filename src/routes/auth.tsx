@@ -138,7 +138,7 @@ function AuthPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(authErrorMessage(error, GENERIC_RESET));
     setResetSentTo(target);
     toast.success("Reset link sent. Check your inbox.");
   };
