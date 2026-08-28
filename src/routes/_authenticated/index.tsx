@@ -30,6 +30,7 @@ import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
 import { TournamentCard } from "@/components/tournament-card";
+import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
 
@@ -79,11 +80,9 @@ type Announcement = {
   event_end_date: string | null;
   venue: string | null;
   address: string | null;
+  pinned: boolean;
   created_at: string;
 };
-
-const DASHBOARD_ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, created_at";
 
 function Dashboard() {
   const qc = useQueryClient();
@@ -130,13 +129,14 @@ function Dashboard() {
   const announcementsQ = useQuery({
     queryKey: ["announcements", "dashboard"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("announcements")
-        .select(DASHBOARD_ANNOUNCEMENT_COLUMNS)
-        .eq("category", "school_news")
-        .order("created_at", { ascending: false })
-        .limit(8);
-      return (data ?? []) as Announcement[];
+      // Round 34: ordering lives in public.get_school_news (pinned, then
+      // upcoming soonest-first, then everything else newest-posted first) so the
+      // dashboard and the paginated announcements page cannot disagree. Same
+      // window as before — 8 fetched, 4 shown. Query key prefix unchanged, so
+      // the announcements realtime handler below still refreshes it.
+      const { data, error } = await supabase.rpc("get_school_news", { _limit: 8, _offset: 0 });
+      if (error) throw error;
+      return (data ?? []) as unknown as Announcement[];
     },
   });
 
@@ -515,26 +515,15 @@ function Dashboard() {
             <ul className="mt-4 space-y-3">
               {news.map((n) => (
                 <li key={n.id} className="group cursor-pointer rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/50 hover:bg-background">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="border-primary/40 text-primary">{n.tag ?? "News"}</Badge>
-                    {n.event_date ? (
-                      <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-foreground">
-                        <Calendar className="h-3 w-3" aria-hidden="true" />
-                        {formatDateRange(n.event_date, n.event_end_date)}
-                      </span>
-                    ) : (
-                      <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                        Posted {new Date(n.created_at).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
+                  <NewsCardTopRow
+                    tag={n.tag}
+                    eventDate={n.event_date}
+                    eventEndDate={n.event_end_date}
+                    pinned={n.pinned}
+                  />
                   <h3 className="mt-3 font-semibold text-foreground group-hover:text-primary">{n.title}</h3>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
-                  {n.event_date && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Posted {new Date(n.created_at).toLocaleDateString()}
-                    </div>
-                  )}
+                  <NewsPostedLine createdAt={n.created_at} />
                 </li>
               ))}
             </ul>
