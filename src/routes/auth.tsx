@@ -43,6 +43,32 @@ export const Route = createFileRoute("/auth")({
 
 type InviteState = "idle" | "checking" | "valid" | "invalid";
 
+/**
+ * Parents must never be shown a raw backend error string — that is how the
+ * password rules once surfaced as a wall of escaped character sets in a toast.
+ * The real error object is always console.error'd so it stays diagnosable.
+ */
+function authErrorMessage(error: unknown, fallback: string): string {
+  console.error("Auth error", error);
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/too many requests|rate limit|for security purposes/i.test(message)) {
+    return "Too many attempts just now. Please wait a moment and try again.";
+  }
+  if (/email address.*invalid|invalid email|unable to validate email/i.test(message)) {
+    return "That email address doesn't look right. Please check it and try again.";
+  }
+  return fallback;
+}
+
+const GENERIC_SIGNUP =
+  "We couldn't create your account just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_SIGNIN =
+  "We couldn't sign you in just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_RESET =
+  "We couldn't send that reset email just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_RESEND =
+  "We couldn't resend that email just now. Please try again, or contact the front desk if it keeps happening.";
+
 function AuthPage() {
   const navigate = useNavigate();
   const { invite: invitedCode } = Route.useSearch();
