@@ -124,7 +124,7 @@ function AuthPage() {
       return toast.error(
         /invalid login credentials/i.test(error.message)
           ? "That email and password don't match an account. Check your spelling or reset your password."
-          : error.message,
+          : authErrorMessage(error, GENERIC_SIGNIN),
       );
     }
     navigate({ to: "/" });
