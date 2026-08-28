@@ -1,77 +1,74 @@
-# Tournament result tracking (round 1: single-result entry + parent view)
+# Round 33 — bulk tournament results + plain-English signup errors
 
-## 1 — Migration (one, only one)
+## Part 1 — Bulk entry in the Results admin tab
 
-Create `public.tournament_results` exactly as specified: `student_id` (cascade),
-nullable `announcement_id` (set null on delete), denormalised `tournament_name` +
-`tournament_date` written on every row, `event_name`, nullable `placement` with
-`CHECK (placement IS NULL OR placement > 0)`, `disciplines text[]`, `notes`,
-`created_by`, timestamps + `set_updated_at` trigger.
+No migration. `public.tournament_results` is reused exactly as it is: no schema,
+policy, grant, function, or realtime change. Parent dashboard section untouched.
 
-Indexes: `(student_id, tournament_date DESC)` and `(announcement_id)`.
+### Where it goes
 
-RLS mirroring `point_events`:
-- parents SELECT where the row's student belongs to them
-- admins SELECT everything
-- INSERT / UPDATE / DELETE admin-only via `public.has_role(auth.uid(),'admin')`
+A second card in `src/components/admin-tournament-results.tsx`'s tab, rendered
+as a new sibling component `src/components/admin-tournament-bulk.tsx` above the
+existing "Recorded results" list. The single-entry form stays exactly as it is.
 
-Grants last, in this order:
-```
-REVOKE ALL ON public.tournament_results FROM PUBLIC, anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.tournament_results TO authenticated;
-GRANT ALL ON public.tournament_results TO service_role;
-```
-Then paste `relacl` proving no bare `=` entry and no `anon=` entry.
+### Flow
 
-No change to any existing table or function.
+1. **Tournament** — same control as single entry: pick an announcement with
+   `category = 'tournament'` (prefills name, date, disciplines) or "Enter
+   manually" with typed name + date. Name/date remain editable and are written
+   onto every row.
+2. **Batch event** — one `event_name` for the whole batch, plus batch
+   disciplines through the existing `DisciplinePicker`. Two events for one child
+   means running the flow twice, by design.
+3. **Roster** — active students only (`active = true`), with:
+   - a name search box
+   - a filter by class / programme, driven by `student_classes` →
+     `class_schedules` (`program_id` → `programs`)
+   - tick-boxes, "select all shown" / "clear", and a per-student optional
+     placement input that defaults to blank ("Competed"), never an error.
+4. **Duplicate protection** — once tournament name + date + event name are all
+   filled, query `tournament_results` for those three values and mark matching
+   students "Already recorded". Those rows are unticked and locked out of the
+   batch by default with a visible note; staff can deliberately re-include one
+   via an explicit "record anyway" toggle.
+5. **Save** — a single `supabase.from("tournament_results").insert([...])` with
+   the whole array built first (one call, no loop), each row carrying its own
+   `tournament_name`, `tournament_date`, `event_name`, `placement`,
+   `disciplines`, and `created_by = auth.uid()`.
+6. **Reporting** — after save, an on-card summary plus toast naming how many rows
+   were created and which students by name, and listing any students skipped as
+   duplicates. Not a generic "saved".
 
-## 2 — Admin entry
+Invalidates the same query keys the single-entry form already invalidates.
 
-New "Results" admin tab (`src/components/admin-tournament-results.tsx`), wired into
-the existing `ADMIN_TABS` list + `TabsContent` in `admin.tsx`, following the same
-mobile Select/desktop tab strip already there.
+## Part 2 — `src/routes/auth.tsx` error handling
 
-Form:
-- student picker (searchable, same pattern as existing student pickers)
-- tournament source: pick an existing `announcements` row with
-  `category = 'tournament'`, or "Enter manually" for name + date. Picking one
-  prefills name, date and disciplines into editable fields; the stored row always
-  carries its own name and date.
-- `event_name`, optional `placement`, optional `notes`
-- disciplines via the existing `DisciplinePicker` (no second picker)
-- "Save and add another event" keeps student + tournament + disciplines and clears
-  only event name / placement / notes, so multiple events at one tournament need
-  one tournament entry.
-- list of existing results with inline edit and delete (confirm on delete)
+`signUp`, `signIn`, `forgotPassword` (and `resendConfirmation`, same fallback
+shape — I will report on it and give it the same treatment) all end in a raw
+`error.message` toast today. For each:
 
-`created_by` = `auth.uid()`.
+- keep the existing specific cases byte-for-byte (invite code, already
+  registered, invalid login credentials)
+- add rate limit / "too many requests" → ask the parent to wait a moment
+- add invalid email address → ask them to check the address
+- everything else → one generic non-technical line, e.g. "We couldn't create
+  your account just now. Please try again, or contact the front desk if it keeps
+  happening."
+- `console.error` the real error object in every branch, so it stays diagnosable
 
-## 3 — Parent dashboard section
+A small local helper in the same file maps an error to a message; no validation
+rule, password checklist, or other file changes.
 
-New "Tournament Results" section in `src/routes/_authenticated/index.tsx` for the
-currently selected child only, fetched by that child's id.
+## Verification I will report
 
-- newest `tournament_date` first, rows grouped per tournament (name + date), each
-  group one card with one line per event
-- placement: 1/2/3 read as gold / silver / bronze using the leaderboard podium
-  accents, 4+ shown plainly, `NULL` renders "Competed"
-- discipline chips via `DisciplineTags` + `cleanDisciplines`
-- empty state: one short encouraging line
-- error state: existing `QueryErrorState`
-
-No realtime subscription, no publication change.
-
-## 4 — Verification I will report
-
-- full migration SQL, and that it is the only one
-- `git diff --stat`
-- `relacl` output
-- RLS both directions over REST as a real non-admin parent: own child's rows
-  readable (non-zero), another family's not (zero/error), parent INSERT rejected —
-  naming the accounts used
-- clearly-labelled test rows incl. two events at one tournament and one NULL
-  placement, dashboard screenshot showing grouping + "Competed", then deletion and
-  a zero-row confirmation
-- no existing student data changed; `md5(prosrc)` identical before/after for
-  `get_leaderboard`, `divisions_of`, `get_curriculum_for_student`,
-  `get_curriculum_for_all_children`, `get_technique_library`
+- `git diff --stat` and confirmation no migration file was added
+- the literal `insert([...])` call from the bulk save
+- a ≥4-row ZZTEST batch across three students with ≥2 blank placements: the
+  actual DB rows, then the same batch re-run showing those students excluded as
+  duplicates rather than doubled, then deletion and a zero-row count
+- how I proved an archived/inactive student never appears in the picker
+- parent dashboard screenshot rendering one bulk-created row before deletion
+- Part 2: the final error block of each function changed, plus a grep proving no
+  raw `error.message` reaches a toast in `auth.tsx`
+- confirmation no existing student data changed and `tournament_results` is back
+  to its pre-test row count
