@@ -338,6 +338,7 @@ function ManageRow({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(row.title);
   const [body, setBody] = useState(row.body);
+  const [editPinned, setEditPinned] = useState(row.pinned);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -345,7 +346,7 @@ function ManageRow({
       if (!body.trim()) throw new Error("A body is required.");
       const { error } = await supabase
         .from("announcements")
-        .update({ title: title.trim(), body: body.trim() })
+        .update({ title: title.trim(), body: body.trim(), pinned: editPinned })
         .eq("id", row.id);
       if (error) throw error;
     },
