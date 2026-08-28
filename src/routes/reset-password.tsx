@@ -6,6 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  PASSWORD_REQUIREMENTS_MESSAGE,
+  PasswordChecklist,
+  checkPassword,
+} from "@/lib/password-rules";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
@@ -60,9 +65,12 @@ function ResetPasswordPage() {
   }, []);
 
 
+  const pwCheck = checkPassword(password);
+  const matches = password.length > 0 && password === confirm;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) return toast.error("Use at least 8 characters.");
+    if (!pwCheck.allPassed) return toast.error(PASSWORD_REQUIREMENTS_MESSAGE);
     if (password !== confirm) return toast.error("Those passwords don't match.");
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password });
@@ -118,11 +126,12 @@ function ResetPasswordPage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                aria-describedby="new-pw-rules"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1"
               />
-              <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+              <PasswordChecklist id="new-pw-rules" password={password} />
             </div>
             <div>
               <Label htmlFor="confirm-pw">Confirm new password</Label>
@@ -137,7 +146,11 @@ function ResetPasswordPage() {
                 className="mt-1"
               />
             </div>
-            <Button type="submit" disabled={saving} className="w-full bg-gradient-red">
+            <Button
+              type="submit"
+              disabled={saving || !pwCheck.allPassed || !matches}
+              className="w-full bg-gradient-red"
+            >
               {saving ? "Saving…" : "Update password"}
             </Button>
           </form>
