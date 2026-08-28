@@ -299,12 +299,12 @@ function PodiumCard({
   rank,
   row,
   accent,
-  heightClass,
+  isJiuJitsu,
 }: {
   rank: 1 | 2 | 3;
   row: Row;
   accent: "gold" | "silver" | "bronze";
-  heightClass?: string;
+  isJiuJitsu: boolean;
 }) {
   const accents = {
     gold: {
@@ -329,7 +329,7 @@ function PodiumCard({
 
   return (
     <div
-      className={`relative rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring} ${heightClass ?? ""}`}
+      className={`relative flex h-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
     >
       <div
         className={`absolute left-1/2 top-0 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${accents.chip}`}
@@ -342,27 +342,29 @@ function PodiumCard({
       <div className="mt-3 font-display text-xl font-bold uppercase">
         {row.first_name} {row.last_initial}
       </div>
-      <div className="mt-3 flex justify-center">
-        {row.uses_belts === false ? (
-          <LevelChip name={row.rank_name} />
-        ) : (
-          <BeltSwatch
-            name={row.rank_name}
-            pattern={row.pattern}
-            colorPrimary={row.color_primary}
-            colorAccent={row.color_accent}
-          />
-        )}
-      </div>
+      {!isJiuJitsu && (
+        <div className="mt-3 flex justify-center">
+          {row.uses_belts === false ? (
+            <LevelChip name={row.rank_name} />
+          ) : (
+            <BeltSwatch
+              name={row.rank_name}
+              pattern={row.pattern}
+              colorPrimary={row.color_primary}
+              colorAccent={row.color_accent}
+            />
+          )}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-        {row.uses_belts !== false && (
+        {!isJiuJitsu && row.uses_belts !== false && (
           <Badge variant="outline" style={beltLabelStyle(row.color_primary, row.color_accent)}>
             {row.rank_name}
           </Badge>
         )}
         <span>{row.class_name}</span>
       </div>
-      <div className="mt-5">
+      <div className="mt-auto pt-5">
         <div className="font-display text-5xl font-black leading-none text-gradient-red">
           {row.period_points}
         </div>
