@@ -338,6 +338,9 @@ function AdminPage() {
         <TabsContent value="polls" className="mt-6">
           <PollsAdminTab />
         </TabsContent>
+        <TabsContent value="results" className="mt-6">
+          <TournamentResultsAdminTab />
+        </TabsContent>
         <TabsContent value="parents" className="mt-6">
           <ParentsTab consentOnly={consentOnly} onConsentOnlyChange={setConsentOnly} />
         </TabsContent>
