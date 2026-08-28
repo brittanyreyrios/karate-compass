@@ -4,6 +4,7 @@ import { Camera, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
+import { formatDateOnlyFull } from "@/lib/date-only";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { cleanDisciplines } from "@/lib/calendar-data";
+import { formatDateOnly } from "@/lib/date-only";
 import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
 import { TournamentBulkEntry } from "@/components/admin-tournament-bulk";
 import {
