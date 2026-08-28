@@ -2266,9 +2266,7 @@ function ClassScheduleRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const daysAway = date
-    ? Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 86400000))
-    : null;
+  const daysAway = date ? daysUntilDateOnly(date) : null;
 
   // With no date there is nothing to post, so the checkbox alone is not a change.
   const dirty =
@@ -2283,7 +2281,7 @@ function ClassScheduleRow({
           <div className="font-display text-lg font-bold uppercase break-words">{schedule.class_name}</div>
           <div className="mt-1 text-xs text-muted-foreground">
             {schedule.next_test_date
-              ? `Currently set for ${new Date(schedule.next_test_date).toLocaleDateString()}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
+              ? `Currently set for ${formatDateOnly(schedule.next_test_date)}${daysAway !== null ? ` · ${daysAway}d away` : ""}`
               : "No test scheduled"}
             {schedule.test_announcement_id && " · announcement posted"}
           </div>
@@ -2558,10 +2556,7 @@ function CsvImporter() {
         }
         const email = row.parent_email.trim().toLowerCase();
         const belt = normalizeBelt(row.current_belt);
-        const startDate =
-          row.start_date && !Number.isNaN(new Date(row.start_date).getTime())
-            ? new Date(row.start_date).toISOString().slice(0, 10)
-            : null;
+        const startDate = row.start_date ? normalizeDateOnly(row.start_date) : null;
         const { data: profile, error: profErr } = await supabase
           .from("profiles").select("id").ilike("email", email).maybeSingle();
         if (profErr) throw profErr;

@@ -398,7 +398,7 @@ export function TournamentResultsAdminTab() {
                     {r.students?.first_name} {r.students?.last_name} — {r.event_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {r.tournament_name} · {r.tournament_date}
+                    {r.tournament_name} · {formatDateOnly(r.tournament_date)}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span

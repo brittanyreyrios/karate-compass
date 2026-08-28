@@ -3,7 +3,7 @@ import { Calendar, ExternalLink, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { disciplinesOf } from "@/lib/calendar-data";
-import { formatDateOnly, formatDateRange } from "@/lib/date-only";
+import { daysUntilDateOnly, formatDateOnly, formatDateRange } from "@/lib/date-only";
 import type { Tournament } from "@/lib/announcements";
 
 /**
@@ -21,9 +21,7 @@ export function TournamentCard({
   tournament: Tournament;
   variant: "full" | "condensed";
 }) {
-  const days = t.event_date
-    ? Math.max(0, Math.ceil((new Date(t.event_date).getTime() - Date.now()) / 86400000))
-    : null;
+  const days = t.event_date ? daysUntilDateOnly(t.event_date) : null;
   const tags = disciplinesOf(t);
 
   return (

@@ -416,7 +416,7 @@ function ManageRow({
             <span className="text-xs text-muted-foreground">
               Posted {new Date(row.created_at).toLocaleDateString()}
               {row.event_date &&
-                ` · event ${new Date(`${row.event_date}T12:00:00`).toLocaleDateString()}`}
+                ` · event ${formatDateOnly(row.event_date)}`}
             </span>
           </div>
 

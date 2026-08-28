@@ -130,11 +130,7 @@ function Gallery() {
                   </div>
                   {a.event_date && (
                     <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                      {new Date(`${a.event_date}T12:00:00`).toLocaleDateString(undefined, {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateOnlyFull(a.event_date)}
                     </div>
                   )}
                   {a.description && (

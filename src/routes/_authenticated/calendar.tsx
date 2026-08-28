@@ -462,7 +462,7 @@ function ItemCard({ item }: { item: CalendarItem }) {
         )}
         {item.address && <span>{item.address}</span>}
         {item.registrationDeadline && (
-          <span>Register by {new Date(`${item.registrationDeadline}T12:00:00`).toLocaleDateString()}</span>
+          <span>Register by {formatDateOnly(item.registrationDeadline)}</span>
         )}
       </div>
       {item.eventUrl && (
