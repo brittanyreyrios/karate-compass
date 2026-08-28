@@ -79,6 +79,7 @@ import { EventsAdminTab } from "@/components/admin-events-tab";
 import { DisciplinePicker } from "@/components/discipline-tags";
 import { cleanDisciplines, disciplinesOf } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
+import { TournamentResultsAdminTab } from "@/components/admin-tournament-results";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
   parkStudent,
