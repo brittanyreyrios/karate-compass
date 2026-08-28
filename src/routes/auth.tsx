@@ -181,7 +181,7 @@ function AuthPage() {
           ? "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one."
           : /already registered/i.test(error.message)
           ? "An account already exists for that email. Try signing in, or reset your password."
-          : error.message,
+          : authErrorMessage(error, GENERIC_SIGNUP),
       );
     }
 
