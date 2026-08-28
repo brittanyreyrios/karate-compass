@@ -238,6 +238,7 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "schedules", label: "Class Schedules & Testing" },
   { value: "events", label: "Events Calendar" },
   { value: "polls", label: "Polls" },
+  { value: "results", label: "Tournament Results" },
   { value: "parents", label: "Parents & Premium" },
   { value: "invites", label: "Invite Codes" },
   { value: "qr", label: "Signup QR" },
