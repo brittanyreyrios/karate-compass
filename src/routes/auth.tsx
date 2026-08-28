@@ -201,7 +201,7 @@ function AuthPage() {
       options: { emailRedirectTo: `${window.location.origin}/` },
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(authErrorMessage(error, GENERIC_RESEND));
     toast.success("Confirmation email resent.");
   };
 
