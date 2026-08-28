@@ -127,25 +127,17 @@ function Announcements() {
               <QueryErrorState what="the school news" onRetry={() => refetch()} />
             )}
             {!showSkeleton && !isLoading && !isError && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
-            {news.map((n, i) => (
-              <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${i === 0 ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
-                {i === 0 && (
-                  <div className="absolute right-4 top-4 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-primary">
-                    <Pin className="h-3 w-3" /> Latest
-                  </div>
-                )}
-                {n.tag && <Badge variant="outline" className="border-primary/40 text-primary">{n.tag}</Badge>}
+            {news.map((n) => (
+              <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${n.pinned ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
+                <NewsCardTopRow
+                  tag={n.tag}
+                  eventDate={n.event_date}
+                  eventEndDate={n.event_end_date}
+                  pinned={n.pinned}
+                />
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
-                <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                  {n.event_date && (
-                    <div className="flex items-center gap-1 font-semibold text-foreground">
-                      <Calendar className="h-3 w-3" aria-hidden="true" />
-                      {formatDateRange(n.event_date, n.event_end_date)}
-                    </div>
-                  )}
-                  <div>Posted {new Date(n.created_at).toLocaleDateString()}</div>
-                </div>
+                <NewsPostedLine createdAt={n.created_at} />
               </article>
             ))}
           </div>
