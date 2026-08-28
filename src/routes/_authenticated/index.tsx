@@ -496,8 +496,10 @@ function Dashboard() {
               <Megaphone className="h-4 w-4 text-primary" />
               <h2 className="font-display text-xl font-bold uppercase tracking-wide">School News</h2>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
-              View all <ChevronRight className="ml-1 h-3 w-3" />
+            <Button asChild variant="ghost" size="sm" className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
+              <Link to="/announcements">
+                View all <ChevronRight className="ml-1 h-3 w-3" />
+              </Link>
             </Button>
           </div>
           {announcementsQ.isError ? (
