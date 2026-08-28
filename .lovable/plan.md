@@ -1,36 +1,77 @@
-# Live password requirements checklist
+# Tournament result tracking (round 1: single-result entry + parent view)
 
-## Shared helper — `src/lib/password-rules.ts` (new, only new file)
+## 1 — Migration (one, only one)
 
-- `PASSWORD_RULES`: five rules, each `{ id, label, test(pw) }`
-  - At least 8 characters
-  - At least one uppercase letter
-  - At least one lowercase letter
-  - At least one number
-  - At least one special character (anything that is not a letter or digit)
-- `checkPassword(pw)` → `{ results: {rule, ok}[], allPassed: boolean }`
-- `PasswordChecklist` component (same file, so the rules and their rendering can't drift): renders a `<ul aria-live="polite">` with one `<li>` per rule, each showing a `Check` icon + "Met" state or a `Circle`/`X` icon + "Not met" state via `sr-only` text, so it is never colour-only. Uses existing theme tokens (`text-muted-foreground`, `text-emerald-400`, `text-primary`) — matches the invite-code check styling already on the auth page.
+Create `public.tournament_results` exactly as specified: `student_id` (cascade),
+nullable `announcement_id` (set null on delete), denormalised `tournament_name` +
+`tournament_date` written on every row, `event_name`, nullable `placement` with
+`CHECK (placement IS NULL OR placement > 0)`, `disciplines text[]`, `notes`,
+`created_by`, timestamps + `set_updated_at` trigger.
 
-## `src/routes/auth.tsx` — sign-UP form only
+Indexes: `(student_id, tournament_date DESC)` and `(announcement_id)`.
 
-- Import the helper; derive `pwCheck = checkPassword(password)`.
-- Replace the "At least 8 characters." hint under `pw-up` with `<PasswordChecklist>`, and add `aria-describedby="pw-up-rules"` to the input.
-- Sign-up submit button: `disabled={loading || !pwCheck.allPassed}` (keeps the existing `bg-gradient-red` / loading label styling).
-- Replace the `password.length < 8` guard in `signUp` with the shared `allPassed` check.
-- Sign-IN form untouched: no rules, no `minLength`, no extra `disabled` condition, no change to `signIn()`.
+RLS mirroring `point_events`:
+- parents SELECT where the row's student belongs to them
+- admins SELECT everything
+- INSERT / UPDATE / DELETE admin-only via `public.has_role(auth.uid(),'admin')`
 
-## `src/routes/reset-password.tsx`
+Grants last, in this order:
+```
+REVOKE ALL ON public.tournament_results FROM PUBLIC, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.tournament_results TO authenticated;
+GRANT ALL ON public.tournament_results TO service_role;
+```
+Then paste `relacl` proving no bare `=` entry and no `anon=` entry.
 
-- Same checklist under the "New password" field, `aria-describedby` wired to `new-pw`.
-- Replace `password.length < 8` guard with the shared check; the existing `password !== confirm` mismatch check stays exactly as-is.
-- Submit button: `disabled={saving || !pwCheck.allPassed || password !== confirm}`.
+No change to any existing table or function.
 
-## Out of scope
+## 2 — Admin entry
 
-No database, migration, or auth-setting change. No other file touched.
+New "Results" admin tab (`src/components/admin-tournament-results.tsx`), wired into
+the existing `ADMIN_TABS` list + `TabsContent` in `admin.tsx`, following the same
+mobile Select/desktop tab strip already there.
 
-## Verification
+Form:
+- student picker (searchable, same pattern as existing student pickers)
+- tournament source: pick an existing `announcements` row with
+  `category = 'tournament'`, or "Enter manually" for name + date. Picking one
+  prefills name, date and disciplines into editable fields; the stored row always
+  carries its own name and date.
+- `event_name`, optional `placement`, optional `notes`
+- disciplines via the existing `DisciplinePicker` (no second picker)
+- "Save and add another event" keeps student + tournament + disciplines and clears
+  only event name / placement / notes, so multiple events at one tournament need
+  one tournament entry.
+- list of existing results with inline edit and delete (confirm on delete)
 
-- `git diff --stat` (expect 3 files)
-- Playwright at 390px width: checklist part-satisfied and fully satisfied screenshots
-- Sign in with an existing account whose password is 8 lowercase characters to prove no lockout
+`created_by` = `auth.uid()`.
+
+## 3 — Parent dashboard section
+
+New "Tournament Results" section in `src/routes/_authenticated/index.tsx` for the
+currently selected child only, fetched by that child's id.
+
+- newest `tournament_date` first, rows grouped per tournament (name + date), each
+  group one card with one line per event
+- placement: 1/2/3 read as gold / silver / bronze using the leaderboard podium
+  accents, 4+ shown plainly, `NULL` renders "Competed"
+- discipline chips via `DisciplineTags` + `cleanDisciplines`
+- empty state: one short encouraging line
+- error state: existing `QueryErrorState`
+
+No realtime subscription, no publication change.
+
+## 4 — Verification I will report
+
+- full migration SQL, and that it is the only one
+- `git diff --stat`
+- `relacl` output
+- RLS both directions over REST as a real non-admin parent: own child's rows
+  readable (non-zero), another family's not (zero/error), parent INSERT rejected —
+  naming the accounts used
+- clearly-labelled test rows incl. two events at one tournament and one NULL
+  placement, dashboard screenshot showing grouping + "Competed", then deletion and
+  a zero-row confirmation
+- no existing student data changed; `md5(prosrc)` identical before/after for
+  `get_leaderboard`, `divisions_of`, `get_curriculum_for_student`,
+  `get_curriculum_for_all_children`, `get_technique_library`
