@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Pencil, Save, Trash2, Trophy, X } from "lucide-react";
+import { Megaphone, Pencil, Pin, PinOff, Save, Trash2, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ type AnnouncementRow = {
   title: string;
   body: string;
   event_date: string | null;
+  pinned: boolean;
   created_at: string;
 };
 
@@ -64,7 +65,7 @@ function useAnnouncements(category: string, before: string, limit: number) {
     queryFn: async () => {
       let q = supabase
         .from("announcements")
-        .select("id, category, title, body, event_date, created_at")
+        .select("id, category, title, body, event_date, pinned, created_at")
         .order("created_at", { ascending: false });
       if (category !== "all") q = q.eq("category", category);
       if (before) q = q.lt("created_at", `${before}T00:00:00`);
@@ -356,6 +357,22 @@ function ManageRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Round 34: staff pinning replaced the automatic "Latest" marker. */
+  const togglePin = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("announcements")
+        .update({ pinned: !row.pinned })
+        .eq("id", row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(row.pinned ? "Unpinned" : "Pinned to the top of the feed");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const cancel = () => {
     setTitle(row.title);
     setBody(row.body);
@@ -389,6 +406,11 @@ function ManageRow({
                 "School News"
               )}
             </Badge>
+            {row.pinned && (
+              <Badge variant="outline" className="border-primary/50 text-primary">
+                <Pin className="mr-1 h-3 w-3" aria-hidden="true" /> Pinned
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
               Posted {new Date(row.created_at).toLocaleDateString()}
               {row.event_date &&
