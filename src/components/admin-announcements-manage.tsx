@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { count } from "@/lib/plural";
+import { formatDateOnly } from "@/lib/date-only";
 
 /**
  * Posting an announcement was one-way: there was no way to fix a typo and no way
@@ -416,7 +417,7 @@ function ManageRow({
             <span className="text-xs text-muted-foreground">
               Posted {new Date(row.created_at).toLocaleDateString()}
               {row.event_date &&
-                ` · event ${new Date(`${row.event_date}T12:00:00`).toLocaleDateString()}`}
+                ` · event ${formatDateOnly(row.event_date)}`}
             </span>
           </div>
 

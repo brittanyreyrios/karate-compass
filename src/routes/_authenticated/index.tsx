@@ -29,6 +29,7 @@ import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/l
 import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
+import { daysUntilDateOnly, formatDateOnlyLong, formatMonthYear, yearsSinceDateOnly } from "@/lib/date-only";
 import { TournamentCard } from "@/components/tournament-card";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
 import { DisciplineTags } from "@/components/discipline-tags";
@@ -242,12 +243,10 @@ function Dashboard() {
 
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
-  const daysToTest = useMemo(() => {
-    if (!student?.next_test_date) return null;
-    const now = typeof window !== "undefined" ? Date.now() : 0;
-    const diff = new Date(student.next_test_date).getTime() - now;
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [student?.next_test_date]);
+  const daysToTest = useMemo(
+    () => (student?.next_test_date ? daysUntilDateOnly(student.next_test_date) : null),
+    [student?.next_test_date],
+  );
 
   if (showSkeleton) {
     return <DashboardSkeleton />;
@@ -303,8 +302,7 @@ function Dashboard() {
 
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
-  const now = typeof window !== "undefined" ? Date.now() : 0;
-  const yearsTraining = ((now - new Date(student.start_date).getTime()) / (1000 * 60 * 60 * 24 * 365)).toFixed(1);
+  const yearsTraining = yearsSinceDateOnly(student.start_date);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -449,7 +447,7 @@ function Dashboard() {
             {student.next_test_date && (
               <div className="mt-6 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-xs uppercase tracking-widest">
                 <Calendar className="h-3.5 w-3.5" />
-                {new Date(student.next_test_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {formatDateOnlyLong(student.next_test_date)}
               </div>
             )}
           </div>
@@ -484,7 +482,7 @@ function Dashboard() {
           value={`${yearlyAttendanceQ.data ?? 0}`}
           sub={`classes logged in ${currentYear}`}
         />
-        <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={new Date(student.start_date).toLocaleDateString(undefined, { month: "short", year: "numeric" })} sub={`${yearsTraining} years on the mat`} />
+        <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={formatMonthYear(student.start_date)} sub={`${yearsTraining} years on the mat`} />
       </section>
 
       <GoogleReviewCard profileId={profileQ.data?.id} />

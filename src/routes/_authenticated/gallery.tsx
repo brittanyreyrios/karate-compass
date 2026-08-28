@@ -4,6 +4,7 @@ import { Camera, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { count } from "@/lib/plural";
 import { coverSrc, useCoverUrls } from "@/lib/album-covers";
+import { formatDateOnlyFull } from "@/lib/date-only";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
@@ -130,11 +131,7 @@ function Gallery() {
                   </div>
                   {a.event_date && (
                     <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                      {new Date(`${a.event_date}T12:00:00`).toLocaleDateString(undefined, {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateOnlyFull(a.event_date)}
                     </div>
                   )}
                   {a.description && (

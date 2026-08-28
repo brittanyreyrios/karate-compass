@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { cleanDisciplines } from "@/lib/calendar-data";
+import { formatDateOnly } from "@/lib/date-only";
 import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
 import { TournamentBulkEntry } from "@/components/admin-tournament-bulk";
 import {
@@ -398,7 +399,7 @@ export function TournamentResultsAdminTab() {
                     {r.students?.first_name} {r.students?.last_name} — {r.event_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {r.tournament_name} · {r.tournament_date}
+                    {r.tournament_name} · {formatDateOnly(r.tournament_date)}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span
