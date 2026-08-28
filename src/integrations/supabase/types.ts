@@ -29,6 +29,7 @@ export type Database = {
           event_url: string | null
           id: string
           location: string | null
+          pinned: boolean
           registration_deadline: string | null
           spectator_info: string | null
           tag: string | null
@@ -49,6 +50,7 @@ export type Database = {
           event_url?: string | null
           id?: string
           location?: string | null
+          pinned?: boolean
           registration_deadline?: string | null
           spectator_info?: string | null
           tag?: string | null
@@ -69,6 +71,7 @@ export type Database = {
           event_url?: string | null
           id?: string
           location?: string | null
+          pinned?: boolean
           registration_deadline?: string | null
           spectator_info?: string | null
           tag?: string | null
@@ -1305,6 +1308,29 @@ export type Database = {
           label: string
           option_id: string
           vote_count: number
+        }[]
+      }
+      get_school_news: {
+        Args: { _limit?: number; _offset?: number }
+        Returns: {
+          address: string
+          body: string
+          category: string
+          created_at: string
+          discipline: string
+          disciplines: string[]
+          divisions: string
+          event_date: string
+          event_end_date: string
+          event_url: string
+          id: string
+          location: string
+          pinned: boolean
+          registration_deadline: string
+          spectator_info: string
+          tag: string
+          title: string
+          venue: string
         }[]
       }
       get_technique_library: {
