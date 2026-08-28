@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
+import { TournamentBulkEntry } from "@/components/admin-tournament-bulk";
 import {
   TOURNAMENT_RESULT_COLUMNS,
   placementChipClass,
