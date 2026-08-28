@@ -222,10 +222,22 @@ function LeaderboardPage() {
         )}
 
         {podium.length > 0 && (
-          <section className="mt-10 grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
-            {podium[1] && <PodiumCard rank={2} row={podium[1]} accent="silver" heightClass="sm:pt-10" />}
-            {podium[0] && <PodiumCard rank={1} row={podium[0]} accent="gold" heightClass="sm:-mt-6" />}
-            {podium[2] && <PodiumCard rank={3} row={podium[2]} accent="bronze" heightClass="sm:pt-14" />}
+          <section className="mt-10 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-3">
+            {podium[1] && (
+              <div className="flex">
+                <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+              </div>
+            )}
+            {podium[0] && (
+              <div className="flex sm:-translate-y-4">
+                <PodiumCard rank={1} row={podium[0]} accent="gold" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+              </div>
+            )}
+            {podium[2] && (
+              <div className="flex">
+                <PodiumCard rank={3} row={podium[2]} accent="bronze" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+              </div>
+            )}
           </section>
         )}
 
@@ -239,22 +251,23 @@ function LeaderboardPage() {
                     <span className="sr-only">Rank </span>
                     {i + 4}
                   </div>
-                  {r.uses_belts === false ? (
-                    <LevelChip name={r.rank_short_name || r.rank_name} />
-                  ) : (
-                    <BeltSwatch
-                      name={r.rank_name}
-                      pattern={r.pattern}
-                      colorPrimary={r.color_primary}
-                      colorAccent={r.color_accent}
-                    />
-                  )}
+                  {divisionKey !== "jiu_jitsu" &&
+                    (r.uses_belts === false ? (
+                      <LevelChip name={r.rank_short_name || r.rank_name} />
+                    ) : (
+                      <BeltSwatch
+                        name={r.rank_name}
+                        pattern={r.pattern}
+                        colorPrimary={r.color_primary}
+                        colorAccent={r.color_accent}
+                      />
+                    ))}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">
                       {r.first_name} {r.last_initial}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {r.uses_belts !== false && (
+                      {divisionKey !== "jiu_jitsu" && r.uses_belts !== false && (
                         <Badge
                           variant="outline"
                           style={beltLabelStyle(r.color_primary, r.color_accent)}
@@ -286,12 +299,12 @@ function PodiumCard({
   rank,
   row,
   accent,
-  heightClass,
+  isJiuJitsu,
 }: {
   rank: 1 | 2 | 3;
   row: Row;
   accent: "gold" | "silver" | "bronze";
-  heightClass?: string;
+  isJiuJitsu: boolean;
 }) {
   const accents = {
     gold: {
@@ -316,7 +329,7 @@ function PodiumCard({
 
   return (
     <div
-      className={`relative rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring} ${heightClass ?? ""}`}
+      className={`relative flex h-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
     >
       <div
         className={`absolute left-1/2 top-0 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${accents.chip}`}
@@ -329,27 +342,29 @@ function PodiumCard({
       <div className="mt-3 font-display text-xl font-bold uppercase">
         {row.first_name} {row.last_initial}
       </div>
-      <div className="mt-3 flex justify-center">
-        {row.uses_belts === false ? (
-          <LevelChip name={row.rank_name} />
-        ) : (
-          <BeltSwatch
-            name={row.rank_name}
-            pattern={row.pattern}
-            colorPrimary={row.color_primary}
-            colorAccent={row.color_accent}
-          />
-        )}
-      </div>
+      {!isJiuJitsu && (
+        <div className="mt-3 flex justify-center">
+          {row.uses_belts === false ? (
+            <LevelChip name={row.rank_name} />
+          ) : (
+            <BeltSwatch
+              name={row.rank_name}
+              pattern={row.pattern}
+              colorPrimary={row.color_primary}
+              colorAccent={row.color_accent}
+            />
+          )}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-        {row.uses_belts !== false && (
+        {!isJiuJitsu && row.uses_belts !== false && (
           <Badge variant="outline" style={beltLabelStyle(row.color_primary, row.color_accent)}>
             {row.rank_name}
           </Badge>
         )}
         <span>{row.class_name}</span>
       </div>
-      <div className="mt-5">
+      <div className="mt-auto pt-5">
         <div className="font-display text-5xl font-black leading-none text-gradient-red">
           {row.period_points}
         </div>
