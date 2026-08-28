@@ -377,6 +377,7 @@ function ManageRow({
   const cancel = () => {
     setTitle(row.title);
     setBody(row.body);
+    setEditPinned(row.pinned);
     setEditing(false);
   };
 
