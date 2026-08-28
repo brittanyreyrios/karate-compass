@@ -10,6 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
+import {
+  PASSWORD_REQUIREMENTS_MESSAGE,
+  PasswordChecklist,
+  checkPassword,
+} from "@/lib/password-rules";
 
 const searchSchema = z.object({
   invite: z.string().trim().max(64).optional(),
@@ -82,6 +87,8 @@ function AuthPage() {
     return () => clearTimeout(t);
   }, [inviteCode]);
 
+  const pwCheck = checkPassword(password);
+
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -122,7 +129,7 @@ function AuthPage() {
         "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
       );
     }
-    if (password.length < 8) return toast.error("Use a password of at least 8 characters.");
+    if (!pwCheck.allPassed) return toast.error(PASSWORD_REQUIREMENTS_MESSAGE);
 
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
@@ -356,10 +363,11 @@ function AuthPage() {
                       type="password"
                       required
                       minLength={8}
+                      aria-describedby="pw-up-rules"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+                    <PasswordChecklist id="pw-up-rules" password={password} />
                   </div>
 
                   <div className="space-y-3 rounded-xl border border-border bg-background p-3">
@@ -418,7 +426,7 @@ function AuthPage() {
 
                   <Button
                     type="submit"
-                    disabled={loading || !consent || inviteState === "invalid"}
+                    disabled={loading || !consent || inviteState === "invalid" || !pwCheck.allPassed}
                     className="w-full bg-gradient-red"
                   >
                     {loading ? "Creating…" : "Create account"}
