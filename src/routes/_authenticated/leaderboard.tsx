@@ -229,8 +229,14 @@ function LeaderboardPage() {
               </div>
             )}
             {podium[0] && (
-              <div className="flex sm:-translate-y-4">
-                <PodiumCard rank={1} row={podium[0]} accent="gold" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+              <div className="flex scale-105 sm:-translate-y-4 sm:scale-110">
+                <PodiumCard
+                  rank={1}
+                  row={podium[0]}
+                  accent="gold"
+                  featured
+                  isJiuJitsu={divisionKey === "jiu_jitsu"}
+                />
               </div>
             )}
             {podium[2] && (
@@ -300,11 +306,13 @@ function PodiumCard({
   row,
   accent,
   isJiuJitsu,
+  featured = false,
 }: {
   rank: 1 | 2 | 3;
   row: Row;
   accent: "gold" | "silver" | "bronze";
   isJiuJitsu: boolean;
+  featured?: boolean;
 }) {
   const accents = {
     gold: {
@@ -332,14 +340,18 @@ function PodiumCard({
       className={`relative flex h-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
     >
       <div
-        className={`absolute left-1/2 top-0 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${accents.chip}`}
+        className={`absolute left-1/2 top-0 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${
+          featured ? "h-16 w-16" : "h-14 w-14"
+        } ${accents.chip}`}
       >
         {accents.icon}
       </div>
       <div className="mt-4 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
         Rank {rank} · {accents.label}
       </div>
-      <div className="mt-3 font-display text-xl font-bold uppercase">
+      <div
+        className={`mt-3 font-display font-bold uppercase ${featured ? "text-2xl" : "text-xl"}`}
+      >
         {row.first_name} {row.last_initial}
       </div>
       {!isJiuJitsu && (
@@ -365,7 +377,11 @@ function PodiumCard({
         <span>{row.class_name}</span>
       </div>
       <div className="mt-auto pt-5">
-        <div className="font-display text-5xl font-black leading-none text-gradient-red">
+        <div
+          className={`font-display font-black leading-none text-gradient-red ${
+            featured ? "text-6xl" : "text-5xl"
+          }`}
+        >
           {row.period_points}
         </div>
         <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
