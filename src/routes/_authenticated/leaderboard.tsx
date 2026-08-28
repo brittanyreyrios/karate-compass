@@ -377,7 +377,11 @@ function PodiumCard({
         <span>{row.class_name}</span>
       </div>
       <div className="mt-auto pt-5">
-        <div className="font-display text-5xl font-black leading-none text-gradient-red">
+        <div
+          className={`font-display font-black leading-none text-gradient-red ${
+            featured ? "text-6xl" : "text-5xl"
+          }`}
+        >
           {row.period_points}
         </div>
         <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
