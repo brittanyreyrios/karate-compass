@@ -43,6 +43,32 @@ export const Route = createFileRoute("/auth")({
 
 type InviteState = "idle" | "checking" | "valid" | "invalid";
 
+/**
+ * Parents must never be shown a raw backend error string — that is how the
+ * password rules once surfaced as a wall of escaped character sets in a toast.
+ * The real error object is always console.error'd so it stays diagnosable.
+ */
+function authErrorMessage(error: unknown, fallback: string): string {
+  console.error("Auth error", error);
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/too many requests|rate limit|for security purposes/i.test(message)) {
+    return "Too many attempts just now. Please wait a moment and try again.";
+  }
+  if (/email address.*invalid|invalid email|unable to validate email/i.test(message)) {
+    return "That email address doesn't look right. Please check it and try again.";
+  }
+  return fallback;
+}
+
+const GENERIC_SIGNUP =
+  "We couldn't create your account just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_SIGNIN =
+  "We couldn't sign you in just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_RESET =
+  "We couldn't send that reset email just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_RESEND =
+  "We couldn't resend that email just now. Please try again, or contact the front desk if it keeps happening.";
+
 function AuthPage() {
   const navigate = useNavigate();
   const { invite: invitedCode } = Route.useSearch();
@@ -98,7 +124,7 @@ function AuthPage() {
       return toast.error(
         /invalid login credentials/i.test(error.message)
           ? "That email and password don't match an account. Check your spelling or reset your password."
-          : error.message,
+          : authErrorMessage(error, GENERIC_SIGNIN),
       );
     }
     navigate({ to: "/" });
@@ -112,7 +138,7 @@ function AuthPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(authErrorMessage(error, GENERIC_RESET));
     setResetSentTo(target);
     toast.success("Reset link sent. Check your inbox.");
   };
@@ -155,7 +181,7 @@ function AuthPage() {
           ? "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one."
           : /already registered/i.test(error.message)
           ? "An account already exists for that email. Try signing in, or reset your password."
-          : error.message,
+          : authErrorMessage(error, GENERIC_SIGNUP),
       );
     }
 
@@ -175,7 +201,7 @@ function AuthPage() {
       options: { emailRedirectTo: `${window.location.origin}/` },
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(authErrorMessage(error, GENERIC_RESEND));
     toast.success("Confirmation email resent.");
   };
 

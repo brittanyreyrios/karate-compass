@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
+import { TournamentBulkEntry } from "@/components/admin-tournament-bulk";
 import {
   TOURNAMENT_RESULT_COLUMNS,
   placementChipClass,
@@ -219,6 +220,8 @@ export function TournamentResultsAdminTab() {
 
   return (
     <div className="space-y-6">
+      <TournamentBulkEntry />
+
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
         <div className="flex items-center gap-2">
           <Medal className="h-4 w-4 text-primary" aria-hidden="true" />
