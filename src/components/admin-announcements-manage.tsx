@@ -477,6 +477,22 @@ function ManageRow({
                 </Button>
                 <Button
                   variant="outline"
+                  className="h-11"
+                  onClick={() => togglePin.mutate()}
+                  disabled={togglePin.isPending}
+                >
+                  {row.pinned ? (
+                    <>
+                      <PinOff className="mr-1 h-4 w-4" /> Unpin
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="mr-1 h-4 w-4" /> Pin
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
                   className="h-11 text-destructive-foreground"
                   onClick={onDelete}
                 >
