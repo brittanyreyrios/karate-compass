@@ -306,11 +306,13 @@ function PodiumCard({
   row,
   accent,
   isJiuJitsu,
+  featured = false,
 }: {
   rank: 1 | 2 | 3;
   row: Row;
   accent: "gold" | "silver" | "bronze";
   isJiuJitsu: boolean;
+  featured?: boolean;
 }) {
   const accents = {
     gold: {
