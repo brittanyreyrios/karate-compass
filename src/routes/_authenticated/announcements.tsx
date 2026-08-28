@@ -43,9 +43,6 @@ type Announcement = {
   created_at: string;
 };
 
-const ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
-
 /** One page of announcements. The archive grows forever; the feed must not. */
 const PAGE_SIZE = 20;
 
@@ -54,22 +51,25 @@ function Announcements() {
   const [limit, setLimit] = useState(PAGE_SIZE);
 
   /**
-   * AB2: paginated and column-explicit. This page used to pull every
-   * announcement ever posted with select("*"), so every visit got heavier as the
-   * school posted more. It now fetches a page at a time, newest first, and the
-   * parent asks for older ones.
+   * Round 34: ordering moved into public.get_school_news — pinned first, then
+   * upcoming events soonest first, then everything else newest-posted first.
+   * It has to be server-side: this list is paginated, so re-sorting the fetched
+   * page in the browser would reorder only those rows and silently omit the
+   * rest. The function's ORDER BY is total (…, created_at DESC, id DESC), so
+   * growing the window for "show older" cannot duplicate or skip a row.
+   *
+   * The query key keeps the ["announcements", …] prefix so the existing realtime
+   * invalidation below still refreshes this feed.
    */
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["announcements", "feed", limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("announcements")
-        .select(ANNOUNCEMENT_COLUMNS)
-        .eq("category", "school_news")
-        .order("created_at", { ascending: false })
-        .limit(limit);
+      const { data, error } = await supabase.rpc("get_school_news", {
+        _limit: limit,
+        _offset: 0,
+      });
       if (error) throw error;
-      return (data ?? []) as Announcement[];
+      return (data ?? []) as unknown as Announcement[];
     },
     placeholderData: (prev) => prev,
   });
