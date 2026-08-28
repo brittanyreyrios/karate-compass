@@ -1,31 +1,36 @@
-# Leaderboard podium: make 1st place visibly dominant
+# Live password requirements checklist
 
-File touched: `src/routes/_authenticated/leaderboard.tsx` only. No DB, no migrations, no query changes.
+## Shared helper — `src/lib/password-rules.ts` (new, only new file)
 
-## The core mechanism: transform scale on the wrapper div
+- `PASSWORD_RULES`: five rules, each `{ id, label, test(pw) }`
+  - At least 8 characters
+  - At least one uppercase letter
+  - At least one lowercase letter
+  - At least one number
+  - At least one special character (anything that is not a letter or digit)
+- `checkPassword(pw)` → `{ results: {rule, ok}[], allPassed: boolean }`
+- `PasswordChecklist` component (same file, so the rules and their rendering can't drift): renders a `<ul aria-live="polite">` with one `<li>` per rule, each showing a `Check` icon + "Met" state or a `Circle`/`X` icon + "Not met" state via `sr-only` text, so it is never colour-only. Uses existing theme tokens (`text-muted-foreground`, `text-emerald-400`, `text-primary`) — matches the invite-code check styling already on the auth page.
 
-The size difference comes from a **CSS `scale` transform on 1st place's existing wrapper div** — the same div that already carries `sm:-translate-y-4`. This is deliberate because:
+## `src/routes/auth.tsx` — sign-UP form only
 
-- The wrapper already exists for exactly this reason: transforms live on the wrapper, `hover:-translate-y-1` stays on the card, so hover never overrides the scale/raise (the round-28 bug stays fixed).
-- A transform is **visual only — it does not participate in layout**. `items-stretch` equalises layout heights, but cannot flatten a transform, so the 1st-place card renders genuinely larger on screen. This sidesteps the "stretch silently equalises" trap entirely.
-- Scale is **deterministic and content-independent**: a two-line class name changes layout height identically for all three cards; the 1.05/1.10 multiplier applies on top, so no content can make another card visually bigger than 1st.
+- Import the helper; derive `pwCheck = checkPassword(password)`.
+- Replace the "At least 8 characters." hint under `pw-up` with `<PasswordChecklist>`, and add `aria-describedby="pw-up-rules"` to the input.
+- Sign-up submit button: `disabled={loading || !pwCheck.allPassed}` (keeps the existing `bg-gradient-red` / loading label styling).
+- Replace the `password.length < 8` guard in `signUp` with the shared `allPassed` check.
+- Sign-IN form untouched: no rules, no `minLength`, no extra `disabled` condition, no change to `signIn()`.
 
-## Concrete changes
+## `src/routes/reset-password.tsx`
 
-1. **Podium section** — 1st place wrapper becomes `flex scale-105 sm:-translate-y-4 sm:scale-110` (mobile gets 5% scale, desktop 10% + the existing 1rem raise). 2nd and 3rd wrappers stay byte-identical (`flex`), so they remain visually identical to each other. Order stays 2/1/3 at every breakpoint — no reordering on mobile. Because transforms don't affect flow, the mobile stack gets no gaps or overlaps; the slight visual bleed is absorbed by the existing `gap-4`.
+- Same checklist under the "New password" field, `aria-describedby` wired to `new-pw`.
+- Replace `password.length < 8` guard with the shared check; the existing `password !== confirm` mismatch check stays exactly as-is.
+- Submit button: `disabled={saving || !pwCheck.allPassed || password !== confirm}`.
 
-2. **PodiumCard** — add an optional `featured?: boolean` prop, passed only for rank 1. When set, *deterministic* typographic upgrades apply (same for every 1st-place card regardless of content):
-   - name: `text-xl` → `text-2xl`
-   - points: `text-5xl` → `text-6xl`
-   - rank badge circle: `h-14 w-14` → `h-16 w-16`
-   - No per-card padding/height classes (no `sm:pt-14`-style sizing, no `heightClass` prop — those stay removed).
+## Out of scope
 
-3. **Preserved untouched**: rank badges, Trophy/Medal/Award icons, accent ring/glow classes, `hover:-translate-y-1` on the card, "Rank N · Nth Place" labels, `mt-auto` points block, `isJiuJitsu` belt suppression, grid `items-stretch`, and the 2/1/3 DOM order.
+No database, migration, or auth-setting change. No other file touched.
 
-## Verification (signed in as a parent, Solid Belt Int/Adv board)
+## Verification
 
-- `git diff --stat` — leaderboard.tsx only.
-- Desktop (1280px) and phone (~390px) Playwright screenshots showing 1st obviously largest, 2nd/3rd identical, and the wrapping "Intermediate / Advanced Children" class name not inflating its card.
-- Measured bounding boxes printed from the browser to *prove* the rendered (post-transform) size difference and 2nd≈3rd equality — not assumed.
-- Hover the 1st-place card via Playwright and confirm its computed transform still gains the lift (no drop/jump).
-- Paste the final podium JSX + PodiumCard in the reply.
+- `git diff --stat` (expect 3 files)
+- Playwright at 390px width: checklist part-satisfied and fully satisfied screenshots
+- Sign in with an existing account whose password is 8 lowercase characters to prove no lockout
