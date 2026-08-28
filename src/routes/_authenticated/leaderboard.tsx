@@ -340,14 +340,18 @@ function PodiumCard({
       className={`relative flex h-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
     >
       <div
-        className={`absolute left-1/2 top-0 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${accents.chip}`}
+        className={`absolute left-1/2 top-0 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${
+          featured ? "h-16 w-16" : "h-14 w-14"
+        } ${accents.chip}`}
       >
         {accents.icon}
       </div>
       <div className="mt-4 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
         Rank {rank} · {accents.label}
       </div>
-      <div className="mt-3 font-display text-xl font-bold uppercase">
+      <div
+        className={`mt-3 font-display font-bold uppercase ${featured ? "text-2xl" : "text-xl"}`}
+      >
         {row.first_name} {row.last_initial}
       </div>
       {!isJiuJitsu && (
