@@ -445,7 +445,17 @@ function ManageRow({
                   className="mt-1"
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={editPinned}
+                  onChange={(e) => setEditPinned(e.target.checked)}
+                />
+                Pin to the top of the feed
+              </label>
               <div className="flex flex-col gap-2 sm:flex-row">
+
                 <Button
                   className="h-11 bg-gradient-red"
                   onClick={() => save.mutate()}
