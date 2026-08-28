@@ -1,74 +1,96 @@
-# Round 33 — bulk tournament results + plain-English signup errors
+# Round 34 — one shared news date block, real pinning, upcoming-first order
 
-## Part 1 — Bulk entry in the Results admin tab
+One migration (one column + one ordering function). Everything else is front-end.
+Tournament cards, `useTournaments`, existing policies, realtime subscriptions,
+`get_leaderboard`, `divisions_of` and the curriculum functions are untouched.
 
-No migration. `public.tournament_results` is reused exactly as it is: no schema,
-policy, grant, function, or realtime change. Parent dashboard section untouched.
+## Part 1 — shared date layout
 
-### Where it goes
+New component `src/components/news-card-dates.tsx`, exporting two small pieces so
+both surfaces are laid out from the same source:
 
-A second card in `src/components/admin-tournament-results.tsx`'s tab, rendered
-as a new sibling component `src/components/admin-tournament-bulk.tsx` above the
-existing "Recorded results" list. The single-entry form stays exactly as it is.
+- `NewsCardTopRow` — a `flex items-center justify-between gap-3` row: tag badge
+  (or the pin indicator, see Part 2) on the left; on the right, only when
+  `event_date` is set, the `Calendar` icon + `formatDateRange(event_date,
+  event_end_date)`. No `event_date` means the right side renders nothing and the
+  row collapses — the posted date is never promoted there.
+- `NewsPostedLine` — always rendered as the last element of the card:
+  `text-xs text-muted-foreground`, `Posted {created_at.toLocaleDateString()}`.
 
-### Flow
+`src/routes/_authenticated/index.tsx` and
+`src/routes/_authenticated/announcements.tsx` both drop their hand-built date
+markup and use these. The dashboard keeps `line-clamp-2`; the announcements page
+keeps its full body. No other styling changes.
 
-1. **Tournament** — same control as single entry: pick an announcement with
-   `category = 'tournament'` (prefills name, date, disciplines) or "Enter
-   manually" with typed name + date. Name/date remain editable and are written
-   onto every row.
-2. **Batch event** — one `event_name` for the whole batch, plus batch
-   disciplines through the existing `DisciplinePicker`. Two events for one child
-   means running the flow twice, by design.
-3. **Roster** — active students only (`active = true`), with:
-   - a name search box
-   - a filter by class / programme, driven by `student_classes` →
-     `class_schedules` (`program_id` → `programs`)
-   - tick-boxes, "select all shown" / "clear", and a per-student optional
-     placement input that defaults to blank ("Competed"), never an error.
-4. **Duplicate protection** — once tournament name + date + event name are all
-   filled, query `tournament_results` for those three values and mark matching
-   students "Already recorded". Those rows are unticked and locked out of the
-   batch by default with a visible note; staff can deliberately re-include one
-   via an explicit "record anyway" toggle.
-5. **Save** — a single `supabase.from("tournament_results").insert([...])` with
-   the whole array built first (one call, no loop), each row carrying its own
-   `tournament_name`, `tournament_date`, `event_name`, `placement`,
-   `disciplines`, and `created_by = auth.uid()`.
-6. **Reporting** — after save, an on-card summary plus toast naming how many rows
-   were created and which students by name, and listing any students skipped as
-   duplicates. Not a generic "saved".
+## Part 2 — pinning
 
-Invalidates the same query keys the single-entry form already invalidates.
+Migration adds `pinned boolean NOT NULL DEFAULT false` to `public.announcements`.
+No policy change. Grants are the last DDL in the migration, and I will paste
+`SELECT relname, relacl FROM pg_class WHERE relname = 'announcements';` after it
+to show the table ACL is unchanged.
 
-## Part 2 — `src/routes/auth.tsx` error handling
+Admin surfaces:
+- `AnnouncementForm` (admin.tsx): a "Pin to top of the feed" checkbox, written
+  into the insert payload.
+- `ManageRow` (`admin-announcements-manage.tsx`): a pin toggle button on each
+  row that updates `pinned` directly and invalidates the existing query keys.
 
-`signUp`, `signIn`, `forgotPassword` (and `resendConfirmation`, same fallback
-shape — I will report on it and give it the same treatment) all end in a raw
-`error.message` toast today. For each:
+Parent surface: the automatic "LATEST" marker on the first card is **removed**.
+In its place, a pinned card shows a `Pin` icon + "Pinned" indicator in the
+top-left of the shared top row (next to the tag), and keeps the existing
+highlighted border/gradient treatment that used to be tied to index 0. The
+indicator therefore only ever means "staff pinned this".
 
-- keep the existing specific cases byte-for-byte (invite code, already
-  registered, invalid login credentials)
-- add rate limit / "too many requests" → ask the parent to wait a moment
-- add invalid email address → ask them to check the address
-- everything else → one generic non-technical line, e.g. "We couldn't create
-  your account just now. Please try again, or contact the front desk if it keeps
-  happening."
-- `console.error` the real error object in every branch, so it stays diagnosable
+## Part 3 — new default order, done in the database
 
-A small local helper in the same file maps an error to a message; no validation
-rule, password checklist, or other file changes.
+New `public.get_school_news(_limit integer, _offset integer)` — `STABLE`,
+`SECURITY INVOKER` (so the existing RLS policies keep deciding who reads what,
+which is why no policy needs to change) — returning the same explicit column list
+the feed already selects, ordered:
 
-## Verification I will report
+```sql
+ORDER BY
+  pinned DESC,
+  CASE WHEN pinned THEN 0
+       WHEN event_date >= CURRENT_DATE THEN 1
+       ELSE 2 END,
+  CASE WHEN pinned OR event_date >= CURRENT_DATE THEN event_date END ASC NULLS LAST,
+  created_at DESC,
+  id DESC
+LIMIT _limit OFFSET _offset
+```
 
-- `git diff --stat` and confirmation no migration file was added
-- the literal `insert([...])` call from the bulk save
-- a ≥4-row ZZTEST batch across three students with ≥2 blank placements: the
-  actual DB rows, then the same batch re-run showing those students excluded as
-  duplicates rather than doubled, then deletion and a zero-row count
-- how I proved an archived/inactive student never appears in the picker
-- parent dashboard screenshot rendering one bulk-created row before deletion
-- Part 2: the final error block of each function changed, plus a grep proving no
-  raw `error.message` reaches a toast in `auth.tsx`
-- confirmation no existing student data changed and `tournament_results` is back
-  to its pre-test row count
+Groups: pinned, then upcoming (`event_date >= CURRENT_DATE`) soonest first, then
+everything else (past event dates and null event dates together) newest-posted
+first. Past events are deliberately in their own group, so an August event can
+never sit above a November one.
+
+Tie-breakers: within pinned and within upcoming, equal `event_date` falls back to
+`created_at DESC` then `id DESC`; the third group is `created_at DESC, id DESC`.
+`id DESC` is the final tie-break everywhere, so the order is total and nothing
+shuffles between loads.
+
+Pagination: both the announcements page and the dashboard call the function via
+`supabase.rpc`, so ordering and slicing happen in the same server-side query.
+The announcements page keeps its existing "show older" behaviour by growing
+`_limit` (20, 40, …) with `_offset = 0`; page 2 is therefore the same total
+ordering re-evaluated with a larger window, never a re-sort of already-fetched
+rows. Because the ORDER BY is total, a row cannot appear on both windows or be
+skipped between them. The dashboard calls it with `_limit = 8, _offset = 0`.
+
+Grants: `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon; GRANT EXECUTE ... TO
+authenticated, service_role;` as the final statements.
+
+## Evidence I will report
+
+- Complete migration SQL, confirmation it is the only one, and the `relacl` check.
+- `git diff --stat`.
+- Full source of the shared date component.
+- The exact `ORDER BY` as applied, plus the page-2 argument above.
+- Parent-signed-in phone-width screenshots: dashboard and announcements page,
+  each showing a card with an event date and one without — four cards, identical
+  layout apart from body length, no posted date in any top-right corner.
+- Four clearly-labelled ZZTEST announcements (pinned / upcoming / past event /
+  no event date), the feed order before and after pinning one, then deletion and
+  a zero-row count.
+- Where the pin indicator appears and a grep proving "LATEST" is gone.
