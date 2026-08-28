@@ -567,6 +567,8 @@ function Dashboard() {
         </div>
       </section>
 
+      <TournamentResultsSection studentId={student.id} firstName={student.first_name} />
+
       <NextUpStrip />
 
       <ClassScheduleCard className={student.class_name} />
