@@ -222,14 +222,14 @@ function LeaderboardPage() {
         )}
 
         {podium.length > 0 && (
-          <section className="mt-10 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-3">
+          <section className="mt-12 grid grid-cols-1 items-stretch gap-4 sm:mt-16 sm:grid-cols-3">
             {podium[1] && (
-              <div className="flex">
+              <div className="flex w-full">
                 <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} />
               </div>
             )}
             {podium[0] && (
-              <div className="flex scale-105 sm:-translate-y-4 sm:scale-110">
+              <div className="flex w-full scale-105 sm:scale-[1.07]">
                 <PodiumCard
                   rank={1}
                   row={podium[0]}
@@ -240,7 +240,7 @@ function LeaderboardPage() {
               </div>
             )}
             {podium[2] && (
-              <div className="flex">
+              <div className="flex w-full">
                 <PodiumCard rank={3} row={podium[2]} accent="bronze" isJiuJitsu={divisionKey === "jiu_jitsu"} />
               </div>
             )}
@@ -337,7 +337,7 @@ function PodiumCard({
 
   return (
     <div
-      className={`relative flex h-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
+      className={`relative flex h-full w-full flex-col rounded-2xl border-2 bg-card p-6 text-center transition-transform hover:-translate-y-1 ${accents.ring}`}
     >
       <div
         className={`absolute left-1/2 top-0 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-background ${
