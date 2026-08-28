@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Pencil, Save, Trash2, Trophy, X } from "lucide-react";
+import { Megaphone, Pencil, Pin, PinOff, Save, Trash2, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ type AnnouncementRow = {
   title: string;
   body: string;
   event_date: string | null;
+  pinned: boolean;
   created_at: string;
 };
 
@@ -64,7 +65,7 @@ function useAnnouncements(category: string, before: string, limit: number) {
     queryFn: async () => {
       let q = supabase
         .from("announcements")
-        .select("id, category, title, body, event_date, created_at")
+        .select("id, category, title, body, event_date, pinned, created_at")
         .order("created_at", { ascending: false });
       if (category !== "all") q = q.eq("category", category);
       if (before) q = q.lt("created_at", `${before}T00:00:00`);
@@ -337,6 +338,7 @@ function ManageRow({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(row.title);
   const [body, setBody] = useState(row.body);
+  const [editPinned, setEditPinned] = useState(row.pinned);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -344,7 +346,7 @@ function ManageRow({
       if (!body.trim()) throw new Error("A body is required.");
       const { error } = await supabase
         .from("announcements")
-        .update({ title: title.trim(), body: body.trim() })
+        .update({ title: title.trim(), body: body.trim(), pinned: editPinned })
         .eq("id", row.id);
       if (error) throw error;
     },
@@ -356,9 +358,26 @@ function ManageRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Round 34: staff pinning replaced the automatic "Latest" marker. */
+  const togglePin = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("announcements")
+        .update({ pinned: !row.pinned })
+        .eq("id", row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(row.pinned ? "Unpinned" : "Pinned to the top of the feed");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const cancel = () => {
     setTitle(row.title);
     setBody(row.body);
+    setEditPinned(row.pinned);
     setEditing(false);
   };
 
@@ -389,6 +408,11 @@ function ManageRow({
                 "School News"
               )}
             </Badge>
+            {row.pinned && (
+              <Badge variant="outline" className="border-primary/50 text-primary">
+                <Pin className="mr-1 h-3 w-3" aria-hidden="true" /> Pinned
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
               Posted {new Date(row.created_at).toLocaleDateString()}
               {row.event_date &&
@@ -421,7 +445,17 @@ function ManageRow({
                   className="mt-1"
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={editPinned}
+                  onChange={(e) => setEditPinned(e.target.checked)}
+                />
+                Pin to the top of the feed
+              </label>
               <div className="flex flex-col gap-2 sm:flex-row">
+
                 <Button
                   className="h-11 bg-gradient-red"
                   onClick={() => save.mutate()}
@@ -452,6 +486,22 @@ function ManageRow({
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Button variant="outline" className="h-11" onClick={() => setEditing(true)}>
                   <Pencil className="mr-1 h-4 w-4" /> Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => togglePin.mutate()}
+                  disabled={togglePin.isPending}
+                >
+                  {row.pinned ? (
+                    <>
+                      <PinOff className="mr-1 h-4 w-4" /> Unpin
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="mr-1 h-4 w-4" /> Pin
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline"

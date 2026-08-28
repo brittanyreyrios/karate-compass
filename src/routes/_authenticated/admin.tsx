@@ -1714,6 +1714,7 @@ function AnnouncementForm() {
   const [disciplines, setDisciplines] = useState<string[]>(["Jiu Jitsu"]);
   const [location, setLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [pinned, setPinned] = useState(false);
 
   const post = useMutation({
     mutationFn: async () => {
@@ -1730,13 +1731,16 @@ function AnnouncementForm() {
         disciplines: category === "tournament" && disciplines.length > 0 ? disciplines : null,
         location: category === "tournament" ? location.trim() : null,
         event_date: category === "tournament" && eventDate ? eventDate : null,
+        // Round 34: a deliberate staff pin. It replaced the automatic "Latest"
+        // marker, so it must be settable at post time.
+        pinned,
       };
       const { error } = await supabase.from("announcements").insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Announcement posted");
-      setTitle(""); setBody(""); setTag(""); setLocation(""); setEventDate("");
+      setTitle(""); setBody(""); setTag(""); setLocation(""); setEventDate(""); setPinned(false);
       qc.invalidateQueries({ queryKey: ["announcements"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1792,6 +1796,13 @@ function AnnouncementForm() {
         <div className="sm:col-span-2">
           <Label>Details</Label>
           <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} required rows={4} className="mt-1" />
+        </div>
+
+        <div className="sm:col-span-2 flex items-center gap-2">
+          <Checkbox id="new-ann-pinned" checked={pinned} onCheckedChange={(v) => setPinned(v === true)} />
+          <Label htmlFor="new-ann-pinned" className="cursor-pointer">
+            Pin to the top of the feed
+          </Label>
         </div>
       </div>
 

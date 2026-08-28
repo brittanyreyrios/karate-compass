@@ -1,16 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Trophy, Calendar, Pin } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Megaphone, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDateRange } from "@/lib/date-only";
 import { ListSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
 import { useTournaments } from "@/lib/announcements";
 import { TournamentCard } from "@/components/tournament-card";
+import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -40,11 +39,9 @@ type Announcement = {
   registration_deadline: string | null;
   spectator_info: string | null;
   event_url: string | null;
+  pinned: boolean;
   created_at: string;
 };
-
-const ANNOUNCEMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
 
 /** One page of announcements. The archive grows forever; the feed must not. */
 const PAGE_SIZE = 20;
@@ -54,22 +51,25 @@ function Announcements() {
   const [limit, setLimit] = useState(PAGE_SIZE);
 
   /**
-   * AB2: paginated and column-explicit. This page used to pull every
-   * announcement ever posted with select("*"), so every visit got heavier as the
-   * school posted more. It now fetches a page at a time, newest first, and the
-   * parent asks for older ones.
+   * Round 34: ordering moved into public.get_school_news — pinned first, then
+   * upcoming events soonest first, then everything else newest-posted first.
+   * It has to be server-side: this list is paginated, so re-sorting the fetched
+   * page in the browser would reorder only those rows and silently omit the
+   * rest. The function's ORDER BY is total (…, created_at DESC, id DESC), so
+   * growing the window for "show older" cannot duplicate or skip a row.
+   *
+   * The query key keeps the ["announcements", …] prefix so the existing realtime
+   * invalidation below still refreshes this feed.
    */
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["announcements", "feed", limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("announcements")
-        .select(ANNOUNCEMENT_COLUMNS)
-        .eq("category", "school_news")
-        .order("created_at", { ascending: false })
-        .limit(limit);
+      const { data, error } = await supabase.rpc("get_school_news", {
+        _limit: limit,
+        _offset: 0,
+      });
       if (error) throw error;
-      return (data ?? []) as Announcement[];
+      return (data ?? []) as unknown as Announcement[];
     },
     placeholderData: (prev) => prev,
   });
@@ -127,25 +127,17 @@ function Announcements() {
               <QueryErrorState what="the school news" onRetry={() => refetch()} />
             )}
             {!showSkeleton && !isLoading && !isError && news.length === 0 && <p className="text-sm text-muted-foreground">No news yet.</p>}
-            {news.map((n, i) => (
-              <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${i === 0 ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
-                {i === 0 && (
-                  <div className="absolute right-4 top-4 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-primary">
-                    <Pin className="h-3 w-3" /> Latest
-                  </div>
-                )}
-                {n.tag && <Badge variant="outline" className="border-primary/40 text-primary">{n.tag}</Badge>}
+            {news.map((n) => (
+              <article key={n.id} className={`group relative overflow-hidden rounded-2xl border p-6 transition-all hover:border-primary/60 ${n.pinned ? "border-primary/50 bg-gradient-hero" : "border-border bg-card"}`}>
+                <NewsCardTopRow
+                  tag={n.tag}
+                  eventDate={n.event_date}
+                  eventEndDate={n.event_end_date}
+                  pinned={n.pinned}
+                />
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
-                <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                  {n.event_date && (
-                    <div className="flex items-center gap-1 font-semibold text-foreground">
-                      <Calendar className="h-3 w-3" aria-hidden="true" />
-                      {formatDateRange(n.event_date, n.event_end_date)}
-                    </div>
-                  )}
-                  <div>Posted {new Date(n.created_at).toLocaleDateString()}</div>
-                </div>
+                <NewsPostedLine createdAt={n.created_at} />
               </article>
             ))}
           </div>
