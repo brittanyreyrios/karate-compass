@@ -1121,6 +1121,66 @@ export type Database = {
           },
         ]
       }
+      tournament_results: {
+        Row: {
+          announcement_id: string | null
+          created_at: string
+          created_by: string | null
+          disciplines: string[] | null
+          event_name: string
+          id: string
+          notes: string | null
+          placement: number | null
+          student_id: string
+          tournament_date: string
+          tournament_name: string
+          updated_at: string
+        }
+        Insert: {
+          announcement_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          disciplines?: string[] | null
+          event_name: string
+          id?: string
+          notes?: string | null
+          placement?: number | null
+          student_id: string
+          tournament_date: string
+          tournament_name: string
+          updated_at?: string
+        }
+        Update: {
+          announcement_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          disciplines?: string[] | null
+          event_name?: string
+          id?: string
+          notes?: string | null
+          placement?: number | null
+          student_id?: string
+          tournament_date?: string
+          tournament_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_results_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

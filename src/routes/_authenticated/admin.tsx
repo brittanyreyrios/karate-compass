@@ -79,6 +79,7 @@ import { EventsAdminTab } from "@/components/admin-events-tab";
 import { DisciplinePicker } from "@/components/discipline-tags";
 import { cleanDisciplines, disciplinesOf } from "@/lib/calendar-data";
 import { PollsAdminTab } from "@/components/admin-polls-tab";
+import { TournamentResultsAdminTab } from "@/components/admin-tournament-results";
 import { AnnouncementsManageTab } from "@/components/admin-announcements-manage";
 import {
   parkStudent,
@@ -238,6 +239,7 @@ const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "schedules", label: "Class Schedules & Testing" },
   { value: "events", label: "Events Calendar" },
   { value: "polls", label: "Polls" },
+  { value: "results", label: "Tournament Results" },
   { value: "parents", label: "Parents & Premium" },
   { value: "invites", label: "Invite Codes" },
   { value: "qr", label: "Signup QR" },
@@ -336,6 +338,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="polls" className="mt-6">
           <PollsAdminTab />
+        </TabsContent>
+        <TabsContent value="results" className="mt-6">
+          <TournamentResultsAdminTab />
         </TabsContent>
         <TabsContent value="parents" className="mt-6">
           <ParentsTab consentOnly={consentOnly} onConsentOnlyChange={setConsentOnly} />

@@ -39,6 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { GoogleReviewCard } from "@/components/google-review-card";
 import { QueryErrorState } from "@/components/query-error";
+import { TournamentResultsSection } from "@/components/tournament-results-section";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 
 
@@ -566,6 +567,8 @@ function Dashboard() {
           )}
         </div>
       </section>
+
+      <TournamentResultsSection studentId={student.id} firstName={student.first_name} />
 
       <NextUpStrip />
 
