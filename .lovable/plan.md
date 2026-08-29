@@ -1,62 +1,50 @@
-# Fix silent selection loss in bulk tournament entry
+# Tournament Results — visual rework
 
-## Root cause (confirmed in source)
+Front-end only. Two files at most: `src/components/tournament-results-section.tsx` and
+(only if medal styling needs it) the chip helpers in `src/lib/tournament-results.ts`.
+No query, ordering, wording, database, or other-component changes.
 
-`src/components/admin-tournament-bulk.tsx` lines 156–164:
+## 1 — Card grid, matching "Next up at the dojo"
 
-```ts
-const selected = shown.filter((s) => {
-  const st = state(s.id);
-  if (!st.checked) return false;
-  return !alreadyRecorded.has(s.id) || st.override;
-});
+The section keeps its current shell (`mt-10 rounded-2xl border border-border bg-card p-6`),
+which already matches Next Up. Tournament cards adopt Next Up's card language exactly:
+`rounded-xl border border-border bg-background/50 p-4`, `grid gap-3`.
 
-const skippedDuplicates = shown.filter(
-  (s) => state(s.id).checked && alreadyRecorded.has(s.id) && !state(s.id).override,
-);
-```
+Making every count look deliberate:
 
-`shown` is the search/programme/class-filtered list. Ticks live in `picked` and do
-survive filter changes, but both derived lists read only the visible rows — so the
-save payload and the duplicate-skip report contain only students visible at save
-time. Search for child A, tick, search for child B, tick, save → only B is saved,
-silently.
+- Grid: `grid gap-3 sm:grid-cols-2 xl:grid-cols-3` — never a 3-up row on a mid-width screen,
+  so one card is at worst half a row, not a lonely third.
+- One tournament only: that single card spans the full row (`sm:col-span-2 xl:col-span-3`
+  applied when `groups.length === 1`), so it reads as a full-width feature panel rather
+  than an orphan in a wide empty row.
+- Two: one card each in a 2-up row; at `xl` they stay 2-up (the 3-col track only kicks in
+  from 3 groups upward, chosen with a conditional class on the grid).
+- Five+: 2-up then 3-up at `xl`, `items-start` so a tournament with many events does not
+  stretch its neighbours. Cards are content-height, not forced equal, so nothing looks padded out.
 
-## The fix (one file, front-end only)
+## 2 — Medal-forward rows
 
-1. Introduce `allStudents = studentsQ.data ?? []` and derive both `selected` and
-   `skippedDuplicates` from `allStudents` instead of `shown`. Nothing else about
-   the payload changes — same single `.insert([...])`, same normalisation, same
-   duplicate detection, same placement validation, same active-only query.
-2. Placement values already live in `picked` keyed by student id and are untouched
-   by filtering; deriving from `allStudents` means a placement typed before a
-   filter change is now actually read at save time.
-3. Selection visibility:
-   - Always show total selected across the whole roster.
-   - When some selected students are not in `shown`, append the hidden count:
-     `12 selected (4 not shown by this filter)`.
-   - List hidden selected students' names in a small muted line so nothing is
-     invisible.
-4. Unambiguous button scope:
-   - `Select all shown (N)` — only adds the currently visible, non-duplicate rows;
-     never unticks anyone hidden.
-   - `Clear all selections (including hidden)` — resets every tick and placement
-     across the whole roster, not just the visible ones.
-5. Save confirmation keeps naming every student saved (already does) and now
-   correctly includes previously-hidden ones; the skip report likewise.
+Each event row becomes a left-anchored flex row: placement badge first, event name, notes
+and discipline chips beside it in a `min-w-0` column. `sm:justify-between` is removed
+entirely, which is the cause of the desktop canyon.
 
-## Out of scope
+- Badge becomes a fixed-width (`w-16`/`w-[4.25rem]`) centred medal tile with a small icon
+  (trophy 1st, medal 2nd, award 3rd) above/beside the ordinal, so all rows align in a column.
+- Gold/silver/bronze use the same HSL accents already in `placementChipClass`, which were
+  taken from the leaderboard podium; I will extend that helper (not `placementLabel`) with
+  slightly stronger presence — heavier border, ring, subtle glow for 1st — keeping the same hues.
+- NULL placement: "Competed" in a solid bordered neutral tile of the identical size, muted
+  text, no icon-less blankness — same footprint as a medal so it never reads as missing data.
 
-No changes to the insert call, duplicate detection/normalisation, placement
-validation, the active-only student query, the table, policies, or any other file.
+## 3 — Unchanged
+
+`groupByTournament` run-length grouping, no client-side sorting anywhere, tournament name +
+`formatDateRange(g.tournament_date, null)` header, empty/loading/`QueryErrorState` states,
+single selected child only, `DisciplineTags` + `cleanDisciplines`.
 
 ## Verification
 
-- `git diff --stat` limited to `admin-tournament-bulk.tsx`.
-- Playwright as an admin: search student A, tick; search student B, tick; clear
-  search; assert both still ticked and the count reads 2; type a placement before
-  a filter change and confirm it survives; save and read back both
-  `tournament_results` rows from the database; delete the test rows and confirm
-  zero remain.
-- Duplicate-skip: re-run the same batch and confirm the skip report counts a
-  student hidden by the active filter.
+`git diff --stat`; full reworked source; authenticated parent screenshots at desktop and
+phone for 1, 2 and 5+ tournaments including a multi-event tournament with medals and a
+"Competed"; confirmation that events render in server order with no client sort; ZZTEST
+rows created then deleted with a zero-row count pasted.
