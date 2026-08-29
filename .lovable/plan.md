@@ -24,3 +24,8 @@ Three targeted faults in `src/components/tournament-results-section.tsx`; no red
 - Playwright, signed in as a parent: `getBoundingClientRect()` numbers for a 1st, 2nd, and Competed tile in the same list — widths and heights must match; paste numbers.
 - Screenshots at 390px and 1280px: (a) one tournament with two events (two columns at 1280), (b) one tournament with a single event, (c) three+ tournaments.
 - Screenshot of the admin bulk-entry chips to confirm they render unchanged.
+
+## Corrections (approved)
+- Keep `@md` (28rem). At 1280px a 3-up card is ~370px inner (~23rem), so one column is the CORRECT result there. Do not lower to `@sm`.
+- Prove the container query separately: render one tournament card at a forced 500px width (two events side by side) and at 370px (one column).
+- Also paste the events-list container bounding box in a normal card.
