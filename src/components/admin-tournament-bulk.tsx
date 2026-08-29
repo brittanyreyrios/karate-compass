@@ -153,15 +153,32 @@ export function TournamentBulkEntry() {
   const setState = (id: string, patch: Partial<Picked>) =>
     setPicked((p) => ({ ...p, [id]: { ...state(id), ...patch } }));
 
-  const selected = shown.filter((s) => {
+  /**
+   * SELECTION SCOPE CONTRACT
+   *
+   * Selection and the duplicate-skip report are resolved from allStudents — the
+   * active-only query result — never from `shown`. `shown` is only the filtered
+   * view; deriving from it meant a tick (or a placement) survived in `picked`
+   * but was silently dropped from the save payload the moment the search or
+   * class filter hid the student. allStudents is exactly the same active-only
+   * query rows shown draws from, so archived/inactive students still cannot
+   * reach the payload by any path.
+   */
+  const allStudents = studentsQ.data ?? [];
+
+  const selected = allStudents.filter((s) => {
     const st = state(s.id);
     if (!st.checked) return false;
     return !alreadyRecorded.has(s.id) || st.override;
   });
 
-  const skippedDuplicates = shown.filter(
+  const skippedDuplicates = allStudents.filter(
     (s) => state(s.id).checked && alreadyRecorded.has(s.id) && !state(s.id).override,
   );
+
+  /** Selected students currently hidden by the search/programme/class filter. */
+  const shownIds = new Set(shown.map((s) => s.id));
+  const hiddenSelected = selected.filter((s) => !shownIds.has(s.id));
 
   const save = useMutation({
     mutationFn: async () => {
