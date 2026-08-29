@@ -39,11 +39,16 @@ export function TournamentResultsSection({
   const q = useStudentTournamentResults(studentId);
   const groups = groupByTournament(q.data ?? []);
 
-  // Every card gets a normal grid track — no full-width span for a single
-  // tournament (that left its events stacked in a narrow column of empty card).
-  // Inside a card, events go two-up only when the CARD is genuinely wide
-  // (@md = 28rem of card width, a container query — not the viewport).
-  const gridCols = "sm:grid-cols-2 xl:grid-cols-3";
+  // Two columns maximum — a third column stranded a lone tournament in the
+  // left third of the row. Events always go one per row at full card width:
+  // the chip-right row layout fills the width horizontally, which replaced
+  // the Round 40 @container two-up events list (the two solved the same
+  // problem in conflicting ways, and the two-up cells were too tight for a
+   // medal tile plus a right-aligned chip).
+  // The second column waits for lg: below 1024px the persistent sidebar leaves
+  // main content <768px wide, where 2-col cards drop under ~200px and the
+  // 96px medal tile plus right-aligned chips cannot fit on one row.
+  const gridCols = "lg:grid-cols-2";
 
   return (
     <section className="mt-10 rounded-2xl border border-border bg-card p-6" aria-label="Tournament results">
@@ -64,7 +69,7 @@ export function TournamentResultsSection({
       ) : (
         <ul className={`mt-4 grid items-start gap-3 ${gridCols}`}>
           {groups.map((g) => (
-            <li key={g.key} className="@container min-w-0 rounded-xl border border-border bg-background/50 p-4">
+            <li key={g.key} className="min-w-0 rounded-xl border border-border bg-background/50 p-4">
               <div className="min-w-0">
                 <h3 className="flex min-w-0 items-start gap-2 font-semibold text-foreground">
                   <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -75,11 +80,11 @@ export function TournamentResultsSection({
                 </span>
               </div>
 
-              <ul className="mt-3 grid grid-cols-1 gap-2 @md:grid-cols-2" data-events-list>
+              <ul className="mt-3 grid grid-cols-1 gap-2" data-events-list>
                 {g.rows.map((r) => (
                   <li
                     key={r.id}
-                    className="flex items-start gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0 @md:border-t-0 @md:pt-0"
+                    className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
                   >
                     <span
                       className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
@@ -89,14 +94,14 @@ export function TournamentResultsSection({
                       <PlacementIcon placement={r.placement} />
                       <span className="leading-none">{placementLabel(r.placement)}</span>
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium text-foreground">{r.event_name}</p>
+                    <div className="min-w-[6rem] flex-1">
+                      <p className="truncate text-base font-semibold text-foreground">{r.event_name}</p>
                       {r.notes && (
                         <p className="mt-0.5 break-words text-xs text-muted-foreground">{r.notes}</p>
                       )}
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
-                      </div>
+                    </div>
+                    <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-1.5">
+                      <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
                     </div>
                   </li>
                 ))}

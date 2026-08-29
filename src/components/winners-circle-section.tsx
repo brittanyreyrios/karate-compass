@@ -57,7 +57,7 @@ export function WinnersCircleSection() {
         </p>
       ) : (
         <>
-        <ul className="mt-4 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="mt-4 grid items-start gap-3 lg:grid-cols-2">
           {visibleGroups.map((g) => (
             <li key={g.key} className="min-w-0 rounded-xl border border-border bg-background/50 p-4">
               <h3 className="flex min-w-0 items-start gap-2 font-semibold text-foreground">
@@ -70,7 +70,7 @@ export function WinnersCircleSection() {
 
               <ul className="mt-3 space-y-2">
                 {g.rows.map((r) => (
-                  <li key={r.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-card p-2.5">
+                  <li key={r.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/70 bg-card p-2.5">
                     <span
                       className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
                         r.placement,
@@ -79,14 +79,14 @@ export function WinnersCircleSection() {
                       <PlacementIcon placement={r.placement} />
                       <span className="leading-none">{placementLabel(r.placement)}</span>
                     </span>
-                    <div className="min-w-0">
-                      <p className="min-w-0 break-words text-sm font-semibold text-foreground">
+                    <div className="min-w-[6rem] flex-1">
+                      <p className="truncate text-base font-semibold text-foreground">
                         {r.first_name} {r.last_initial}
                       </p>
-                      <p className="min-w-0 break-words text-xs text-muted-foreground">{r.event_name}</p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
-                      </div>
+                      <p className="truncate text-sm text-muted-foreground">{r.event_name}</p>
+                    </div>
+                    <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-1.5">
+                      <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
                     </div>
                   </li>
                 ))}
