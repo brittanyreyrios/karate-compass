@@ -11,23 +11,39 @@ All numbers below are measured today, post-Batch-1, admin session, at the seven 
 
 Your discontinuity is confirmed exactly: content *shrinks* by 255px from 1024 → 1025. So `lg:` (min-width 1024) is the worst possible place to widen a grid — it fires at the one width where content is widest and is still in force one pixel later at 769px of content. Anything tuned at 1024 must be justified at 1025.
 
-## Manage Students — the stale 89px, re-measured before touching anything
+## Manage Students — you were right, `22rem` would have overflowed
 
-`div.min-w-0.sm:flex-1` (student name / belt / enrolment column), content `scrollWidth` 193 throughout:
+Roster column measured today (the split is `src/routes/_authenticated/admin.tsx:959`, `grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]`), with the text column (`div.min-w-0.sm:flex-1`, content `scrollWidth` 193–253):
 
-| viewport | 1024 | 1025 | 1180 | 1280 | 1440 |
-| --- | --- | --- | --- | --- | --- |
-| clientWidth | 89 | **28** | 183 | 89 | 193 (passes) |
+| viewport | 768 | 1024 | 1025 | 1180 | 1280 | 1440 |
+| --- | --- | --- | --- | --- | --- | --- |
+| content | 768 | 1024 | 769 | 924 | 1024 | 1184 |
+| split cols | stacked 720 | 380 + 556 | 380 + **301** | 380 + 456 | 380 + 556 | 380 + 716 |
+| roster clientWidth | 718 | 554 | **299** | 454 | 554 | 714 |
+| student card inner | 668 | 504 | **249** | 404 | 504 | 664 |
+| text column clientWidth | 253 (passes) | 89 | **28** | 183 | 89 | 249 (passes) |
 
-So 89 was not merely stale, it was optimistic: at 1025 the column is 28px. It still needs work.
+So `sm:min-w-[22rem]` (352px) inside a 249px card inner at 1025 would have turned a starved column into an overflowing one, exactly as you said. Dropped.
 
-Cause, and it is not the select any more: `StudentRow` (`src/routes/_authenticated/admin.tsx:1187`) is `sm:flex sm:flex-wrap` with three siblings on one line — the text column (`min-w-0 sm:flex-1`), the Dojo-points stepper, and the action buttons. `flex-wrap` never fires because `min-w-0` lets the text column shrink to nothing instead, so the row stays on one line and starves the text.
+### Correction: move the roster split to `xl:` first
 
-Fix (layout utilities only, no restructuring): give the text column a real wrap threshold so the row breaks instead of collapsing —
-`min-w-0 sm:flex-1` → `min-w-0 basis-full sm:basis-auto sm:min-w-[22rem] sm:flex-1`.
-At any content width where 352px is not available beside the stepper, the stepper and actions wrap to their own line and the text column keeps the full row. Predicted: clientWidth ≥ 352 at every width from 390 to 1440, so 193 of content always fits.
+`lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]` → `xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]`, on the Manage Students split only (line 959; the identical split at line 3555 and the ones in `admin-technique-library.tsx` / `admin-content-tabs.tsx` are not this tab and are re-derived on their own measurements, not swept blind).
 
-`admin-enrollment.tsx` is left alone this batch — its select is no longer the binding constraint.
+Predicted card inner after the move: 768 → 668, 1024 → ~974, 1025 → ~719, 1180 → ~874, 1280 → 504, 1440 → 664. The 1024/1025 pair both stack full-width, 974 vs 719 — both far above the 193 the text needs, and the rail's return costs 255px of a much larger budget instead of flipping a layout on.
+
+### Does `StudentRow` still need a minimum?
+
+Yes, but a smaller one that every container can honour. At `xl:` the split still narrows the card inner to 504 (1280), and 504 is where the text column measured 89 — the three siblings share one line and `min-w-0` lets the text lose. The minimum only has to force `flex-wrap` to break, so it is sized against the **smallest** card inner after the split change, 504:
+
+`min-w-0 sm:flex-1` → `min-w-0 basis-full sm:basis-auto sm:min-w-[18rem] sm:flex-1`
+
+288px against a 504px floor, and against 668 / 974 / 719 / 874 / 664 elsewhere — comfortable at every one of the seven widths, and it can never exceed its container the way 352 could. When the stepper and actions cannot fit beside 288px of text they wrap to their own line, which is the mobile layout the card already has.
+
+Proof required in the report: measured card inner and resulting text-column `clientWidth` at 1024 and 1025 side by side, plus `body.scrollWidth` at both, showing no overflow appears on either side of the rail.
+
+### `lg:` is suspect for the rest of the batch
+
+Adopted as a rule: no grid gets widened at `lg:` from here on. Every remaining candidate is checked at 1025 first, and if the 769px content area cannot honour the wider grid, the step goes to `xl:` (content 1024) instead. That applies to the 12 other surviving failures and to the dashboard tiles, whose `lg:grid-cols-3` below is justified at 1025 (245px cells) precisely because it was checked there.
 
 ## Dashboard stat tiles — the re-derived grid
 
