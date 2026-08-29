@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Pencil, Pin, PinOff, Save, Trash2, Trophy, X } from "lucide-react";
+import { CalendarClock, Megaphone, Pencil, Pin, PinOff, Save, Send, Trash2, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,12 @@ import {
 } from "@/components/ui/select";
 import { count } from "@/lib/plural";
 import { formatDateOnly } from "@/lib/date-only";
+import {
+  chicagoToInstant,
+  formatChicagoDateTime,
+  instantToChicago,
+  isScheduled,
+} from "@/lib/schedule-time";
 
 /**
  * Posting an announcement was one-way: there was no way to fix a typo and no way
@@ -46,6 +52,7 @@ type AnnouncementRow = {
   body: string;
   event_date: string | null;
   pinned: boolean;
+  publish_at: string | null;
   created_at: string;
 };
 
@@ -66,7 +73,7 @@ function useAnnouncements(category: string, before: string, limit: number) {
     queryFn: async () => {
       let q = supabase
         .from("announcements")
-        .select("id, category, title, body, event_date, pinned, created_at")
+        .select("id, category, title, body, event_date, pinned, publish_at, created_at")
         .order("created_at", { ascending: false });
       if (category !== "all") q = q.eq("category", category);
       if (before) q = q.lt("created_at", `${before}T00:00:00`);
@@ -340,16 +347,46 @@ function ManageRow({
   const [title, setTitle] = useState(row.title);
   const [body, setBody] = useState(row.body);
   const [editPinned, setEditPinned] = useState(row.pinned);
+  /**
+   * publish_at is a timestamptz, so it is edited as a gym-time (America/Chicago)
+   * date + time and converted explicitly — never through the date-only helpers.
+   */
+  const [editScheduled, setEditScheduled] = useState(!!row.publish_at);
+  const initial = row.publish_at ? instantToChicago(row.publish_at) : null;
+  const [editDate, setEditDate] = useState(initial?.date ?? "");
+  const [editTime, setEditTime] = useState(initial?.time ?? "09:00");
+
+  const scheduledNow = isScheduled(row.publish_at);
+
+  /**
+   * A linked event that was hidden until publish must move WITH the post. If the
+   * post is pushed back and the event keeps the old instant, the date surfaces on
+   * the calendar while the post is still hidden — the exact leak the
+   * hide-until-publish checkbox exists to prevent. Only events that are actually
+   * hidden (publish_at NOT NULL) are touched; an event deliberately left visible
+   * stays visible.
+   */
+  const moveHiddenLinkedEvents = async (publishAt: string | null) => {
+    const { error } = await supabase
+      .from("events")
+      .update({ publish_at: publishAt })
+      .eq("announcement_id", row.id)
+      .not("publish_at", "is", null);
+    if (error) throw error;
+  };
 
   const save = useMutation({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("A title is required.");
       if (!body.trim()) throw new Error("A body is required.");
+      if (editScheduled && !editDate) throw new Error("Pick the date this post should go live.");
+      const publishAt = editScheduled ? chicagoToInstant(editDate, editTime) : null;
       const { error } = await supabase
         .from("announcements")
-        .update({ title: title.trim(), body: body.trim(), pinned: editPinned })
+        .update({ title: title.trim(), body: body.trim(), pinned: editPinned, publish_at: publishAt })
         .eq("id", row.id);
       if (error) throw error;
+      await moveHiddenLinkedEvents(publishAt);
     },
     onSuccess: () => {
       toast.success("Announcement updated");
@@ -375,10 +412,30 @@ function ManageRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Publish now = clear the schedule; RLS then shows it to parents immediately. */
+  const publishNow = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("announcements")
+        .update({ publish_at: null })
+        .eq("id", row.id);
+      if (error) throw error;
+      await moveHiddenLinkedEvents(null);
+    },
+    onSuccess: () => {
+      toast.success("Published — parents can see it now");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const cancel = () => {
     setTitle(row.title);
     setBody(row.body);
     setEditPinned(row.pinned);
+    setEditScheduled(!!row.publish_at);
+    setEditDate(initial?.date ?? "");
+    setEditTime(initial?.time ?? "09:00");
     setEditing(false);
   };
 
@@ -412,6 +469,16 @@ function ManageRow({
             {row.pinned && (
               <Badge variant="outline" className="border-primary/50 text-primary">
                 <Pin className="mr-1 h-3 w-3" aria-hidden="true" /> Pinned
+              </Badge>
+            )}
+            {scheduledNow ? (
+              <Badge className="border-amber-400/60 bg-amber-500/15 text-amber-200" variant="outline">
+                <CalendarClock className="mr-1 h-3 w-3" aria-hidden="true" /> Scheduled ·{" "}
+                {formatChicagoDateTime(row.publish_at!)}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-emerald-400/50 text-emerald-300">
+                Live
               </Badge>
             )}
             <span className="text-xs text-muted-foreground">
@@ -455,6 +522,43 @@ function ManageRow({
                 />
                 Pin to the top of the feed
               </label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={editScheduled}
+                  onChange={(e) => setEditScheduled(e.target.checked)}
+                />
+                Schedule for later (gym time, Central)
+              </label>
+              {editScheduled && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs" htmlFor={`ann-sched-date-${row.id}`}>
+                      Go live on
+                    </Label>
+                    <Input
+                      id={`ann-sched-date-${row.id}`}
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="mt-1 h-11"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs" htmlFor={`ann-sched-time-${row.id}`}>
+                      At (gym time)
+                    </Label>
+                    <Input
+                      id={`ann-sched-time-${row.id}`}
+                      type="time"
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      className="mt-1 h-11"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
 
                 <Button
@@ -504,6 +608,17 @@ function ManageRow({
                     </>
                   )}
                 </Button>
+                {scheduledNow && (
+                  <Button
+                    variant="outline"
+                    className="h-11 border-amber-400/60 text-amber-200"
+                    onClick={() => publishNow.mutate()}
+                    disabled={publishNow.isPending}
+                  >
+                    <Send className="mr-1 h-4 w-4" />{" "}
+                    {publishNow.isPending ? "Publishing…" : "Publish now"}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="h-11 text-destructive-foreground"
