@@ -6,7 +6,7 @@
 ALTER TABLE public.tournament_results
   ADD COLUMN featured boolean NOT NULL DEFAULT true;
 
-CREATE OR REPLACE FUNCTION public.get_winners_circle(_limit integer DEFAULT 20)
+CREATE OR REPLACE FUNCTION public.get_winners_circle(_limit integer DEFAULT 60)
 RETURNS TABLE (
   id uuid, first_name text, last_initial text, event_name text,
   placement smallint, tournament_name text, tournament_date date, disciplines text[]
@@ -20,8 +20,9 @@ AS $$
   FROM public.tournament_results tr
   JOIN public.students st ON st.id = tr.student_id
   WHERE tr.featured = true AND st.active = true
-  ORDER BY tr.tournament_date DESC, tr.placement ASC NULLS LAST, tr.event_name ASC
-  LIMIT COALESCE(_limit, 20)
+  ORDER BY tr.tournament_date DESC, tr.tournament_name ASC,
+           tr.placement ASC NULLS LAST, tr.event_name ASC
+  LIMIT COALESCE(_limit, 60)
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_winners_circle(integer) FROM PUBLIC, anon;
@@ -35,7 +36,11 @@ family-scoped; the function is the only widened path.
 
 ## 2. Front-end
 
-**`src/lib/tournament-results.ts` — additions only.** New `featured` field on the
+**`src/lib/tournament-results.ts` — additions plus one ordering fix.** The
+`.order()` chain in `useStudentTournamentResults` gains
+`.order("tournament_name", { ascending: true })` between date and placement, so
+two tournaments on the same date can no longer interleave and split into
+duplicate run-length groups. New `featured` field on the
 `TournamentResult` type (added to `TOURNAMENT_RESULT_COLUMNS`), a new
 `WinnersCircleRow` type and `useWinnersCircle()` query hook, and a
 `groupWinnersByTournament` run-length grouper. `placementLabel`,
