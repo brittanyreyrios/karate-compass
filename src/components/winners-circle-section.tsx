@@ -5,6 +5,7 @@ import { cleanDisciplines } from "@/lib/calendar-data";
 import { formatDateRange } from "@/lib/date-only";
 import {
   groupWinnersByTournament,
+  PLACEMENT_TILE_BOX,
   placementLabel,
   placementTileClass,
   useWinnersCircle,
@@ -60,9 +61,9 @@ export function WinnersCircleSection() {
 
               <ul className="mt-3 space-y-2">
                 {g.rows.map((r) => (
-                  <li key={r.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-card p-2.5">
+                  <li key={r.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-card p-2.5">
                     <span
-                      className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide ${placementTileClass(
+                      className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
                         r.placement,
                       )}`}
                     >
