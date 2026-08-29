@@ -1,71 +1,69 @@
-# Fix Batch 1 — layout failures from the audit
+# Fix Batch 2 — the responsive grid sweep, re-derived after Batch 1
 
-Five targeted fixes. No grid-cols changes, no `md:` steps, no card-layout or dense-form touch-target edits, nothing from Rounds 41–47.
+All numbers below are measured today, post-Batch-1, admin session, at the seven widths you named. `main` is the content column's `clientWidth`.
 
-## 1 — Collapse the sidebar below 1024px
+## The boundary, measured
 
-`src/hooks/use-mobile.tsx`: `MOBILE_BREAKPOINT` 768 → 1024.
+| viewport | 390 | 768 | 1024 | 1025 | 1180 | 1280 | 1440 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| content width | 390 | 768 | 1024 | **769** | 924 | 1024 | 1184 |
+| sidebar | sheet | sheet | sheet | rail 255 | rail | rail | rail |
 
-Consumers of `useIsMobile()`: exactly one — `src/components/ui/sidebar.tsx` (line 69), which uses it to switch the sidebar between the persistent rail and the Sheet overlay, and to route `toggleSidebar` to `openMobile`. No other layout branch, conditional render, or mobile-only component reads the hook. So the only behavioural effect is the intended one: at 768–1023px the sidebar becomes a sheet behind the menu button, and main content grows from ~768px to ~1024px at iPad portrait. Nothing is made worse, so no reason to stop.
+Your discontinuity is confirmed exactly: content *shrinks* by 255px from 1024 → 1025. So `lg:` (min-width 1024) is the worst possible place to widen a grid — it fires at the one width where content is widest and is still in force one pixel later at 769px of content. Anything tuned at 1024 must be justified at 1025.
 
-## 2 — Sidebar toggle hit area ≥ 44×44
+## Manage Students — the stale 89px, re-measured before touching anything
 
-`SidebarTrigger` in `src/components/ui/sidebar.tsx` is `h-7 w-7`. Change to a 44×44 tappable box (`size-11`, centred content) while pinning the `PanelLeft` glyph to its current rendered size (`size-4` explicitly on the icon) so only the hit area grows. It is rendered once, in `src/routes/__root.tsx`, so this covers every page.
+`div.min-w-0.sm:flex-1` (student name / belt / enrolment column), content `scrollWidth` 193 throughout:
 
-## 3 — Manage Announcements action row wrapping
+| viewport | 1024 | 1025 | 1180 | 1280 | 1440 |
+| --- | --- | --- | --- | --- | --- |
+| clientWidth | 89 | **28** | 183 | 89 | 193 (passes) |
 
-`src/components/admin-announcements-manage.tsx` line 612: add `flex-wrap` to the `mt-3 flex flex-col gap-2 sm:flex-row` action bar so the five buttons wrap instead of pushing the document sideways. Expected result: `body.scrollWidth === viewport` at 768.
+So 89 was not merely stale, it was optimistic: at 1025 the column is 28px. It still needs work.
 
-## 4 — Manage Students enrolment select becomes fluid
+Cause, and it is not the select any more: `StudentRow` (`src/routes/_authenticated/admin.tsx:1187`) is `sm:flex sm:flex-wrap` with three siblings on one line — the text column (`min-w-0 sm:flex-1`), the Dojo-points stepper, and the action buttons. `flex-wrap` never fires because `min-w-0` lets the text column shrink to nothing instead, so the row stays on one line and starves the text.
 
-`src/components/admin-enrollment.tsx` line 144: replace the fixed `w-[190px]` with a fluid width that can shrink (`w-full min-w-[9rem] max-w-[190px]`) and let its wrapper shrink (`min-w-0` on the inline-flex row) so the sibling `min-w-0 sm:flex-1` text column keeps a usable content box instead of 27px. No container widening, no font shrink.
+Fix (layout utilities only, no restructuring): give the text column a real wrap threshold so the row breaks instead of collapsing —
+`min-w-0 sm:flex-1` → `min-w-0 basis-full sm:basis-auto sm:min-w-[22rem] sm:flex-1`.
+At any content width where 352px is not available beside the stepper, the stepper and actions wrap to their own line and the text column keeps the full row. Predicted: clientWidth ≥ 352 at every width from 390 to 1440, so 193 of content always fits.
 
-## 5 — Technique Library caption: NOT A BUG, no code change
+`admin-enrollment.tsx` is left alone this batch — its select is no longer the binding constraint.
 
-Your doubt is correct and my root cause was wrong. Measured today on `/techniques` (admin session), `span.absolute.inset-x-0.bottom-0.truncate` at 390px and 1024px:
+## Dashboard stat tiles — the re-derived grid
 
-```
-display: block          (absolutely positioned -> blockified, as you said)
-white-space: nowrap
-overflow: hidden
-text-overflow: ellipsis
-line-height: 16px, font-size: 12px
-padding-top: 24px, padding-bottom: 24px
-height: 64px
-scrollWidth 364 / clientWidth 364   (390px)
-scrollWidth 219 / clientWidth 219   (1024px)
-line boxes (Range.getClientRects().length): 1
-```
+`src/routes/_authenticated/index.tsx:458`, currently `mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5`. Measured cell widths (cell content box = cell − 42 of padding/border):
 
-`truncate` is applying exactly as intended: one line box, no overflow, ellipsis armed. The 64px height is `24 (pt-6) + 16 (one line) + 24 (pb-6)` — the gradient scrim's padding, not four lines of text. The audit's "four-line label" finding was a false positive from dividing element height by line-height, which counts padding as text lines. The same arithmetic produced all nine admin Technique Library entries; they are the same shared component (`src/components/video-facade.tsx`) and are equally fine.
+| viewport | 390 | 768 | 1024 | 1025 | 1180 | 1280 | 1440 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| cols now | 1 | 2 | 5 | 5 | 5 | 5 | 5 |
+| cell | 358 | 352 | 179 | **128** | 159 | 179 | 211 |
+| content box | 316 | 310 | 137 | 86 | 117 | 137 | 169 |
 
-So: no fix, no class change here. I will re-check line boxes at all four widths in the re-measurement and reclassify these findings as false positives rather than resolved.
+Widest content the tiles must hold: sub-line "Intermediate / Advanced Children" 142px, label "Total Attendance (Yearly Log)" 125px, "Current Belt" 95px. So a tile needs a **142px content box → 184px cell**. Five columns therefore need content ≥ 5×184 + 4×16 = **984px of cell space**, which only exists once content ≥ 984 — i.e. viewport ≥ 1239 without a rail, or ≥ 1494 with one. That is why every measured 5-column width fails, including 1024 and 1280.
 
-## Addition 1 — menu button is unconditional (verified before the breakpoint change)
+Proposed: `sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5`
 
-`SidebarTrigger` is rendered once, in `src/routes/__root.tsx` line 137, inside the always-on header — no `md:hidden`, no `hidden lg:block`, no conditional branch; and the component itself (`sidebar.tsx`) carries only `h-7 w-7`. Measured `[data-sidebar="trigger"]` rect today, on the current 768 breakpoint:
+| viewport | content | cols | cell | content box | 142 fits? |
+| --- | --- | --- | --- | --- | --- |
+| 390 | 390 | 1 | 358 | 316 | yes |
+| 768 | 768 | 2 | 352 | 310 | yes |
+| 1024 | 1024 | 3 | 330 | 288 | yes |
+| **1025** | **769** | 3 | **245** | **203** | yes |
+| 1180 | 924 | 3 | 297 | 255 | yes |
+| 1280 | 1024 | 3 | 330 | 288 | yes |
+| 1440 | 1184 | 3 | 384 | 342 | yes |
+| 1536 (2xl) | 1280 | 5 | 243 | 201 | yes |
 
-| width | rect | display / visibility |
-| --- | --- | --- |
-| 390 | x 16, y 13.5, 19.28 x 28 | flex / visible |
-| 768 | x 272, y 13.5, 26.33 x 28 | flex / visible |
-| 1024 | x 272, y 13.5, 28 x 28 | flex / visible |
-| 1180 | x 272, y 13.5, 28 x 28 | flex / visible |
+The 1024 → 1025 pair is the point of the design: both are 3 columns, 330 → 245, both above the 184 floor, so the rail's return cannot break it. Five columns only return at `2xl:`, where the rail is already priced in.
 
-It renders at every width, so raising the breakpoint cannot strand anyone. Note it is also being squeezed below its own 28px at 390/768 by the header flex row, so fix 2 adds `shrink-0` along with the 44x44 box, and I will re-measure to prove >= 44 x 44 at all four widths.
+## The other 12 remaining failures
 
-## Addition 2 — line counts re-measured, not estimated
+The rest of the surviving overflow elements sit in `sm:grid-cols-2` panels that become two ~370px columns inside a 769px content area at 1025. Each will be re-derived the same way from the measurement pass, and each gets a step only where a measured cell width justifies it — no speculative `md:` additions. Grids that already pass at all seven widths are not touched.
 
-Every multi-line-label finding in the audit came from `height / line-height`, which counts padding as text lines — the same arithmetic that turned a one-line caption into "four lines". In the re-measurement, line counts come only from `Range.getClientRects().length` on the text node contents, and every previous 3+ line finding is re-checked with it: dashboard stat tiles, Leaderboard podium labels (3-line x7 at 768), Belt Curriculum entries, admin Technique Library rows.
+## Out of scope, explicitly
 
-Counts reported as three numbers, not two: resolved, still failing, false positive in the original audit.
-
-The dashboard stat tiles are not cleared by this: their `scrollWidth 162 / clientWidth 126` overflow is a real measurement independent of line counting, and stays a live finding (fix deferred to the `md:` grid round). The Leaderboard podium finding carried no overflow numbers at all, so it stands or falls on the real line count alone.
-
-## Addition 3 — verify the claimed overlap is between siblings
-
-The Belt Curriculum "overlap" (span "01" at {726, 476, 16, 15} vs span "Intro video" at {726, 476, 123, 39}) will be re-checked from the DOM with `a.contains(b) || b.contains(a)` plus the ancestor chain, since identical x and y is the signature of nesting, not collision. If one contains the other it is reclassified as a false positive — and as it is the only genuine overlap the audit reported, that would mean the app has no real element overlaps anywhere. The overlap detector is corrected to skip ancestor/descendant pairs before re-running, so the re-measurement's overlap column is trustworthy.
+Dense admin-form touch targets (`h-9` / `size="sm"`) stay. No `use-mobile.tsx`, no sidebar component, nothing from Rounds 41–47. No font-size changes, no container widening, no component restructuring — grid and layout utilities only.
 
 ## Report
 
-`git diff --stat`; the `useIsMobile()` consumer list; the full re-measurement table at 390/768/1024/1180 for both roles showing only remaining failures with resolved/remaining/false-positive counts; main content width before and after; `document.body.scrollWidth` vs viewport for every page and width; the three counts (resolved / still failing / false positive), the overlap ancestry check, the four fixes proven individually (trigger rect, wrapped action row with body scroll gone, Manage Students text column clientWidth before/after, caption line count and height plus the computed styles above re-read after the diff); screenshots at 390 and 1024 of Dashboard, Manage Students, Manage Announcements, Technique Library; and confirmation the diff contains no `grid-cols` edit.
+`git diff --stat`; the final `md:`/`xl:`/`2xl:` table as committed with measured cell widths; Manage Students text column 89 (stale) → 28–89 (actual, above) → after; the full seven-width re-measurement for both roles showing only remaining failures with resolved / still failing / false positive; the explicit 1024 vs 1025 comparison for every grid changed; `document.body.scrollWidth` vs viewport at all seven widths; and side-by-side screenshots of the dashboard and Manage Students at 1024 and 1025.
