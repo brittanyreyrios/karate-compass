@@ -380,6 +380,7 @@ export function TournamentBulkEntry() {
         ) : (
           <>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* Adds visible rows only — never unticks anyone hidden by the filter. */}
               <Button
                 variant="outline"
                 size="sm"
@@ -394,15 +395,25 @@ export function TournamentBulkEntry() {
                   })
                 }
               >
-                Select all shown
+                Select all shown ({shown.length})
               </Button>
+              {/* Wipes every tick and placement across the whole roster, hidden or not. */}
               <Button variant="ghost" size="sm" onClick={() => setPicked({})}>
-                Clear selection
+                Clear all selections (including hidden)
               </Button>
               <span className="text-xs text-muted-foreground">
-                {selected.length} selected · {shown.length} shown
+                {selected.length} selected
+                {hiddenSelected.length > 0 && ` (${hiddenSelected.length} not shown by this filter)`}
+                {" · "}
+                {shown.length} shown
               </span>
             </div>
+            {hiddenSelected.length > 0 && (
+              <p className="mt-2 text-xs font-semibold text-amber-500">
+                Hidden by the current filter but still selected for saving:{" "}
+                {hiddenSelected.map((s) => `${s.first_name} ${s.last_name}`).join(", ")}
+              </p>
+            )}
 
             <ul className="mt-3 space-y-2">
               {shown.map((s) => {
