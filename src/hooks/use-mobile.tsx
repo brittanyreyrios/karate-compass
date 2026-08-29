@@ -1,6 +1,9 @@
 import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+// Round 48: iPad portrait is 1024px wide. Below that the sidebar becomes a
+// sheet behind the header menu button instead of a persistent 255px rail, so
+// tablet portrait gets the full content width.
+const MOBILE_BREAKPOINT = 1024;
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);

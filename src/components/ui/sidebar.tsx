@@ -269,14 +269,18 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      // Round 48: the sidebar is a sheet below 1024px, so this button is the
+      // only way to navigate on phone and tablet portrait. 44x44 hit area,
+      // never allowed to be squeezed by the header row; the glyph keeps its
+      // original 16px size.
+      className={cn("size-11 shrink-0", className)}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
       }}
       {...props}
     >
-      <PanelLeft />
+      <PanelLeft className="size-4 shrink-0" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

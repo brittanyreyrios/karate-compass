@@ -609,7 +609,7 @@ function ManageRow({
                   .
                 </p>
               )}
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button variant="outline" className="h-11" onClick={() => setEditing(true)}>
                   <Pencil className="mr-1 h-4 w-4" /> Edit
                 </Button>
