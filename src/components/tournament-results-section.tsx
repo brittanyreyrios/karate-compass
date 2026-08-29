@@ -4,6 +4,7 @@ import { QueryErrorState } from "@/components/query-error";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import {
   groupByTournament,
+  PLACEMENT_TILE_BOX,
   placementLabel,
   placementTileClass,
   useStudentTournamentResults,
@@ -78,10 +79,10 @@ export function TournamentResultsSection({
                 {g.rows.map((r) => (
                   <li
                     key={r.id}
-                    className="flex items-center gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0 @md:border-t-0 @md:pt-0"
+                    className="flex items-start gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0 @md:border-t-0 @md:pt-0"
                   >
                     <span
-                      className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide ${placementTileClass(
+                      className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
                         r.placement,
                       )}`}
                     >

@@ -116,6 +116,15 @@ export function placementChipClass(placement: number | null): string {
 }
 
 /**
+ * Shared placement-tile box: everything except the placement-dependent colors.
+ * One fixed width sized to fit "COMPETED" (the longest label) so no label can
+ * overflow and the text column stays aligned down the card. Used by both the
+ * parent results section and the Winner's Circle.
+ */
+export const PLACEMENT_TILE_BOX =
+  "flex w-24 shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide";
+
+/**
  * Parent-facing medal tile styling. SEPARATE from placementChipClass on purpose:
  * that helper is also used by the admin results list, and this round must not
  * restyle the admin panel. Same gold / silver / bronze hues, more presence.
