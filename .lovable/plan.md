@@ -100,8 +100,12 @@ front-end-only filtering is introduced.
 ## 4. Verification I will report
 
 Committed migration SQL and confirmation it is the only one; `git diff --stat`;
-the `pg_policy` query showing `USING (true)` gone from announcements; the ORDER
+the `pg_policy` query showing `USING (true)` gone from announcements; for the
+`CREATE OR REPLACE`d function, `proname, proacl` confirming no bare `=X` and no
+`anon=X`, plus `md5(prosrc)` before and after with a plain statement that the
+only textual difference is the ORDER BY line; the ORDER
 BY from the committed `prosrc` with the COALESCE; then, with named real
+
 accounts, a REST proof in both directions — a parent's `select *` and
 `get_school_news` missing a +1h scheduled post, an admin session seeing it
 badged Scheduled, then the same parent request returning it after
