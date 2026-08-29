@@ -18,10 +18,12 @@ export type TournamentResult = {
   placement: number | null;
   disciplines: string[] | null;
   notes: string | null;
+  /** Whether this result appears in the school-wide Winner's Circle. */
+  featured: boolean;
 };
 
 export const TOURNAMENT_RESULT_COLUMNS =
-  "id, student_id, announcement_id, tournament_name, tournament_date, event_name, placement, disciplines, notes";
+  "id, student_id, announcement_id, tournament_name, tournament_date, event_name, placement, disciplines, notes, featured";
 
 /**
  * ORDERING CONTRACT — all three keys are applied server-side, because without an
