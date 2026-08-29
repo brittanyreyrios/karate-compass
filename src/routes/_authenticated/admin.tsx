@@ -100,6 +100,13 @@ import {
 import { awardPoints, revertPointEvent } from "@/lib/points";
 import { changeAttendance } from "@/lib/attendance";
 import { daysUntilDateOnly, formatDateOnly, normalizeDateOnly } from "@/lib/date-only";
+import {
+  chicagoEndOfDay,
+  chicagoStartOfDay,
+  chicagoToInstant,
+  eventTypeForCategory,
+} from "@/lib/schedule-time";
+
 import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/components/admin-roles";
 
 
@@ -1715,11 +1722,51 @@ function AnnouncementForm() {
   const [disciplines, setDisciplines] = useState<string[]>(["Jiu Jitsu"]);
   const [location, setLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [eventEndDate, setEventEndDate] = useState("");
   const [pinned, setPinned] = useState(false);
+
+  /**
+   * Scheduling. publish_at is a real timestamptz and the time the admin types is
+   * gym time (America/Chicago), converted explicitly on save — see
+   * src/lib/schedule-time.ts. Off means publish_at = NULL = visible now, and RLS
+   * (not this form) is what actually hides a scheduled post from parents.
+   */
+  const [scheduled, setScheduled] = useState(false);
+  const [schedDate, setSchedDate] = useState("");
+  const [schedTime, setSchedTime] = useState("09:00");
+
+  /** "none" | "new" | an existing event id. The link lives on events.announcement_id. */
+  const [linkMode, setLinkMode] = useState<"none" | "new" | "existing">("none");
+  const [existingEventId, setExistingEventId] = useState("");
+  const [hideEventUntilPublish, setHideEventUntilPublish] = useState(true);
+
+  /**
+   * Only events that belong to nobody may be attached. Four events already carry
+   * an announcement_id; listing them would let one save silently steal another
+   * announcement's calendar entry.
+   */
+  const attachableQ = useQuery({
+    queryKey: ["attachable-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, title, starts_at")
+        .is("announcement_id", null)
+        .order("starts_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const canCreateEvent = !!eventDate;
 
   const post = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
+      const publishAt = scheduled && schedDate ? chicagoToInstant(schedDate, schedTime) : null;
+      if (scheduled && !schedDate) throw new Error("Pick the date this post should go live.");
+
       const payload = {
         category,
         title: title.trim(),
@@ -1731,18 +1778,67 @@ function AnnouncementForm() {
         discipline: category === "tournament" ? (disciplines[0] ?? null) : null,
         disciplines: category === "tournament" && disciplines.length > 0 ? disciplines : null,
         location: category === "tournament" ? location.trim() : null,
-        event_date: category === "tournament" && eventDate ? eventDate : null,
+        event_date: eventDate || null,
+        event_end_date: eventEndDate || null,
         // Round 34: a deliberate staff pin. It replaced the automatic "Latest"
         // marker, so it must be settable at post time.
         pinned,
+        publish_at: publishAt,
       };
-      const { error } = await supabase.from("announcements").insert(payload);
+      const { data: created, error } = await supabase
+        .from("announcements")
+        .insert(payload)
+        .select("id")
+        .single();
       if (error) throw error;
+
+      // Hidden-until-publish only means anything while the post is scheduled.
+      const eventPublishAt = publishAt && hideEventUntilPublish ? publishAt : null;
+
+      if (linkMode === "new") {
+        if (!eventDate) throw new Error("Add an event date before creating a calendar event.");
+        const { data: ev, error: evErr } = await supabase
+          .from("events")
+          .insert({
+            title: title.trim(),
+            description: body.trim() || null,
+            // Explicit mapping, never the category string passed through.
+            event_type: eventTypeForCategory(category),
+            // A date column carries no time, so the entry is all-day starting at
+            // Chicago midnight. Nothing is invented.
+            all_day: true,
+            starts_at: chicagoStartOfDay(eventDate),
+            ends_at: eventEndDate ? chicagoEndOfDay(eventEndDate) : null,
+            location: category === "tournament" ? location.trim() || null : null,
+            published: true,
+            disciplines:
+              category === "tournament" && disciplines.length > 0 ? disciplines : null,
+            announcement_id: created.id,
+            publish_at: eventPublishAt,
+          })
+          .select("id")
+          .single();
+        if (evErr) throw evErr;
+        void ev;
+      } else if (linkMode === "existing" && existingEventId) {
+        const { error: linkErr } = await supabase
+          .from("events")
+          .update({ announcement_id: created.id, publish_at: eventPublishAt })
+          .eq("id", existingEventId);
+        if (linkErr) throw linkErr;
+      }
     },
     onSuccess: () => {
-      toast.success("Announcement posted");
-      setTitle(""); setBody(""); setTag(""); setLocation(""); setEventDate(""); setPinned(false);
+      toast.success(scheduled ? "Announcement scheduled" : "Announcement posted");
+      setTitle(""); setBody(""); setTag(""); setLocation("");
+      setEventDate(""); setEventEndDate(""); setPinned(false);
+      setScheduled(false); setSchedDate("");
+      setLinkMode("none"); setExistingEventId(""); setHideEventUntilPublish(true);
       qc.invalidateQueries({ queryKey: ["announcements"] });
+      qc.invalidateQueries({ queryKey: ["admin-announcements"] });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+      qc.invalidateQueries({ queryKey: ["attachable-events"] });
+      qc.invalidateQueries({ queryKey: ["calendar-events"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1753,7 +1849,9 @@ function AnnouncementForm() {
       className="rounded-2xl border border-border bg-card p-6"
     >
       <h2 className="font-display text-xl font-bold uppercase">Post an Announcement</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Publishes instantly to every parent dashboard.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Publishes instantly to every parent dashboard, unless you schedule it for later.
+      </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div>
@@ -1782,17 +1880,19 @@ function AnnouncementForm() {
         </div>
 
         {category === "tournament" && (
-          <>
-            <div>
-              <Label>Location</Label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="League City, TX" className="mt-1" />
-            </div>
-            <div>
-              <Label>Event date</Label>
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1" />
-            </div>
-          </>
+          <div>
+            <Label>Location</Label>
+            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="League City, TX" className="mt-1" />
+          </div>
         )}
+        <div>
+          <Label htmlFor="new-ann-event-date">Event date</Label>
+          <Input id="new-ann-event-date" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor="new-ann-event-end">Event end date (multi-day only)</Label>
+          <Input id="new-ann-event-end" type="date" value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="mt-1" />
+        </div>
 
         <div className="sm:col-span-2">
           <Label>Details</Label>
@@ -1805,16 +1905,126 @@ function AnnouncementForm() {
             Pin to the top of the feed
           </Label>
         </div>
+
+        {/* ---- Scheduling ---- */}
+        <div className="sm:col-span-2 rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="new-ann-scheduled"
+              checked={scheduled}
+              onCheckedChange={(v) => setScheduled(v === true)}
+            />
+            <Label htmlFor="new-ann-scheduled" className="cursor-pointer">
+              Schedule for later
+            </Label>
+          </div>
+          {scheduled ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="new-ann-sched-date" className="text-xs">Go live on</Label>
+                <Input
+                  id="new-ann-sched-date"
+                  type="date"
+                  value={schedDate}
+                  onChange={(e) => setSchedDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-ann-sched-time" className="text-xs">At (gym time, Central)</Label>
+                <Input
+                  id="new-ann-sched-time"
+                  type="time"
+                  value={schedTime}
+                  onChange={(e) => setSchedTime(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Times are the gym's local time (America/Chicago), no matter where you are.
+                Parents cannot read the post before then — it is hidden in the database, not
+                just on the page.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Off means publish immediately.
+            </p>
+          )}
+        </div>
+
+        {/* ---- Calendar link ---- */}
+        <div className="sm:col-span-2 rounded-xl border border-border p-4">
+          <Label htmlFor="new-ann-link">Calendar event</Label>
+          <Select value={linkMode} onValueChange={(v) => setLinkMode(v as typeof linkMode)}>
+            <SelectTrigger id="new-ann-link" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No calendar event</SelectItem>
+              <SelectItem value="new" disabled={!canCreateEvent}>
+                Create a new event from this announcement
+              </SelectItem>
+              <SelectItem value="existing">Attach an existing event</SelectItem>
+            </SelectContent>
+          </Select>
+          {!canCreateEvent && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Add an event date first — a calendar entry needs a real date, and none will be
+              invented for you.
+            </p>
+          )}
+          {linkMode === "new" && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Creates an all-day entry on {eventDate}
+              {eventEndDate ? ` through ${eventEndDate}` : ""}. Set a precise start time later on
+              the Events tab.
+            </p>
+          )}
+          {linkMode === "existing" && (
+            <div className="mt-3">
+              <Label htmlFor="new-ann-existing-event" className="text-xs">
+                Event to attach
+              </Label>
+              <Select value={existingEventId} onValueChange={setExistingEventId}>
+                <SelectTrigger id="new-ann-existing-event" className="mt-1">
+                  <SelectValue placeholder="Choose an event…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(attachableQ.data ?? []).map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      {ev.title} — {new Date(ev.starts_at).toLocaleDateString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Only events that are not already attached to another announcement are listed.
+              </p>
+            </div>
+          )}
+          {scheduled && linkMode !== "none" && (
+            <div className="mt-3 flex items-start gap-2">
+              <Checkbox
+                id="new-ann-hide-event"
+                checked={hideEventUntilPublish}
+                onCheckedChange={(v) => setHideEventUntilPublish(v === true)}
+              />
+              <Label htmlFor="new-ann-hide-event" className="cursor-pointer text-sm font-normal">
+                Hide this event on the calendar until the announcement publishes
+              </Label>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end">
         <Button type="submit" disabled={post.isPending} className="bg-gradient-red">
-          {post.isPending ? "Publishing…" : "Publish"}
+          {post.isPending ? "Saving…" : scheduled ? "Schedule" : "Publish"}
         </Button>
       </div>
     </form>
   );
 }
+
 
 type Tournament = {
   id: string;
