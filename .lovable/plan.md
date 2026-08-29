@@ -54,6 +54,18 @@ So: no fix, no class change here. I will re-check line boxes at all four widths 
 
 It renders at every width, so raising the breakpoint cannot strand anyone. Note it is also being squeezed below its own 28px at 390/768 by the header flex row, so fix 2 adds `shrink-0` along with the 44x44 box, and I will re-measure to prove >= 44 x 44 at all four widths.
 
+## Addition 2 — line counts re-measured, not estimated
+
+Every multi-line-label finding in the audit came from `height / line-height`, which counts padding as text lines — the same arithmetic that turned a one-line caption into "four lines". In the re-measurement, line counts come only from `Range.getClientRects().length` on the text node contents, and every previous 3+ line finding is re-checked with it: dashboard stat tiles, Leaderboard podium labels (3-line x7 at 768), Belt Curriculum entries, admin Technique Library rows.
+
+Counts reported as three numbers, not two: resolved, still failing, false positive in the original audit.
+
+The dashboard stat tiles are not cleared by this: their `scrollWidth 162 / clientWidth 126` overflow is a real measurement independent of line counting, and stays a live finding (fix deferred to the `md:` grid round). The Leaderboard podium finding carried no overflow numbers at all, so it stands or falls on the real line count alone.
+
+## Addition 3 — verify the claimed overlap is between siblings
+
+The Belt Curriculum "overlap" (span "01" at {726, 476, 16, 15} vs span "Intro video" at {726, 476, 123, 39}) will be re-checked from the DOM with `a.contains(b) || b.contains(a)` plus the ancestor chain, since identical x and y is the signature of nesting, not collision. If one contains the other it is reclassified as a false positive — and as it is the only genuine overlap the audit reported, that would mean the app has no real element overlaps anywhere. The overlap detector is corrected to skip ancestor/descendant pairs before re-running, so the re-measurement's overlap column is trustworthy.
+
 ## Report
 
-`git diff --stat`; the `useIsMobile()` consumer list; the full re-measurement table at 390/768/1024/1180 for both roles showing only remaining failures with resolved/remaining/false-positive counts; main content width before and after; `document.body.scrollWidth` vs viewport for every page and width; the four fixes proven individually (trigger rect, wrapped action row with body scroll gone, Manage Students text column clientWidth before/after, caption line count and height plus the computed styles above re-read after the diff); screenshots at 390 and 1024 of Dashboard, Manage Students, Manage Announcements, Technique Library; and confirmation the diff contains no `grid-cols` edit.
+`git diff --stat`; the `useIsMobile()` consumer list; the full re-measurement table at 390/768/1024/1180 for both roles showing only remaining failures with resolved/remaining/false-positive counts; main content width before and after; `document.body.scrollWidth` vs viewport for every page and width; the three counts (resolved / still failing / false positive), the overlap ancestry check, the four fixes proven individually (trigger rect, wrapped action row with body scroll gone, Manage Students text column clientWidth before/after, caption line count and height plus the computed styles above re-read after the diff); screenshots at 390 and 1024 of Dashboard, Manage Students, Manage Announcements, Technique Library; and confirmation the diff contains no `grid-cols` edit.
