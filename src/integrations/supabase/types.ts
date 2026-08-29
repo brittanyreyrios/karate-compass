@@ -1131,6 +1131,7 @@ export type Database = {
           created_by: string | null
           disciplines: string[] | null
           event_name: string
+          featured: boolean
           id: string
           notes: string | null
           placement: number | null
@@ -1145,6 +1146,7 @@ export type Database = {
           created_by?: string | null
           disciplines?: string[] | null
           event_name: string
+          featured?: boolean
           id?: string
           notes?: string | null
           placement?: number | null
@@ -1159,6 +1161,7 @@ export type Database = {
           created_by?: string | null
           disciplines?: string[] | null
           event_name?: string
+          featured?: boolean
           id?: string
           notes?: string | null
           placement?: number | null
@@ -1350,6 +1353,19 @@ export type Database = {
           video_seconds: number
           video_title: string
           video_youtube_id: string
+        }[]
+      }
+      get_winners_circle: {
+        Args: { _limit?: number }
+        Returns: {
+          disciplines: string[]
+          event_name: string
+          first_name: string
+          id: string
+          last_initial: string
+          placement: number
+          tournament_date: string
+          tournament_name: string
         }[]
       }
       has_role: {
