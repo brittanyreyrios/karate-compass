@@ -1,85 +1,36 @@
-# Tournament Results + Winner's Circle — use the card width
+# Fix Batch 1 — layout failures from the audit
 
-## Scope
-`src/components/tournament-results-section.tsx` and
-`src/components/winners-circle-section.tsx` only. `PLACEMENT_TILE_BOX` in
-`src/lib/tournament-results.ts` stays untouched unless a size genuinely belongs
-there (expected: no). No migration, no query change.
+Five targeted fixes. No grid-cols changes, no `md:` steps, no card-layout or dense-form touch-target edits, nothing from Rounds 41–47.
 
-## Change 1 — two columns maximum
+## 1 — Collapse the sidebar below 1024px
 
-Both sections: grid becomes `mt-4 grid items-start gap-3 sm:grid-cols-2`
-(drop `xl:grid-cols-3`). No `col-span` for a lone card.
+`src/hooks/use-mobile.tsx`: `MOBILE_BREAKPOINT` 768 → 1024.
 
-## Change 2 — remove the container-query two-up events list
+Consumers of `useIsMobile()`: exactly one — `src/components/ui/sidebar.tsx` (line 69), which uses it to switch the sidebar between the persistent rail and the Sheet overlay, and to route `toggleSidebar` to `openMobile`. No other layout branch, conditional render, or mobile-only component reads the hook. So the only behavioural effect is the intended one: at 768–1023px the sidebar becomes a sheet behind the menu button, and main content grows from ~768px to ~1024px at iPad portrait. Nothing is made worse, so no reason to stop.
 
-In `tournament-results-section.tsx`:
+## 2 — Sidebar toggle hit area ≥ 44×44
 
-- Delete `@md:grid-cols-2` from the events list — events go one per row, full
-  card width, always. The Round 40 container query existed only to fill a wide
-  card whose events stacked narrow; the chip-right row layout now fills that
-  width horizontally, and keeping both would cramp ~320px cells with a 96px
-  tile plus a right-aligned chip.
-- Remove `@container` from the card (nothing else uses it).
-- Update the stale Round 40 comment to say the container query was removed in
-  this round and why (chip-right rows made it redundant and conflicting).
+`SidebarTrigger` in `src/components/ui/sidebar.tsx` is `h-7 w-7`. Change to a 44×44 tappable box (`size-11`, centred content) while pinning the `PanelLeft` glyph to its current rendered size (`size-4` explicitly on the icon) so only the hit area grows. It is rendered once, in `src/routes/__root.tsx`, so this covers every page.
 
-## Change 3 — chip to the right, larger text, items-center
+## 3 — Manage Announcements action row wrapping
 
-Each event row in both sections becomes:
+`src/components/admin-announcements-manage.tsx` line 612: add `flex-wrap` to the `mt-3 flex flex-col gap-2 sm:flex-row` action bar so the five buttons wrap instead of pushing the document sideways. Expected result: `body.scrollWidth === viewport` at 768.
 
-```tsx
-<li className="flex min-w-0 items-center gap-3 ...">
-  <span className={`${PLACEMENT_TILE_BOX} ${placementTileClass(r.placement)}`}>…</span>
+## 4 — Manage Students enrolment select becomes fluid
 
-  <div className="min-w-0 flex-1">
-    <p className="truncate text-base font-semibold text-foreground">{name}</p>
-    <p className="truncate text-sm text-muted-foreground">{event/division}</p>
-    {notes && <p className="mt-0.5 break-words text-xs text-muted-foreground">{notes}</p>}
-  </div>
+`src/components/admin-enrollment.tsx` line 144: replace the fixed `w-[190px]` with a fluid width that can shrink (`w-full min-w-[9rem] max-w-[190px]`) and let its wrapper shrink (`min-w-0` on the inline-flex row) so the sibling `min-w-0 sm:flex-1` text column keeps a usable content box instead of 27px. No container widening, no font shrink.
 
-  <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-1.5">
-    <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
-  </div>
-</li>
-```
+## 5 — Technique Library caption
 
-- `ml-auto` on the chip wrapper, `flex-1 min-w-0` on the text block — **not**
-  `justify-between` on the row, which would push the medal tile away from the name.
-- Size bump one step each, name stays stronger:
-  - Results: event name `text-sm` → `text-base font-semibold`; notes stay `text-xs`.
-  - Winner's Circle: student name `text-sm font-semibold` → `text-base font-semibold`;
-    event line `text-xs` → `text-sm`.
-- `truncate` + `min-w-0` on the name/second line; notes keep `break-words` under
-  the division and are not moved.
-- Row alignment `items-center` — the text block is reliably two lines, so
-  centering lines the tile up with the text.
-- Chip wrapper keeps `flex-wrap`: a three-discipline row may wrap to two lines
-  and grow taller than the tile — accepted; wrapping beats overflowing.
+The caption is a single shared component: `src/components/video-facade.tsx` line 113 — used by both the parent Technique Library and the admin Technique Library, which is why the same failure shows on nine admin elements. One fix covers all of them.
 
-## Explicitly unchanged
-- `placementLabel`, `placementChipClass`, `placementTileClass`,
-  `PLACEMENT_TILE_BOX` — byte-identical.
-- Round 43 collapse: `expanded` state, `COLLAPSED_GROUP_COUNT = 3`,
-  `visibleGroups` slicing, `View all N tournaments` / `Show less` button.
-- `useWinnersCircle`, `useStudentTournamentResults`, `groupWinnersByTournament`,
-  `groupByTournament`, `get_winners_circle`, admin panel, RLS.
+Root cause: `truncate` sets `overflow:hidden; text-overflow:ellipsis; white-space:nowrap`, but the element is an inline `<span>`, and inline boxes ignore `overflow`, so the text wraps to four lines inside a one-line overlay. Chosen behaviour: **single-line truncation** — make the span a block-level box so `truncate` actually applies. No layout or size change to the tile.
 
-## Verification
-- `git diff --stat` — the two section files only.
-- Measured inner width of a card at 1280px and at 1920px in the new two-column
-  grid — actual numbers, which also answer whether `@md` (28rem) was ever going
-  to fire.
-- Screenshots at 390 / 768 / 1280 px: (a) one tournament with one event,
-  (b) one tournament with three events, (c) ≥4 tournaments collapsed then
-  expanded via View all, (d) a deliberately long event name + long chip in one
-  row proving truncation, (e) a three-discipline row showing the chip wrap.
-- Measured: chip `getBoundingClientRect().right` ≤ card content-box right, and
-  row `scrollWidth <= clientWidth`, at all three widths.
-- Round 43 recheck: 3 groups by default, View all reveals the rest, control
-  absent at ≤3 groups.
-- Admin recorded-results chips screenshot unchanged; helper bodies diffed as
-  byte-identical.
-- Test data labelled `ZZTEST — ignore`, created and deleted in one continuous
-  pass with a post-delete count of zero; ≤3-group cases use a mocked RPC
-  response so live school-wide data is never touched.
+## Verification (report deliverables)
+
+- `git diff --stat`, plus confirmation the diff contains no `grid-cols` edits.
+- Full re-measurement pass at 390 / 768 / 1024 / 1180 across the same pages and both roles (admin `brittanyreyrios@gmail.com`, parent `katherineapple@ymail.com`), same table format, showing only remaining failures, with resolved-vs-remaining counts.
+- Main content width at each width, before and after.
+- `document.body.scrollWidth` vs viewport for every page/width.
+- The four/five fixes proven individually: measured trigger hit rect, Manage Announcements wrapped row with body scroll gone, Manage Students text column clientWidth before/after, caption line count and height.
+- Screenshots at 390 and 1024 of Dashboard, Manage Students, Manage Announcements, Technique Library.
