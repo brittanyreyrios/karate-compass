@@ -1,31 +1,75 @@
-# Tournament Results card layout fix
+# Winner's Circle — school-wide tournament celebration
 
-Three targeted faults in `src/components/tournament-results-section.tsx`; no redesign of concept or medal tile.
+## 1. Migration (one migration, only DDL in this round)
 
-## 1 — Card width and event columns
-- Remove the single-tournament special case: `gridCols` always becomes `sm:grid-cols-2 xl:grid-cols-3` regardless of group count, so one tournament card takes a normal grid track, not a full-width row.
-- Make each tournament card a container-query context (`@container` on the `<li>` card).
-- Events list: `grid grid-cols-1 @md:grid-cols-2 gap-2` — one column in narrow cards, two side by side when the card itself is wide. Tailwind v4 container queries are built in; no plugin.
+```sql
+ALTER TABLE public.tournament_results
+  ADD COLUMN featured boolean NOT NULL DEFAULT true;
 
-## 2 — "Competed" tile same box
-- `PlacementIcon` currently returns `null` for NULL placement, so that tile is shorter. Give the default case a quiet glyph (lucide `Circle`, small, `text-muted-foreground`, no gold/silver/bronze, no ring/glow — `placementTileClass` default already has none). Same `flex-col items-center gap-0.5 px-1.5 py-1.5 w-[4.5rem]` tile wrapper applies to all placements already; adding the glyph makes the Competed tile's height identical to a medal tile's.
+CREATE OR REPLACE FUNCTION public.get_winners_circle(_limit integer DEFAULT 20)
+RETURNS TABLE (
+  id uuid, first_name text, last_initial text, event_name text,
+  placement smallint, tournament_name text, tournament_date date, disciplines text[]
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $$
+  SELECT tr.id, st.first_name,
+    CASE WHEN st.last_name IS NULL OR btrim(st.last_name) = '' THEN ''
+         ELSE upper(left(btrim(st.last_name), 1)) || '.' END,
+    tr.event_name, tr.placement, tr.tournament_name, tr.tournament_date, tr.disciplines
+  FROM public.tournament_results tr
+  JOIN public.students st ON st.id = tr.student_id
+  WHERE tr.featured = true AND st.active = true
+  ORDER BY tr.tournament_date DESC, tr.placement ASC NULLS LAST, tr.event_name ASC
+  LIMIT COALESCE(_limit, 20)
+$$;
 
-## 3 — Vertical alignment
-- Change the event row from `items-start` to `items-center` so the tile and the event name/notes/tags block share a common vertical center. (Rows already render `items-start gap-3`; switching to `items-center` fixes the offset without margin nudging.)
+REVOKE EXECUTE ON FUNCTION public.get_winners_circle(integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_winners_circle(integer) TO authenticated, service_role;
+```
 
-## Constraints kept
-- No client-side sorting; grouping stays the run-length pass over server order.
-- `placementLabel` wording unchanged; query, RLS, functions untouched.
-- `placementChipClass` untouched — `placementTileClass` already exists for the parent-facing tile and needs no change; if any tweak is needed it goes in a new export, not in `placementChipClass`. Admin bulk panel untouched.
-- No migration.
+No column beyond the eight listed is returned — no `notes`, no `student_id`, no
+full `last_name`, no `created_by`, no `parent_id`. Grants are the last DDL. No
+existing policy on `tournament_results` is touched, so direct table reads stay
+family-scoped; the function is the only widened path.
 
-## Verification
-- `git diff --stat` — expect only `tournament-results-section.tsx` (+ possibly a comment-only or small helper addition in `tournament-results.ts`); `admin-tournament-bulk.tsx` must not appear.
-- Playwright, signed in as a parent: `getBoundingClientRect()` numbers for a 1st, 2nd, and Competed tile in the same list — widths and heights must match; paste numbers.
-- Screenshots at 390px and 1280px: (a) one tournament with two events (two columns at 1280), (b) one tournament with a single event, (c) three+ tournaments.
-- Screenshot of the admin bulk-entry chips to confirm they render unchanged.
+## 2. Front-end
 
-## Corrections (approved)
-- Keep `@md` (28rem). At 1280px a 3-up card is ~370px inner (~23rem), so one column is the CORRECT result there. Do not lower to `@sm`.
-- Prove the container query separately: render one tournament card at a forced 500px width (two events side by side) and at 370px (one column).
-- Also paste the events-list container bounding box in a normal card.
+**`src/lib/tournament-results.ts` — additions only.** New `featured` field on the
+`TournamentResult` type (added to `TOURNAMENT_RESULT_COLUMNS`), a new
+`WinnersCircleRow` type and `useWinnersCircle()` query hook, and a
+`groupWinnersByTournament` run-length grouper. `placementLabel`,
+`placementTileClass`, and `placementChipClass` are left byte-identical.
+
+**New `src/components/winners-circle-section.tsx`** — school-wide (never filtered
+to the selected child), same card language as School News / Upcoming Tournaments
+(`rounded-2xl border border-border bg-card p-6`). Groups by tournament (newest
+first, order straight from the function, no client sorting). Each row: medal tile
+from `placementTileClass` + the shared trophy/medal/award/Circle glyph,
+`placementLabel` for wording (NULL → "Competed"), `First L.` name, event name,
+and `DisciplineTags` with `cleanDisciplines`. Loading line, short empty line, and
+`QueryErrorState` on error.
+
+**`src/routes/_authenticated/index.tsx`** — render the section alongside the
+existing dashboard sections.
+
+**Admin `featured` control (default on):**
+- `admin-tournament-results.tsx`: a "Show in Winner's Circle" switch in the
+  single-entry form (part of the saved row, and editable when editing), plus a
+  per-row toggle in the recorded-results list with a clear Featured / Hidden
+  badge.
+- `admin-tournament-bulk.tsx`: one switch for the whole batch, written into the
+  single existing `.insert([...])` call — insert shape, duplicate detection,
+  normalisation, validation, and the active-only query all unchanged.
+
+## 3. Verification I will report
+
+Migration SQL as committed and confirmation it is the only one; `git diff --stat`;
+`proacl` showing no bare `=X` and no `anon=X`; the `last_initial` expression from
+the committed `prosrc`; md5(prosrc) before/after for `get_leaderboard`,
+`divisions_of` and the three curriculum readers; two-family ZZTEST rows (one NULL
+placement, one `featured = false`) proving the unfeatured row is absent
+school-wide yet still visible to its own parent; a real non-admin parent session
+over REST proving cross-family rows come back from the function with no last name
+or notes, while direct `tournament_results` selects stay own-children-only; a
+dashboard screenshot; then deletion of every test row with a zero count.
