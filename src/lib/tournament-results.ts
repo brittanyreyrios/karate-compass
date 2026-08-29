@@ -46,6 +46,7 @@ export function useStudentTournamentResults(studentId: string | undefined) {
         .select(TOURNAMENT_RESULT_COLUMNS)
         .eq("student_id", studentId!)
         .order("tournament_date", { ascending: false })
+        .order("tournament_name", { ascending: true })
         .order("placement", { ascending: true, nullsFirst: false })
         .order("event_name", { ascending: true });
       if (error) throw error;
