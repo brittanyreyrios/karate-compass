@@ -1,54 +1,46 @@
-# Round 43 — Competed tile overflow + tile/name alignment
+# Winner's Circle — collapse to three tournaments with "View all"
 
-## Root cause
+## Scope
+`src/components/winners-circle-section.tsx` only. No query change, no migration, no helper changes, no other file.
 
-Both `tournament-results-section.tsx` and `winners-circle-section.tsx` hardcode the
-placement tile classes independently at `w-[4.5rem]` (72px) with `px-1.5`.
-"COMPETED" at text-xs bold uppercase tracking-wide needs ~88px, so the label spills
-past the rounded border while `getBoundingClientRect()` still reports 72px.
+## Change
 
-## Changes
+- Add `const [expanded, setExpanded] = useState(false)` to `WinnersCircleSection`.
+- Slice the **grouped** array, never the row list:
+  ```tsx
+  const groups = groupWinnersByTournament(q.data ?? []);
+  const visibleGroups = expanded ? groups : groups.slice(0, 3);
+  ```
+  and render `visibleGroups.map(...)` instead of `groups.map(...)`.
+- Below the grid, render the control only when `groups.length > 3`:
+  - Collapsed: `View all {groups.length} tournaments` — clicking sets `expanded` true.
+  - Expanded: `Show less` — collapses back to three.
+  - Real `<button type="button">` with `aria-expanded={expanded}`, centered under the grid.
+- Style it to match the existing "View all" affordance used elsewhere (the dashboard
+  "View all" School News / Next Up links use `text-sm font-semibold text-primary
+  hover:underline`-style link buttons); I'll match that exact class treatment so it
+  reads as the same affordance, as a `<button>` not a `Link` since there is no
+  navigation.
+- Expansion is pure client state — the data is already in the query cache, so no
+  second request fires.
 
-### `src/lib/tournament-results.ts` — one new export (additions only)
-
-New exported constant holding the SHARED tile box — everything except the
-placement-dependent colors:
-
-```ts
-/** Shared placement-tile box: one width fits "COMPETED", used by both sections. */
-export const PLACEMENT_TILE_BOX =
-  "flex w-24 shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide";
-```
-
-Both sections render: `className={`${PLACEMENT_TILE_BOX} ${placementTileClass(r.placement)}`}`.
-`placementTileClass`, `placementChipClass`, `placementLabel` stay byte-identical.
-
-### `src/components/tournament-results-section.tsx`
-- Tile span uses `PLACEMENT_TILE_BOX` + `placementTileClass(...)` — the hardcoded
-  `w-[4.5rem] ...` class string is deleted, not edited in place.
-- Row alignment: switch the event row from `items-center` to `items-start` as the
-  starting hypothesis, subject to visual proof (below). If the one-line case reads
-  as detached, use whatever alignment actually attaches the tile to the event name
-  (e.g. keep `items-start` on the row but center the text block against the tile,
-  or revert to `items-center` only if it wins on screenshots). No margin nudges.
-  The chosen value and the reason get reported.
-
-### `src/components/winners-circle-section.tsx`
-- Tile span swaps to `PLACEMENT_TILE_BOX` + `placementTileClass(...)`, and the row
-  gets the SAME alignment treatment chosen above. No other layout change.
+## Explicitly unchanged
+- `groupWinnersByTournament`, `useWinnersCircle`, `get_winners_circle`, `PLACEMENT_TILE_BOX`,
+  `placementTileClass`, card markup, grouping, ordering — all byte-identical.
+- `tournament-results-section.tsx` and everything from Rounds 41/42 untouched.
 
 ## Verification
 
-- git diff --stat (three files: the two sections + tournament-results.ts).
-- Overflow proof, real browser, both sections: for 1ST / 2ND / 3RD / COMPETED tiles
-  paste scrollWidth, clientWidth, offsetHeight, and the label element's own
-  getBoundingClientRect().width. Assertion: scrollWidth ≤ clientWidth for all four.
-- Alignment proof: screenshots at 390px and 1280px of one card containing a
-  one-line event (name only), a two-line event (name + chip), and a three-line
-  event (name + notes + chip). The tile must read as attached to the event name in
-  all three; report which alignment won and why. If items-start fails the one-line
-  case, the fallback is tried and screenshotted before committing.
-- Test rows labelled ZZTEST, deleted afterward with a zero-remaining count.
-- Admin recorded-results chips screenshot, proving admin unchanged.
-- Confirm placementLabel / placementChipClass / placementTileClass byte-identical
-  via git diff.
+- `git diff --stat` — winners-circle-section.tsx only.
+- Paste the slicing code.
+- ZZTEST data: insert featured results across 5 distinct labelled ZZTEST tournaments
+  so the section has ≥5 groups (existing featured rows already produce groups; test
+  rows push it past five), then screenshots at 1280px and 390px:
+  (a) collapsed — exactly 3 tournament groups visible, "View all N tournaments" present;
+  (b) after clicking — all groups visible, "Show less" present;
+  (c) after deleting down to exactly 3 groups — control absent;
+  (d) 2 groups — control absent.
+  For (c)/(d) I'll use a fresh authenticated context after cleaning test rows so the
+  real remaining count drives it.
+- Network proof: capture requests during the View all click and show none fire.
+- Delete all ZZTEST rows; confirm zero remain.
