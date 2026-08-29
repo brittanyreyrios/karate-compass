@@ -1,57 +1,62 @@
-# Fix date-only columns rendering one day early
+# Fix silent selection loss in bulk tournament entry
 
-Front-end only. No migration, no column change, no layout change — only the value shown.
+## Root cause (confirmed in source)
 
-## How date-only vs timestamp is told apart
+`src/components/admin-tournament-bulk.tsx` lines 156–164:
 
-A column is date-only when the value is a bare `YYYY-MM-DD` string (Postgres `date`):
-`next_test_date`, `start_date`, `event_date`, `event_end_date`, `tournament_date`,
-`occurred_on`, `registration_deadline`, `expiry` form inputs. Those go through the
-helpers. Anything ending in `_at` (`created_at`, `updated_at`, `starts_at`, `ends_at`,
-`closes_at`, `changed_at`, `expires_at`, `acknowledged_at`, `media_release_accepted_at`)
-is a `timestamptz` ISO string with an offset and keeps `new Date()` untouched.
-`generated types.ts` confirms the SQL types.
+```ts
+const selected = shown.filter((s) => {
+  const st = state(s.id);
+  if (!st.checked) return false;
+  return !alreadyRecorded.has(s.id) || st.override;
+});
 
-## 1 — src/lib/date-only.ts becomes the single approach
+const skippedDuplicates = shown.filter(
+  (s) => state(s.id).checked && alreadyRecorded.has(s.id) && !state(s.id).override,
+);
+```
 
-Keep `formatDateOnly` and `formatDateRange`, add:
+`shown` is the search/programme/class-filtered list. Ticks live in `picked` and do
+survive filter changes, but both derived lists read only the visible rows — so the
+save payload and the duplicate-skip report contain only students visible at save
+time. Search for child A, tick, search for child B, tick, save → only B is saved,
+silently.
 
-- `parseDateOnly(value): Date | null` — local-midnight Date from `YYYY-MM-DD`.
-- `formatDateOnlyLong(value)` — `Nov 10, 2026` (`month: short, day, year`).
-- `formatMonthYear(value)` — `Nov 2026`, for "Training Since".
-- `daysUntilDateOnly(value): number | null` — difference between two *local calendar
-  dates* (both floored to local midnight, `Math.round` of the ms difference / 86400000),
-  so 8am and 11pm on the same local day give the identical answer.
-- `yearsSinceDateOnly(value): number | null` — for `yearsTraining`.
+## The fix (one file, front-end only)
 
-No new date logic lands in components.
+1. Introduce `allStudents = studentsQ.data ?? []` and derive both `selected` and
+   `skippedDuplicates` from `allStudents` instead of `shown`. Nothing else about
+   the payload changes — same single `.insert([...])`, same normalisation, same
+   duplicate detection, same placement validation, same active-only query.
+2. Placement values already live in `picked` keyed by student id and are untouched
+   by filtering; deriving from `allStudents` means a placement typed before a
+   filter change is now actually read at save time.
+3. Selection visibility:
+   - Always show total selected across the whole roster.
+   - When some selected students are not in `shown`, append the hidden count:
+     `12 selected (4 not shown by this filter)`.
+   - List hidden selected students' names in a small muted line so nothing is
+     invisible.
+4. Unambiguous button scope:
+   - `Select all shown (N)` — only adds the currently visible, non-duplicate rows;
+     never unticks anyone hidden.
+   - `Clear all selections (including hidden)` — resets every tick and placement
+     across the whole roster, not just the visible ones.
+5. Save confirmation keeps naming every student saved (already does) and now
+   correctly includes previously-hidden ones; the skip report likewise.
 
-## 2 — Sites changed
+## Out of scope
 
-- `src/routes/_authenticated/index.tsx`
-  - `daysToTest` (`next_test_date`) → `daysUntilDateOnly`
-  - `yearsTraining` (`start_date`) → `yearsSinceDateOnly`
-  - Next Belt Test card date (`next_test_date`) → `formatDateOnlyLong`
-  - "Training Since" stat (`start_date`) → `formatMonthYear`
-- `src/routes/_authenticated/admin.tsx`
-  - "Currently set for …" + `daysAway` (`next_test_date`) → `formatDateOnly` / `daysUntilDateOnly`
-- `src/components/tournament-card.tsx` — days counter (`event_date`) → `daysUntilDateOnly`
-- `src/components/admin-announcements-manage.tsx` — noon hack on `event_date` → `formatDateOnly`
-- `src/routes/_authenticated/gallery.tsx` — noon hack on `event_date` → `formatDateOnlyLong`
-- `src/routes/_authenticated/calendar.tsx` — noon hack on `registrationDeadline` → `formatDateOnly`
+No changes to the insert call, duplicate detection/normalisation, placement
+validation, the active-only student query, the table, policies, or any other file.
 
-The CSV-import `new Date(row.start_date)` in admin.tsx is a validity check that then
-re-serialises to `YYYY-MM-DD`; it will be switched to string validation via
-`parseDateOnly` so no shift can occur there either.
+## Verification
 
-## 3 — Evidence to report
-
-- `git diff --stat`
-- full final source of `src/lib/date-only.ts`
-- the changed-site list with the column each renders
-- parent screenshot of Billy's Next Belt Test card reading Nov 10, 2026 with its
-  days counter, plus the admin panel showing 10 Nov
-- two computed `daysUntilDateOnly` values, one evaluated at an early-morning local
-  time and one late-evening, printed side by side
-- the `rg` search proving no raw `new Date()` remains on a date-only value, and that
-  no `_at` timestamp rendering changed
+- `git diff --stat` limited to `admin-tournament-bulk.tsx`.
+- Playwright as an admin: search student A, tick; search student B, tick; clear
+  search; assert both still ticked and the count reads 2; type a placement before
+  a filter change and confirm it survives; save and read back both
+  `tournament_results` rows from the database; delete the test rows and confirm
+  zero remain.
+- Duplicate-skip: re-run the same batch and confirm the skip report counts a
+  student hidden by the active filter.
