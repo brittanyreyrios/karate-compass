@@ -30,6 +30,7 @@ export type Database = {
           id: string
           location: string | null
           pinned: boolean
+          publish_at: string | null
           registration_deadline: string | null
           spectator_info: string | null
           tag: string | null
@@ -51,6 +52,7 @@ export type Database = {
           id?: string
           location?: string | null
           pinned?: boolean
+          publish_at?: string | null
           registration_deadline?: string | null
           spectator_info?: string | null
           tag?: string | null
@@ -72,6 +74,7 @@ export type Database = {
           id?: string
           location?: string | null
           pinned?: boolean
+          publish_at?: string | null
           registration_deadline?: string | null
           spectator_info?: string | null
           tag?: string | null
@@ -420,6 +423,7 @@ export type Database = {
           event_type: string
           id: string
           location: string | null
+          publish_at: string | null
           published: boolean
           starts_at: string
           title: string
@@ -437,6 +441,7 @@ export type Database = {
           event_type?: string
           id?: string
           location?: string | null
+          publish_at?: string | null
           published?: boolean
           starts_at: string
           title: string
@@ -454,6 +459,7 @@ export type Database = {
           event_type?: string
           id?: string
           location?: string | null
+          publish_at?: string | null
           published?: boolean
           starts_at?: string
           title?: string
