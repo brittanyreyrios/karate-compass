@@ -222,12 +222,7 @@ function LeaderboardPage() {
         )}
 
         {podium.length > 0 && (
-          <section className="mt-12 grid grid-cols-1 items-stretch gap-4 sm:mt-16 sm:grid-cols-3">
-            {podium[1] && (
-              <div className="flex w-full">
-                <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} />
-              </div>
-            )}
+<section className="mt-12 grid grid-cols-1 items-stretch gap-4 sm:mt-16 sm:grid-cols-3">
             {podium[0] && (
               <div className="flex w-full scale-105 sm:scale-[1.07]">
                 <PodiumCard
@@ -237,6 +232,11 @@ function LeaderboardPage() {
                   featured
                   isJiuJitsu={divisionKey === "jiu_jitsu"}
                 />
+              </div>
+            )}
+            {podium[1] && (
+              <div className="flex w-full">
+                <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} />
               </div>
             )}
             {podium[2] && (
