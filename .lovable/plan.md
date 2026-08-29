@@ -3,39 +3,52 @@
 ## Root cause
 
 Both `tournament-results-section.tsx` and `winners-circle-section.tsx` hardcode the
-placement tile at `w-[4.5rem]` (72px) with `px-1.5`. "COMPETED" at text-xs bold
-uppercase tracking-wide needs ~88px, so the label spills past the rounded border
-while `getBoundingClientRect()` still reports 72px. The row also uses
-`items-center`, which centers the tile against the whole text block; with
-name+notes+chip (three lines) the tile floats away from the event name.
+placement tile classes independently at `w-[4.5rem]` (72px) with `px-1.5`.
+"COMPETED" at text-xs bold uppercase tracking-wide needs ~88px, so the label spills
+past the rounded border while `getBoundingClientRect()` still reports 72px.
 
 ## Changes
 
+### `src/lib/tournament-results.ts` — one new export (additions only)
+
+New exported constant holding the SHARED tile box — everything except the
+placement-dependent colors:
+
+```ts
+/** Shared placement-tile box: one width fits "COMPETED", used by both sections. */
+export const PLACEMENT_TILE_BOX =
+  "flex w-24 shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide";
+```
+
+Both sections render: `className={`${PLACEMENT_TILE_BOX} ${placementTileClass(r.placement)}`}`.
+`placementTileClass`, `placementChipClass`, `placementLabel` stay byte-identical.
+
 ### `src/components/tournament-results-section.tsx`
-- Tile width: replace `w-[4.5rem]` with a single fixed width that comfortably fits
-  "COMPETED" — `w-24` (96px) — on the shared tile span. Same width for all four
-  placements, so the text column stays aligned. This is the only styling change
-  candidates: the width lives in the JSX class string today, so it changes there.
-- Row alignment: change the event row from `items-center` to `items-start`, so the
-  tile's top aligns with the event name's first line instead of the centroid of a
-  1–3 line text block. No margin nudges.
+- Tile span uses `PLACEMENT_TILE_BOX` + `placementTileClass(...)` — the hardcoded
+  `w-[4.5rem] ...` class string is deleted, not edited in place.
+- Row alignment: switch the event row from `items-center` to `items-start` as the
+  starting hypothesis, subject to visual proof (below). If the one-line case reads
+  as detached, use whatever alignment actually attaches the tile to the event name
+  (e.g. keep `items-start` on the row but center the text block against the tile,
+  or revert to `items-center` only if it wins on screenshots). No margin nudges.
+  The chosen value and the reason get reported.
 
 ### `src/components/winners-circle-section.tsx`
-- Same two mechanical changes on its tile/row (it duplicates the same classes), so
-  the school-wide section inherits the fix. No other layout change.
-
-### `src/lib/tournament-results.ts`
-- No change needed: width/alignment live in the JSX class strings, not in
-  `placementTileClass`. `placementTileClass`, `placementChipClass` and
-  `placementLabel` stay byte-identical.
+- Tile span swaps to `PLACEMENT_TILE_BOX` + `placementTileClass(...)`, and the row
+  gets the SAME alignment treatment chosen above. No other layout change.
 
 ## Verification
-- git diff --stat (expect the two section files only).
-- Overflow proof in a real browser at both sections: for 1ST / 2ND / 3RD / COMPETED
-  tiles paste scrollWidth, clientWidth, offsetHeight, and the label element's own
-  rect width; assert scrollWidth ≤ clientWidth for all four.
-- Screenshots at 390px and 1280px of a card with a medal placement and a
-  notes+discipline "Competed" row (create labelled test rows, then delete and
-  confirm zero remain).
+
+- git diff --stat (three files: the two sections + tournament-results.ts).
+- Overflow proof, real browser, both sections: for 1ST / 2ND / 3RD / COMPETED tiles
+  paste scrollWidth, clientWidth, offsetHeight, and the label element's own
+  getBoundingClientRect().width. Assertion: scrollWidth ≤ clientWidth for all four.
+- Alignment proof: screenshots at 390px and 1280px of one card containing a
+  one-line event (name only), a two-line event (name + chip), and a three-line
+  event (name + notes + chip). The tile must read as attached to the event name in
+  all three; report which alignment won and why. If items-start fails the one-line
+  case, the fallback is tried and screenshotted before committing.
+- Test rows labelled ZZTEST, deleted afterward with a zero-remaining count.
 - Admin recorded-results chips screenshot, proving admin unchanged.
-- Confirm placementLabel / placementChipClass byte-identical via git diff.
+- Confirm placementLabel / placementChipClass / placementTileClass byte-identical
+  via git diff.
