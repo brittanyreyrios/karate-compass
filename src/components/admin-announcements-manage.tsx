@@ -412,6 +412,27 @@ function ManageRow({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * "No calendar event" on a post that has one CLEARS the link; it never deletes
+   * the event. Deleting a calendar entry because someone changed a dropdown is
+   * destructive and unrecoverable, so the entry stays on the calendar and simply
+   * stops belonging to this announcement.
+   */
+  const detachEvent = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("events")
+        .update({ announcement_id: null })
+        .eq("announcement_id", row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Calendar event detached — the event itself is still on the calendar");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   /** Publish now = clear the schedule; RLS then shows it to parents immediately. */
   const publishNow = useMutation({
     mutationFn: async () => {
@@ -608,6 +629,16 @@ function ManageRow({
                     </>
                   )}
                 </Button>
+                {refs.some((r) => r.kind === "event") && (
+                  <Button
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => detachEvent.mutate()}
+                    disabled={detachEvent.isPending}
+                  >
+                    <CalendarClock className="mr-1 h-4 w-4" /> No calendar event
+                  </Button>
+                )}
                 {scheduledNow && (
                   <Button
                     variant="outline"
