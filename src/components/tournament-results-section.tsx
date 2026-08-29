@@ -1,4 +1,4 @@
-import { Award, Medal, Trophy } from "lucide-react";
+import { Award, Circle, Medal, Trophy } from "lucide-react";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { QueryErrorState } from "@/components/query-error";
 import { cleanDisciplines } from "@/lib/calendar-data";
@@ -15,7 +15,9 @@ function PlacementIcon({ placement }: { placement: number | null }) {
   if (placement === 1) return <Trophy className="h-4 w-4" aria-hidden="true" />;
   if (placement === 2) return <Medal className="h-4 w-4" aria-hidden="true" />;
   if (placement === 3) return <Award className="h-4 w-4" aria-hidden="true" />;
-  return null;
+  // "Competed" gets the same box as a medal tile, with a quiet glyph — same
+  // height as the medal icons above, no medal colour, ring, or glow.
+  return <Circle className="h-4 w-4" aria-hidden="true" />;
 }
 
 /**
@@ -36,10 +38,11 @@ export function TournamentResultsSection({
   const q = useStudentTournamentResults(studentId);
   const groups = groupByTournament(q.data ?? []);
 
-  // Grid tracks scale with the count so no arrangement looks accidental:
-  // one card fills the row, two stay side by side, three or more go 3-up at xl.
-  const gridCols =
-    groups.length === 1 ? "" : groups.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3";
+  // Every card gets a normal grid track — no full-width span for a single
+  // tournament (that left its events stacked in a narrow column of empty card).
+  // Inside a card, events go two-up only when the CARD is genuinely wide
+  // (@md = 28rem of card width, a container query — not the viewport).
+  const gridCols = "sm:grid-cols-2 xl:grid-cols-3";
 
   return (
     <section className="mt-10 rounded-2xl border border-border bg-card p-6" aria-label="Tournament results">
@@ -60,7 +63,7 @@ export function TournamentResultsSection({
       ) : (
         <ul className={`mt-4 grid items-start gap-3 ${gridCols}`}>
           {groups.map((g) => (
-            <li key={g.key} className="min-w-0 rounded-xl border border-border bg-background/50 p-4">
+            <li key={g.key} className="@container min-w-0 rounded-xl border border-border bg-background/50 p-4">
               <div className="min-w-0">
                 <h3 className="flex min-w-0 items-start gap-2 font-semibold text-foreground">
                   <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -71,11 +74,11 @@ export function TournamentResultsSection({
                 </span>
               </div>
 
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-3 grid grid-cols-1 gap-2 @md:grid-cols-2" data-events-list>
                 {g.rows.map((r) => (
                   <li
                     key={r.id}
-                    className="flex items-start gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
+                    className="flex items-center gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0 @md:border-t-0 @md:pt-0"
                   >
                     <span
                       className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide ${placementTileClass(
