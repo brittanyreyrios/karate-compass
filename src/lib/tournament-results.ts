@@ -125,6 +125,10 @@ export const PLACEMENT_TILE_BOX =
   "flex w-24 shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide";
 
 /**
+ * Parent-facing medal tile styling. SEPARATE from placementChipClass on purpose:
+ * that helper is also used by the admin results list, and this round must not
+ * restyle the admin panel. Same gold / silver / bronze hues, more presence.
+ */
 export function placementTileClass(placement: number | null): string {
   switch (placement) {
     case 1:
