@@ -956,7 +956,7 @@ function ManageStudentsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         {/* Add new */}
         <form
           onSubmit={(e) => { e.preventDefault(); addStudent.mutate(); }}
@@ -1188,7 +1188,10 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
       {/* Mobile: a strict vertical stack. The old single flex row let the belt
           chip and the points stepper share a line they could not both fit on,
           so the chip painted over the stepper and the name truncated. */}
-      <div className="min-w-0 sm:flex-1">
+      {/* Round 49: min-w-0 alone let this column lose the row to the stepper and
+          shrink to 28px. A 288px floor forces flex-wrap to break the row instead;
+          288 fits the narrowest card inner (504px at xl) with room to spare. */}
+      <div className="min-w-0 basis-full sm:basis-auto sm:min-w-[18rem] sm:flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 break-words font-semibold">{student.first_name} {student.last_name}</div>
           <FollowUpBadge n={student.consecutive_absences} />
