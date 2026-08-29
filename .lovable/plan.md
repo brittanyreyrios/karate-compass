@@ -59,16 +59,31 @@ change.
   `publish_at: null` (publish immediately). Submit button reads "Schedule" when
   scheduling.
 - Calendar link block: "No calendar event" / "Create a new event from this
-  announcement" / "Attach an existing event" (a select of existing events).
-  Creating writes an `events` row (`event_type` from the category, `starts_at`
-  from the announcement's event date at 6 PM Chicago when it has one, otherwise
-  the publish instant) then sets `events.announcement_id` to the new
-  announcement — the existing link direction, no new column. Attaching just sets
-  `announcement_id` on the chosen event.
+  announcement" / "Attach an existing event".
+  - **Create** builds an `events` row with `all_day = true`, `starts_at` at
+    Chicago midnight of `event_date`, and `ends_at` at Chicago end-of-day of
+    `event_end_date` when that is set (otherwise NULL), so a multi-day
+    announcement stays multi-day. `event_type` uses an explicit two-entry map:
+    `tournament → tournament`, `school_news → other`. Nothing is derived from
+    the category string and no new `event_type` value is introduced. The link is
+    then stored as `events.announcement_id` — existing direction, no new column.
+  - No `event_date` means there is no date to put on a calendar, so the "create
+    a new event" option is **disabled** with the reason shown inline ("Add an
+    event date first — a calendar entry needs a real date"). No time and no date
+    is ever fabricated; there is no publish-instant fallback.
+  - **Attach** lists only events whose `announcement_id IS NULL`, plus the event
+    already linked to the announcement being edited. An event belonging to
+    another announcement can never be selected, so no link is silently stolen.
+  - Choosing **No calendar event** on an announcement that has a linked event
+    sets that event's `announcement_id` to NULL and leaves the event itself on
+    the calendar. It never deletes an event.
 - "Hide this event on the calendar until the announcement publishes" checkbox,
   rendered only while the post is scheduled. Checked → linked event's
   `publish_at` = the announcement's instant; unchecked → the event's
-  `publish_at` stays NULL.
+  `publish_at` is set back to NULL. Rescheduling a post whose linked event is
+  hidden rewrites the event's `publish_at` to the new instant in the same save,
+  so the event can never surface ahead of the post.
+
 
 **`src/components/admin-announcements-manage.tsx`:**
 - Query gains `publish_at`.
@@ -85,9 +100,13 @@ front-end-only filtering is introduced.
 ## 4. Verification I will report
 
 Committed migration SQL and confirmation it is the only one; `git diff --stat`;
-the `pg_policy` query showing `USING (true)` gone from announcements; the ORDER
+the `pg_policy` query showing `USING (true)` gone from announcements; for the
+`CREATE OR REPLACE`d function, `proname, proacl` confirming no bare `=X` and no
+`anon=X`, plus `md5(prosrc)` before and after with a plain statement that the
+only textual difference is the ORDER BY line; the ORDER
 BY from the committed `prosrc` with the COALESCE; then, with named real
 accounts, a REST proof in both directions — a parent's `select *` and
+
 `get_school_news` missing a +1h scheduled post, an admin session seeing it
 badged Scheduled, then the same parent request returning it after
 `publish_at` is moved one minute into the past with no code change; the same
