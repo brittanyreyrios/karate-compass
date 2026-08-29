@@ -1,14 +1,22 @@
-import { Medal, Trophy } from "lucide-react";
+import { Award, Medal, Trophy } from "lucide-react";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { QueryErrorState } from "@/components/query-error";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import {
   groupByTournament,
-  placementChipClass,
   placementLabel,
+  placementTileClass,
   useStudentTournamentResults,
 } from "@/lib/tournament-results";
 import { formatDateRange } from "@/lib/date-only";
+
+/** Trophy / medal / award, matching the leaderboard podium ranks. */
+function PlacementIcon({ placement }: { placement: number | null }) {
+  if (placement === 1) return <Trophy className="h-4 w-4" aria-hidden="true" />;
+  if (placement === 2) return <Medal className="h-4 w-4" aria-hidden="true" />;
+  if (placement === 3) return <Award className="h-4 w-4" aria-hidden="true" />;
+  return null;
+}
 
 /**
  * Parent-facing tournament results for ONE child — the child currently chosen in
@@ -28,6 +36,11 @@ export function TournamentResultsSection({
   const q = useStudentTournamentResults(studentId);
   const groups = groupByTournament(q.data ?? []);
 
+  // Grid tracks scale with the count so no arrangement looks accidental:
+  // one card fills the row, two stay side by side, three or more go 3-up at xl.
+  const gridCols =
+    groups.length === 1 ? "" : groups.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3";
+
   return (
     <section className="mt-10 rounded-2xl border border-border bg-card p-6" aria-label="Tournament results">
       <div className="flex items-center gap-2">
@@ -45,15 +58,15 @@ export function TournamentResultsSection({
           instructor which upcoming event is a good fit.
         </p>
       ) : (
-        <ul className="mt-4 space-y-4">
+        <ul className={`mt-4 grid items-start gap-3 ${gridCols}`}>
           {groups.map((g) => (
-            <li key={g.key} className="rounded-xl border border-border bg-background/50 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                  <Trophy className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  <span className="min-w-0">{g.tournament_name}</span>
+            <li key={g.key} className="min-w-0 rounded-xl border border-border bg-background/50 p-4">
+              <div className="min-w-0">
+                <h3 className="flex min-w-0 items-start gap-2 font-semibold text-foreground">
+                  <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="min-w-0 break-words">{g.tournament_name}</span>
                 </h3>
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <span className="mt-1 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   {formatDateRange(g.tournament_date, null)}
                 </span>
               </div>
@@ -62,22 +75,25 @@ export function TournamentResultsSection({
                 {g.rows.map((r) => (
                   <li
                     key={r.id}
-                    className="flex flex-col gap-2 border-t border-border/60 pt-2 first:border-t-0 first:pt-0 sm:flex-row sm:items-start sm:justify-between"
+                    className="flex items-start gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{r.event_name}</p>
-                      {r.notes && <p className="mt-0.5 text-xs text-muted-foreground">{r.notes}</p>}
+                    <span
+                      className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide ${placementTileClass(
+                        r.placement,
+                      )}`}
+                    >
+                      <PlacementIcon placement={r.placement} />
+                      <span className="leading-none">{placementLabel(r.placement)}</span>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-medium text-foreground">{r.event_name}</p>
+                      {r.notes && (
+                        <p className="mt-0.5 break-words text-xs text-muted-foreground">{r.notes}</p>
+                      )}
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
                       </div>
                     </div>
-                    <span
-                      className={`shrink-0 self-start rounded-md border px-2.5 py-1 text-sm font-bold uppercase tracking-wide ${placementChipClass(
-                        r.placement,
-                      )}`}
-                    >
-                      {placementLabel(r.placement)}
-                    </span>
                   </li>
                 ))}
               </ul>
