@@ -62,10 +62,12 @@ export function WinnersCircleSection() {
                 {g.rows.map((r) => (
                   <li key={r.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-card p-2.5">
                     <span
-                      className={`flex h-10 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border text-[0.65rem] font-bold uppercase tracking-wide ${placementTileClass(r.placement)}`}
+                      className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 text-xs font-bold uppercase tracking-wide ${placementTileClass(
+                        r.placement,
+                      )}`}
                     >
                       <PlacementIcon placement={r.placement} />
-                      {placementLabel(r.placement)}
+                      <span className="leading-none">{placementLabel(r.placement)}</span>
                     </span>
                     <div className="min-w-0">
                       <p className="min-w-0 break-words text-sm font-semibold text-foreground">
