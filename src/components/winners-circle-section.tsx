@@ -70,7 +70,7 @@ export function WinnersCircleSection() {
 
               <ul className="mt-3 space-y-2">
                 {g.rows.map((r) => (
-                  <li key={r.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-card p-2.5">
+                  <li key={r.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/70 bg-card p-2.5">
                     <span
                       className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
                         r.placement,
@@ -79,7 +79,7 @@ export function WinnersCircleSection() {
                       <PlacementIcon placement={r.placement} />
                       <span className="leading-none">{placementLabel(r.placement)}</span>
                     </span>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[6rem] flex-1">
                       <p className="truncate text-base font-semibold text-foreground">
                         {r.first_name} {r.last_initial}
                       </p>

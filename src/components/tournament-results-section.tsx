@@ -84,7 +84,7 @@ export function TournamentResultsSection({
                 {g.rows.map((r) => (
                   <li
                     key={r.id}
-                    className="flex min-w-0 items-center gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
+                    className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
                   >
                     <span
                       className={`${PLACEMENT_TILE_BOX} ${placementTileClass(
@@ -94,7 +94,7 @@ export function TournamentResultsSection({
                       <PlacementIcon placement={r.placement} />
                       <span className="leading-none">{placementLabel(r.placement)}</span>
                     </span>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[6rem] flex-1">
                       <p className="truncate text-base font-semibold text-foreground">{r.event_name}</p>
                       {r.notes && (
                         <p className="mt-0.5 break-words text-xs text-muted-foreground">{r.notes}</p>
