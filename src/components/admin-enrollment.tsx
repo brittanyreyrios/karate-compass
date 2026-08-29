@@ -141,7 +141,7 @@ export function EnrollmentEditor({ studentId }: { studentId: string }) {
       {available.length > 0 && (
         <span className="inline-flex min-w-0 shrink items-center gap-1">
           <Select value={adding} onValueChange={setAdding}>
-            <SelectTrigger className="h-8 w-full min-w-[9rem] max-w-[190px] shrink text-xs">
+            <SelectTrigger className="h-8 w-full min-w-0 max-w-[190px] shrink text-xs">
               <SelectValue placeholder="Add another class…" />
             </SelectTrigger>
             <SelectContent>
