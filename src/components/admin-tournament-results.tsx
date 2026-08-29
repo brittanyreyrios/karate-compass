@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,8 @@ type FormState = {
   placement: string;
   notes: string;
   disciplines: string[];
+  /** Whether this result appears in the school-wide Winner's Circle. */
+  featured: boolean;
 };
 
 const EMPTY: FormState = {
@@ -47,6 +50,7 @@ const EMPTY: FormState = {
   placement: "",
   notes: "",
   disciplines: [],
+  featured: true,
 };
 
 type Row = TournamentResult & { students?: { first_name: string; last_name: string } | null };
@@ -109,6 +113,7 @@ export function TournamentResultsAdminTab() {
       placement: editing.placement === null ? "" : String(editing.placement),
       notes: editing.notes ?? "",
       disciplines: cleanDisciplines(editing.disciplines),
+      featured: editing.featured,
     });
   }, [editing]);
 
@@ -133,6 +138,7 @@ export function TournamentResultsAdminTab() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin-tournament-results"] });
     qc.invalidateQueries({ queryKey: ["tournament-results"] });
+    qc.invalidateQueries({ queryKey: ["winners-circle"] });
   };
 
   const save = useMutation({
@@ -157,6 +163,7 @@ export function TournamentResultsAdminTab() {
         placement,
         disciplines: form.disciplines.length > 0 ? form.disciplines : null,
         notes: form.notes.trim() || null,
+        featured: form.featured,
       };
 
       if (editing) {
@@ -186,6 +193,22 @@ export function TournamentResultsAdminTab() {
       } else {
         setForm(EMPTY);
       }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setFeatured = useMutation({
+    mutationFn: async ({ id, featured }: { id: string; featured: boolean }) => {
+      const { error } = await supabase
+        .from("tournament_results")
+        .update({ featured })
+        .eq("id", id);
+      if (error) throw error;
+      return featured;
+    },
+    onSuccess: (featured) => {
+      invalidate();
+      toast.success(featured ? "Showing in the Winner's Circle." : "Hidden from the Winner's Circle.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -334,6 +357,22 @@ export function TournamentResultsAdminTab() {
               onChange={(next) => setForm((f) => ({ ...f, disciplines: next }))}
             />
           </div>
+
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-background/50 p-3 sm:col-span-2">
+            <Switch
+              id="tr-featured"
+              checked={form.featured}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, featured: v }))}
+            />
+            <div>
+              <Label htmlFor="tr-featured">Show in Winner's Circle</Label>
+              <p className="text-xs text-muted-foreground">
+                On by default — the whole school sees this child's first name, last initial,
+                event and placement. Turn it off if the family prefers not to be featured; the
+                result stays in their own private history either way.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -408,9 +447,29 @@ export function TournamentResultsAdminTab() {
                       {placementLabel(r.placement)}
                     </span>
                     <DisciplineTags disciplines={cleanDisciplines(r.disciplines)} />
+                    <span
+                      className={`rounded-md border px-2 py-0.5 text-xs font-bold uppercase ${
+                        r.featured
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground"
+                      }`}
+                    >
+                      {r.featured ? "Featured" : "Hidden"}
+                    </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id={`feat-${r.id}`}
+                      checked={r.featured}
+                      disabled={setFeatured.isPending}
+                      onCheckedChange={(v) => setFeatured.mutate({ id: r.id, featured: v })}
+                    />
+                    <Label htmlFor={`feat-${r.id}`} className="text-xs text-muted-foreground">
+                      Winner's Circle
+                    </Label>
+                  </div>
                   <Button variant="outline" size="sm" onClick={() => setEditing(r)}>
                     <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Edit
                   </Button>
