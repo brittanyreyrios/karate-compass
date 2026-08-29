@@ -109,3 +109,21 @@ export function placementChipClass(placement: number | null): string {
       return "border-border bg-background text-muted-foreground";
   }
 }
+
+/**
+ * Parent-facing medal tile styling. SEPARATE from placementChipClass on purpose:
+ * that helper is also used by the admin results list, and this round must not
+ * restyle the admin panel. Same gold / silver / bronze hues, more presence.
+ */
+export function placementTileClass(placement: number | null): string {
+  switch (placement) {
+    case 1:
+      return "border-[hsl(45_90%_55%/0.6)] bg-[hsl(45_90%_55%/0.16)] text-[hsl(45_90%_62%)] ring-1 ring-[hsl(45_90%_55%/0.35)] shadow-[0_0_18px_-6px_hsl(45_90%_55%/0.7)]";
+    case 2:
+      return "border-[hsl(220_9%_75%/0.6)] bg-[hsl(220_9%_75%/0.16)] text-[hsl(220_9%_80%)] ring-1 ring-[hsl(220_9%_75%/0.28)]";
+    case 3:
+      return "border-[hsl(28_65%_52%/0.6)] bg-[hsl(28_65%_52%/0.16)] text-[hsl(28_70%_62%)] ring-1 ring-[hsl(28_65%_52%/0.28)]";
+    default:
+      return "border-border bg-muted/40 text-muted-foreground";
+  }
+}
