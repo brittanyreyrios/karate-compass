@@ -26,12 +26,14 @@ export const TOURNAMENT_RESULT_COLUMNS =
   "id, student_id, announcement_id, tournament_name, tournament_date, event_name, placement, disciplines, notes, featured";
 
 /**
- * ORDERING CONTRACT — all three keys are applied server-side, because without an
+ * ORDERING CONTRACT — all four keys are applied server-side, because without an
  * explicit ORDER BY Postgres may return a child's events in a different order on
  * every load and they would appear to shuffle:
  *   1. tournament_date DESC  — newest tournament first
- *   2. placement ASC, NULLS LAST — 1st, 2nd, 3rd, then "Competed"
- *   3. event_name ASC — deterministic tie-break
+ *   2. tournament_name ASC — two tournaments on the SAME date must not interleave,
+ *      or the run-length grouping below splits one tournament into several groups
+ *   3. placement ASC, NULLS LAST — 1st, 2nd, 3rd, then "Competed"
+ *   4. event_name ASC — deterministic tie-break
  * Grouping on the client is a run-length pass over this order; it never re-sorts.
  */
 export function useStudentTournamentResults(studentId: string | undefined) {
