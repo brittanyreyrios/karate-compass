@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,8 @@ export function TournamentBulkEntry() {
   const [tournamentDate, setTournamentDate] = useState("");
   const [eventName, setEventName] = useState("");
   const [disciplines, setDisciplines] = useState<string[]>([]);
+  // One setting for the whole batch — on by default.
+  const [featured, setFeatured] = useState(true);
   const [search, setSearch] = useState("");
   const [programFilter, setProgramFilter] = useState(ALL);
   const [classFilter, setClassFilter] = useState(ALL);
@@ -215,6 +218,7 @@ export function TournamentBulkEntry() {
           placement: raw === "" ? null : Number(raw),
           disciplines: disciplines.length > 0 ? disciplines : null,
           notes: null,
+          featured,
           created_by: u.user?.id ?? null,
         };
       });
@@ -327,6 +331,18 @@ export function TournamentBulkEntry() {
 
         <div className="sm:col-span-2">
           <DisciplinePicker idPrefix="bulk" value={disciplines} onChange={setDisciplines} />
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-background/50 p-3 sm:col-span-2">
+          <Switch id="bulk-featured" checked={featured} onCheckedChange={setFeatured} />
+          <div>
+            <Label htmlFor="bulk-featured">Show in Winner's Circle</Label>
+            <p className="text-xs text-muted-foreground">
+              Applies to every student in this batch. On by default — the school sees first
+              name, last initial, event and placement. Individual results can be toggled later
+              in the recorded results list.
+            </p>
+          </div>
         </div>
       </div>
 

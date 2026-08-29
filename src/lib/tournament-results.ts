@@ -18,18 +18,22 @@ export type TournamentResult = {
   placement: number | null;
   disciplines: string[] | null;
   notes: string | null;
+  /** Whether this result appears in the school-wide Winner's Circle. */
+  featured: boolean;
 };
 
 export const TOURNAMENT_RESULT_COLUMNS =
-  "id, student_id, announcement_id, tournament_name, tournament_date, event_name, placement, disciplines, notes";
+  "id, student_id, announcement_id, tournament_name, tournament_date, event_name, placement, disciplines, notes, featured";
 
 /**
- * ORDERING CONTRACT — all three keys are applied server-side, because without an
+ * ORDERING CONTRACT — all four keys are applied server-side, because without an
  * explicit ORDER BY Postgres may return a child's events in a different order on
  * every load and they would appear to shuffle:
  *   1. tournament_date DESC  — newest tournament first
- *   2. placement ASC, NULLS LAST — 1st, 2nd, 3rd, then "Competed"
- *   3. event_name ASC — deterministic tie-break
+ *   2. tournament_name ASC — two tournaments on the SAME date must not interleave,
+ *      or the run-length grouping below splits one tournament into several groups
+ *   3. placement ASC, NULLS LAST — 1st, 2nd, 3rd, then "Competed"
+ *   4. event_name ASC — deterministic tie-break
  * Grouping on the client is a run-length pass over this order; it never re-sorts.
  */
 export function useStudentTournamentResults(studentId: string | undefined) {
@@ -42,6 +46,7 @@ export function useStudentTournamentResults(studentId: string | undefined) {
         .select(TOURNAMENT_RESULT_COLUMNS)
         .eq("student_id", studentId!)
         .order("tournament_date", { ascending: false })
+        .order("tournament_name", { ascending: true })
         .order("placement", { ascending: true, nullsFirst: false })
         .order("event_name", { ascending: true });
       if (error) throw error;
@@ -126,4 +131,69 @@ export function placementTileClass(placement: number | null): string {
     default:
       return "border-border bg-muted/40 text-muted-foreground";
   }
+}
+
+/* ------------------------------------------------------------------------- *
+ * WINNER'S CIRCLE — school-wide, additions only.
+ *
+ * Read exclusively through public.get_winners_circle, a SECURITY DEFINER
+ * function that is the privacy boundary: it returns a last INITIAL only and
+ * never notes, student_id, parent_id or created_by. The table policies are
+ * untouched, so a parent still cannot read another family's rows directly.
+ * ------------------------------------------------------------------------- */
+
+export type WinnersCircleRow = {
+  id: string;
+  first_name: string;
+  last_initial: string;
+  event_name: string;
+  placement: number | null;
+  tournament_name: string;
+  tournament_date: string;
+  disciplines: string[] | null;
+};
+
+export function useWinnersCircle(limit = 60) {
+  return useQuery({
+    queryKey: ["winners-circle", limit],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_winners_circle", { _limit: limit });
+      if (error) throw error;
+      return (data ?? []) as WinnersCircleRow[];
+    },
+  });
+}
+
+export type WinnersCircleGroup = {
+  key: string;
+  tournament_name: string;
+  tournament_date: string;
+  rows: WinnersCircleRow[];
+};
+
+/**
+ * Run-length pass over the order the function already applied
+ * (tournament_date DESC, tournament_name ASC, placement NULLS LAST, event_name).
+ * It never re-sorts — the tournament_name key is what keeps two tournaments held
+ * on the same date from interleaving and splitting into duplicate groups.
+ */
+export function groupWinnersByTournament(rows: WinnersCircleRow[]): WinnersCircleGroup[] {
+  const groups: WinnersCircleGroup[] = [];
+  const index = new Map<string, WinnersCircleGroup>();
+  for (const r of rows) {
+    const key = `${r.tournament_date}|${r.tournament_name}`;
+    let g = index.get(key);
+    if (!g) {
+      g = {
+        key,
+        tournament_name: r.tournament_name,
+        tournament_date: r.tournament_date,
+        rows: [],
+      };
+      index.set(key, g);
+      groups.push(g);
+    }
+    g.rows.push(r);
+  }
+  return groups;
 }

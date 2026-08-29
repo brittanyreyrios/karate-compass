@@ -31,6 +31,7 @@ import { useTournaments } from "@/lib/announcements";
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
 import { daysUntilDateOnly, formatDateOnlyLong, formatMonthYear, yearsSinceDateOnly } from "@/lib/date-only";
 import { TournamentCard } from "@/components/tournament-card";
+import { WinnersCircleSection } from "@/components/winners-circle-section";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
@@ -555,6 +556,8 @@ function Dashboard() {
       </section>
 
       <TournamentResultsSection studentId={student.id} firstName={student.first_name} />
+
+      <WinnersCircleSection />
 
       <NextUpStrip />
 
