@@ -4,6 +4,7 @@ import { QueryErrorState } from "@/components/query-error";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import {
   groupByTournament,
+  PLACEMENT_TILE_BOX,
   placementLabel,
   placementTileClass,
   useStudentTournamentResults,
