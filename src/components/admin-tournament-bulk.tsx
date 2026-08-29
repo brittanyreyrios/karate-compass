@@ -153,15 +153,32 @@ export function TournamentBulkEntry() {
   const setState = (id: string, patch: Partial<Picked>) =>
     setPicked((p) => ({ ...p, [id]: { ...state(id), ...patch } }));
 
-  const selected = shown.filter((s) => {
+  /**
+   * SELECTION SCOPE CONTRACT
+   *
+   * Selection and the duplicate-skip report are resolved from allStudents — the
+   * active-only query result — never from `shown`. `shown` is only the filtered
+   * view; deriving from it meant a tick (or a placement) survived in `picked`
+   * but was silently dropped from the save payload the moment the search or
+   * class filter hid the student. allStudents is exactly the same active-only
+   * query rows shown draws from, so archived/inactive students still cannot
+   * reach the payload by any path.
+   */
+  const allStudents = studentsQ.data ?? [];
+
+  const selected = allStudents.filter((s) => {
     const st = state(s.id);
     if (!st.checked) return false;
     return !alreadyRecorded.has(s.id) || st.override;
   });
 
-  const skippedDuplicates = shown.filter(
+  const skippedDuplicates = allStudents.filter(
     (s) => state(s.id).checked && alreadyRecorded.has(s.id) && !state(s.id).override,
   );
+
+  /** Selected students currently hidden by the search/programme/class filter. */
+  const shownIds = new Set(shown.map((s) => s.id));
+  const hiddenSelected = selected.filter((s) => !shownIds.has(s.id));
 
   const save = useMutation({
     mutationFn: async () => {
@@ -363,6 +380,7 @@ export function TournamentBulkEntry() {
         ) : (
           <>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* Adds visible rows only — never unticks anyone hidden by the filter. */}
               <Button
                 variant="outline"
                 size="sm"
@@ -377,15 +395,25 @@ export function TournamentBulkEntry() {
                   })
                 }
               >
-                Select all shown
+                Select all shown ({shown.length})
               </Button>
+              {/* Wipes every tick and placement across the whole roster, hidden or not. */}
               <Button variant="ghost" size="sm" onClick={() => setPicked({})}>
-                Clear selection
+                Clear all selections (including hidden)
               </Button>
               <span className="text-xs text-muted-foreground">
-                {selected.length} selected · {shown.length} shown
+                {selected.length} selected
+                {hiddenSelected.length > 0 && ` (${hiddenSelected.length} not shown by this filter)`}
+                {" · "}
+                {shown.length} shown
               </span>
             </div>
+            {hiddenSelected.length > 0 && (
+              <p className="mt-2 text-xs font-semibold text-amber-500">
+                Hidden by the current filter but still selected for saving:{" "}
+                {hiddenSelected.map((s) => `${s.first_name} ${s.last_name}`).join(", ")}
+              </p>
+            )}
 
             <ul className="mt-3 space-y-2">
               {shown.map((s) => {
