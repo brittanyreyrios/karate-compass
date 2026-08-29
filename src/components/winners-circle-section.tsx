@@ -1,4 +1,6 @@
-import { Award, Circle, Medal, Sparkles, Trophy } from "lucide-react";
+import { useState } from "react";
+import { Award, ChevronDown, ChevronUp, Circle, Medal, Sparkles, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { QueryErrorState } from "@/components/query-error";
 import { cleanDisciplines } from "@/lib/calendar-data";
@@ -25,9 +27,15 @@ function PlacementIcon({ placement }: { placement: number | null }) {
  * Rows come from public.get_winners_circle, which returns a last initial only and
  * never staff notes. Order is the function's; grouping is a run-length pass.
  */
+const COLLAPSED_GROUP_COUNT = 3;
+
 export function WinnersCircleSection() {
   const q = useWinnersCircle();
+  const [expanded, setExpanded] = useState(false);
   const groups = groupWinnersByTournament(q.data ?? []);
+  // Slice the GROUPED array (newest tournament first), never the flat row list —
+  // slicing rows first would cut a tournament in half.
+  const visibleGroups = expanded ? groups : groups.slice(0, COLLAPSED_GROUP_COUNT);
 
   return (
     <section className="mt-10 rounded-2xl border border-border bg-card p-6" aria-label="Winner's Circle">
@@ -48,8 +56,9 @@ export function WinnersCircleSection() {
           No tournament results have been featured yet — the first ones will show up here.
         </p>
       ) : (
+        <>
         <ul className="mt-4 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {groups.map((g) => (
+          {visibleGroups.map((g) => (
             <li key={g.key} className="min-w-0 rounded-xl border border-border bg-background/50 p-4">
               <h3 className="flex min-w-0 items-start gap-2 font-semibold text-foreground">
                 <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -85,6 +94,29 @@ export function WinnersCircleSection() {
             </li>
           ))}
         </ul>
+        {groups.length > COLLAPSED_GROUP_COUNT && (
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? (
+                <>
+                  Show less <ChevronUp className="ml-1 h-3 w-3" />
+                </>
+              ) : (
+                <>
+                  View all {groups.length} tournaments <ChevronDown className="ml-1 h-3 w-3" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        </>
       )}
     </section>
   );
