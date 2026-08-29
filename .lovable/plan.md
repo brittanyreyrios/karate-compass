@@ -1,80 +1,97 @@
-# Winner's Circle — school-wide tournament celebration
+# Scheduled announcements + announcement↔event linking
 
-## 1. Migration (one migration, only DDL in this round)
+## 1. Migration (one migration, exactly this SQL)
 
 ```sql
-ALTER TABLE public.tournament_results
-  ADD COLUMN featured boolean NOT NULL DEFAULT true;
+ALTER TABLE public.announcements ADD COLUMN publish_at timestamptz;
+ALTER TABLE public.events        ADD COLUMN publish_at timestamptz;
 
-CREATE OR REPLACE FUNCTION public.get_winners_circle(_limit integer DEFAULT 60)
-RETURNS TABLE (
-  id uuid, first_name text, last_initial text, event_name text,
-  placement smallint, tournament_name text, tournament_date date, disciplines text[]
-)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
-AS $$
-  SELECT tr.id, st.first_name,
-    CASE WHEN st.last_name IS NULL OR btrim(st.last_name) = '' THEN ''
-         ELSE upper(left(btrim(st.last_name), 1)) || '.' END,
-    tr.event_name, tr.placement, tr.tournament_name, tr.tournament_date, tr.disciplines
-  FROM public.tournament_results tr
-  JOIN public.students st ON st.id = tr.student_id
-  WHERE tr.featured = true AND st.active = true
-  ORDER BY tr.tournament_date DESC, tr.tournament_name ASC,
-           tr.placement ASC NULLS LAST, tr.event_name ASC
-  LIMIT COALESCE(_limit, 60)
-$$;
+DROP POLICY "Anyone signed in views announcements" ON public.announcements;
+CREATE POLICY "Signed in view published announcements"
+  ON public.announcements FOR SELECT TO authenticated
+  USING (
+    (publish_at IS NULL OR publish_at <= now())
+    OR public.has_role(auth.uid(), 'admin')
+  );
 
-REVOKE EXECUTE ON FUNCTION public.get_winners_circle(integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_winners_circle(integer) TO authenticated, service_role;
+DROP POLICY "Signed in view published events" ON public.events;
+CREATE POLICY "Signed in view published events"
+  ON public.events FOR SELECT TO authenticated
+  USING (
+    (published = true AND (publish_at IS NULL OR publish_at <= now()))
+    OR public.has_role(auth.uid(), 'admin')
+  );
+
+CREATE OR REPLACE FUNCTION public.get_school_news(...)  -- body unchanged except:
+--   ORDER BY ... COALESCE(a.publish_at, a.created_at) DESC, a.id DESC
 ```
 
-No column beyond the eight listed is returned — no `notes`, no `student_id`, no
-full `last_name`, no `created_by`, no `parent_id`. Grants are the last DDL. No
-existing policy on `tournament_results` is touched, so direct table reads stay
-family-scoped; the function is the only widened path.
+The function is re-created verbatim from the committed Round 34 body — same
+signature, same SECURITY INVOKER, same `WHERE a.category = 'school_news'`, same
+pinned → upcoming → recent grouping, same grants block at the end. The only
+edit is `a.created_at DESC` → `COALESCE(a.publish_at, a.created_at) DESC` in the
+ORDER BY. No `publish_at` filter is added inside it — the new SELECT policy does
+that, because the function is SECURITY INVOKER.
 
-## 2. Front-end
+No INSERT/UPDATE/DELETE policy is touched, no `published` column is added to
+announcements, no cron/edge function/scheduled task, no realtime publication
+change.
 
-**`src/lib/tournament-results.ts` — additions plus one ordering fix.** The
-`.order()` chain in `useStudentTournamentResults` gains
-`.order("tournament_name", { ascending: true })` between date and placement, so
-two tournaments on the same date can no longer interleave and split into
-duplicate run-length groups. New `featured` field on the
-`TournamentResult` type (added to `TOURNAMENT_RESULT_COLUMNS`), a new
-`WinnersCircleRow` type and `useWinnersCircle()` query hook, and a
-`groupWinnersByTournament` run-length grouper. `placementLabel`,
-`placementTileClass`, and `placementChipClass` are left byte-identical.
+## 2. Timezone helper — new `src/lib/schedule-time.ts`
 
-**New `src/components/winners-circle-section.tsx`** — school-wide (never filtered
-to the selected child), same card language as School News / Upcoming Tournaments
-(`rounded-2xl border border-border bg-card p-6`). Groups by tournament (newest
-first, order straight from the function, no client sorting). Each row: medal tile
-from `placementTileClass` + the shared trophy/medal/award/Circle glyph,
-`placementLabel` for wording (NULL → "Competed"), `First L.` name, event name,
-and `DisciplineTags` with `cleanDisciplines`. Loading line, short empty line, and
-`QueryErrorState` on error.
+`publish_at` is a real timestamptz and must never go through
+`parseDateOnly`/`formatDateOnlyLong`.
 
-**`src/routes/_authenticated/index.tsx`** — render the section alongside the
-existing dashboard sections.
+- `chicagoToInstant(date: "yyyy-mm-dd", time: "HH:mm"): string` — resolves the
+  America/Chicago UTC offset for that wall-clock instant with
+  `Intl.DateTimeFormat(..., { timeZone: "America/Chicago", timeZoneName: "longOffset" })`,
+  then builds `yyyy-mm-ddTHH:mm:00±HH:MM` and returns its ISO instant. This is
+  DST-correct (CDT −05:00 in August, CST −06:00 in January) and independent of
+  the admin's own browser timezone.
+- `instantToChicago(iso): { date, time }` — the exact inverse, used when editing.
+- `formatChicagoDateTime(iso)` — badge text, e.g. `Sep 4, 2026, 7:00 AM CDT`,
+  formatted with `timeZone: "America/Chicago"`.
 
-**Admin `featured` control (default on):**
-- `admin-tournament-results.tsx`: a "Show in Winner's Circle" switch in the
-  single-entry form (part of the saved row, and editable when editing), plus a
-  per-row toggle in the recorded-results list with a clear Featured / Hidden
-  badge.
-- `admin-tournament-bulk.tsx`: one switch for the whole batch, written into the
-  single existing `.insert([...])` call — insert shape, duplicate detection,
-  normalisation, validation, and the active-only query all unchanged.
+## 3. Admin UI
 
-## 3. Verification I will report
+**`src/routes/_authenticated/admin.tsx` — `AnnouncementForm`:**
+- "Schedule for later" switch; when on, a date input and a time input. Off →
+  `publish_at: null` (publish immediately). Submit button reads "Schedule" when
+  scheduling.
+- Calendar link block: "No calendar event" / "Create a new event from this
+  announcement" / "Attach an existing event" (a select of existing events).
+  Creating writes an `events` row (`event_type` from the category, `starts_at`
+  from the announcement's event date at 6 PM Chicago when it has one, otherwise
+  the publish instant) then sets `events.announcement_id` to the new
+  announcement — the existing link direction, no new column. Attaching just sets
+  `announcement_id` on the chosen event.
+- "Hide this event on the calendar until the announcement publishes" checkbox,
+  rendered only while the post is scheduled. Checked → linked event's
+  `publish_at` = the announcement's instant; unchecked → the event's
+  `publish_at` stays NULL.
 
-Migration SQL as committed and confirmation it is the only one; `git diff --stat`;
-`proacl` showing no bare `=X` and no `anon=X`; the `last_initial` expression from
-the committed `prosrc`; md5(prosrc) before/after for `get_leaderboard`,
-`divisions_of` and the three curriculum readers; two-family ZZTEST rows (one NULL
-placement, one `featured = false`) proving the unfeatured row is absent
-school-wide yet still visible to its own parent; a real non-admin parent session
-over REST proving cross-family rows come back from the function with no last name
-or notes, while direct `tournament_results` selects stay own-children-only; a
-dashboard screenshot; then deletion of every test row with a zero count.
+**`src/components/admin-announcements-manage.tsx`:**
+- Query gains `publish_at`.
+- A row that is still scheduled gets a distinct amber `Scheduled · <Chicago
+  date/time>` badge (live posts keep their current plain look), plus a
+  **Publish now** action setting `publish_at = null`, and the same field is
+  editable inline while editing a row.
+
+Round 23's discipline write-through from an event to its linked announcement in
+`admin-events-tab.tsx` is not modified; the events tab keeps its own path.
+Parent-facing components need no scheduling filter — RLS is the gate — so no
+front-end-only filtering is introduced.
+
+## 4. Verification I will report
+
+Committed migration SQL and confirmation it is the only one; `git diff --stat`;
+the `pg_policy` query showing `USING (true)` gone from announcements; the ORDER
+BY from the committed `prosrc` with the COALESCE; then, with named real
+accounts, a REST proof in both directions — a parent's `select *` and
+`get_school_news` missing a +1h scheduled post, an admin session seeing it
+badged Scheduled, then the same parent request returning it after
+`publish_at` is moved one minute into the past with no code change; the same
+both-directions proof for a linked event with hide-until-publish checked; a
+parent realtime subscription receiving no payload on the future-scheduled
+insert; `SELECT count(*) FROM announcements WHERE publish_at IS NOT NULL` = 0
+before and after; and deletion of every test row with a zero count.
