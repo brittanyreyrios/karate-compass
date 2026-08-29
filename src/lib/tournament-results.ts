@@ -132,3 +132,68 @@ export function placementTileClass(placement: number | null): string {
       return "border-border bg-muted/40 text-muted-foreground";
   }
 }
+
+/* ------------------------------------------------------------------------- *
+ * WINNER'S CIRCLE — school-wide, additions only.
+ *
+ * Read exclusively through public.get_winners_circle, a SECURITY DEFINER
+ * function that is the privacy boundary: it returns a last INITIAL only and
+ * never notes, student_id, parent_id or created_by. The table policies are
+ * untouched, so a parent still cannot read another family's rows directly.
+ * ------------------------------------------------------------------------- */
+
+export type WinnersCircleRow = {
+  id: string;
+  first_name: string;
+  last_initial: string;
+  event_name: string;
+  placement: number | null;
+  tournament_name: string;
+  tournament_date: string;
+  disciplines: string[] | null;
+};
+
+export function useWinnersCircle(limit = 60) {
+  return useQuery({
+    queryKey: ["winners-circle", limit],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_winners_circle", { _limit: limit });
+      if (error) throw error;
+      return (data ?? []) as WinnersCircleRow[];
+    },
+  });
+}
+
+export type WinnersCircleGroup = {
+  key: string;
+  tournament_name: string;
+  tournament_date: string;
+  rows: WinnersCircleRow[];
+};
+
+/**
+ * Run-length pass over the order the function already applied
+ * (tournament_date DESC, tournament_name ASC, placement NULLS LAST, event_name).
+ * It never re-sorts — the tournament_name key is what keeps two tournaments held
+ * on the same date from interleaving and splitting into duplicate groups.
+ */
+export function groupWinnersByTournament(rows: WinnersCircleRow[]): WinnersCircleGroup[] {
+  const groups: WinnersCircleGroup[] = [];
+  const index = new Map<string, WinnersCircleGroup>();
+  for (const r of rows) {
+    const key = `${r.tournament_date}|${r.tournament_name}`;
+    let g = index.get(key);
+    if (!g) {
+      g = {
+        key,
+        tournament_name: r.tournament_name,
+        tournament_date: r.tournament_date,
+        rows: [],
+      };
+      index.set(key, g);
+      groups.push(g);
+    }
+    g.rows.push(r);
+  }
+  return groups;
+}
