@@ -3555,7 +3555,9 @@ function InviteCodesTab() {
   const rows = codesQ.data ?? [];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+    {/* Round 50: same 1024/1025 trap as Manage Students — lg: handed this list
+        ~301px the moment the rail returned. xl: is the honest step. */}
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
         onSubmit={(e) => { e.preventDefault(); createCode.mutate(); }}
         className="h-fit rounded-2xl border border-border bg-card p-6"
@@ -3637,7 +3639,9 @@ function InviteCodesTab() {
             return (
               <li key={r.code} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-base font-bold uppercase tracking-widest">{r.code}</div>
+                  {/* Round 50: an invite code has no break opportunity, so it spilled
+                      (90/31) out of the narrow list column. break-all lets it wrap. */}
+                  <div className="break-all font-mono text-base font-bold uppercase tracking-widest">{r.code}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {r.label && <span>{r.label}</span>}
                     <span>{r.used_count} / {r.max_uses} used</span>

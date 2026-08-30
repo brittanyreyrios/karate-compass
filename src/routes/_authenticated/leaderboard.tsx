@@ -224,7 +224,10 @@ function LeaderboardPage() {
         {podium.length > 0 && (
 <section className="mt-12 grid grid-cols-1 items-stretch gap-4 sm:mt-16 sm:grid-cols-3">
             {podium[0] && (
-              <div className="flex w-full scale-105 sm:scale-[1.07]">
+              {/* Round 50: the 1.05 scale at 390px pushed the card 9px past the
+                  single column (367/358). The raise/enlarge now starts at sm:,
+                  where there is room. Accent-to-rank mapping is untouched. */}
+              <div className="flex w-full sm:scale-[1.07]">
                 <PodiumCard
                   rank={1}
                   row={podium[0]}
