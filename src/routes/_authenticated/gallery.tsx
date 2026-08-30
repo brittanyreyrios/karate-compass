@@ -95,7 +95,11 @@ function Gallery() {
       )}
 
       {albums.length > 0 && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        /* Round 50: the album grid's own width — not the viewport's — decides how
+           many covers fit, so the column count is a container query. That keeps it
+           honest at 1025 where the sidebar rail takes 255px back. */
+        <div className="@container mt-8">
+        <div className="grid gap-4 @md:grid-cols-2 @3xl:grid-cols-3">
           {albums.map((a) => {
             // A link-less album stores '' (the column is NOT NULL), so the
             // "coming soon" state must key off empty string as well as null.
@@ -163,7 +167,9 @@ function Gallery() {
             );
           })}
         </div>
+        </div>
       )}
+
 
       {albums.length > 0 && (
         <p className="mt-6 text-xs text-muted-foreground">

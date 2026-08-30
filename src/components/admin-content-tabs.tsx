@@ -1112,17 +1112,17 @@ export function CurriculumAdminTab() {
     return (
     <li className="rounded-lg border border-border bg-background/50 px-3 py-2">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <span className="mr-2 text-xs font-semibold tabular-nums text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-xs font-semibold tabular-nums text-muted-foreground">
             {String(index + 1).padStart(2, "0")}
           </span>
-          <span className="text-sm font-medium">{it.technique}</span>
-          {it.category && <span className="ml-2 text-xs text-muted-foreground">{it.category}</span>}
-          <Badge variant="outline" className="ml-2 border-border text-xs">
+          <span className="min-w-0 break-words text-sm font-medium">{it.technique}</span>
+          {it.category && <span className="text-xs text-muted-foreground">{it.category}</span>}
+          <Badge variant="outline" className="border-border text-xs">
             {programName(it.program_id) ?? "Every programme"}
           </Badge>
           {it.video_youtube_id && (
-            <Badge variant="outline" className="ml-2 gap-1 border-border text-xs">
+            <Badge variant="outline" className="gap-1 border-border text-xs">
               <Video className="h-3 w-3" aria-hidden="true" />
               Video
               {formatRuntime(it.video_seconds) ? ` · ${formatRuntime(it.video_seconds)}` : ""}
@@ -1318,7 +1318,9 @@ export function CurriculumAdminTab() {
 
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+    /* Round 50: lg: fired at 1024 — one pixel before the 255px rail returns —
+       leaving this list ~301px. xl: is the honest step. */
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
         className="rounded-2xl border border-border bg-card p-6"
         onSubmit={(e) => { e.preventDefault(); addItem.mutate(); }}
