@@ -3555,8 +3555,8 @@ function InviteCodesTab() {
   const rows = codesQ.data ?? [];
 
   return (
-    {/* Round 50: same 1024/1025 trap as Manage Students — lg: handed this list
-        ~301px the moment the rail returned. xl: is the honest step. */}
+    /* Round 50: same 1024/1025 trap as Manage Students — lg: handed this list
+       ~301px the moment the rail returned. xl: is the honest step. */
     <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
         onSubmit={(e) => { e.preventDefault(); createCode.mutate(); }}

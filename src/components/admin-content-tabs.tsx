@@ -1318,8 +1318,8 @@ export function CurriculumAdminTab() {
 
 
   return (
-    {/* Round 50: lg: fired at 1024 — one pixel before the 255px rail returns —
-        leaving this list ~301px. xl: is the honest step. */}
+    /* Round 50: lg: fired at 1024 — one pixel before the 255px rail returns —
+       leaving this list ~301px. xl: is the honest step. */
     <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
         className="rounded-2xl border border-border bg-card p-6"
