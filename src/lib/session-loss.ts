@@ -81,7 +81,19 @@ export async function checkSession(): Promise<SessionCheck> {
     if (error) {
       // Offline / DNS / timeout: getUser() cannot tell us anything. Assume nothing.
       if (isTransientNetworkError(error)) return "unreachable";
-      return "lost";
+      /*
+        Only the shapes actually measured for a dead session count as a verdict:
+        AuthSessionMissingError, or an explicit 400/401 from the auth server. A 429, 500,
+        502 or 503 means "the auth server failed to answer the question", NOT "there is no
+        user" — treating those as a verdict would sign every parent out during a rate
+        limit or an upstream hiccup, the same failure the offline path avoids.
+      */
+      const status = Number((error as { status?: number | null }).status ?? 0);
+      const isVerdict =
+        (error as { name?: string }).name === "AuthSessionMissingError" ||
+        status === 400 ||
+        status === 401;
+      return isVerdict ? "lost" : "unreachable";
     }
     return data?.user ? "valid" : "lost";
   } catch (error) {
