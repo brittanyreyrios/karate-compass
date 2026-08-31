@@ -343,7 +343,7 @@ function Dashboard() {
         )}
       </header>
 
-      {/* Round 50: lg: gave the belt card ~490px at 1025, where the rail has just
+      {/* Batch 3: lg: gave the belt card ~490px at 1025, where the rail has just
           taken 255px back; xl: is the honest step for a 3-column split. */}
       <section className="mt-8 grid gap-6 xl:grid-cols-3">
         {usesBelts ? (
@@ -367,7 +367,7 @@ function Dashboard() {
             <div className="h-3 w-full overflow-hidden rounded-full bg-secondary/60">
               <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progress?.pct ?? 0}%` }} />
             </div>
-            {/* Round 50: min-w-0 let each rung shrink to the swatch (41px) while its
+            {/* Batch 3: min-w-0 let each rung shrink to the swatch (41px) while its
                 belt label stayed wider, so the label spilled. The rungs keep their
                 content width now and the strip wraps instead. */}
             <div className="mt-4 flex flex-wrap justify-center gap-x-1 gap-y-3 sm:justify-between sm:gap-x-2">
@@ -435,7 +435,7 @@ function Dashboard() {
 
 
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
-          {/* Round 50: the decorative glyph was offset with negative insets, which
+          {/* Batch 3: the decorative glyph was offset with negative insets, which
               count towards scroll overflow (750/718) even though the card clips it.
               A transform places it identically without inflating the box. */}
           <div className="absolute right-0 top-0 -translate-y-8 translate-x-8 opacity-10" aria-hidden="true"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>

@@ -216,7 +216,7 @@ export function TechniqueLibraryAdminTab() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
         className="rounded-2xl border border-border bg-card p-4 sm:p-6"
         onSubmit={(e) => { e.preventDefault(); addItem.mutate(); }}

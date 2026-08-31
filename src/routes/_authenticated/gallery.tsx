@@ -95,7 +95,7 @@ function Gallery() {
       )}
 
       {albums.length > 0 && (
-        /* Round 50: the album grid's own width — not the viewport's — decides how
+        /* Batch 3: the album grid's own width — not the viewport's — decides how
            many covers fit, so the column count is a container query. That keeps it
            honest at 1025 where the sidebar rail takes 255px back. */
         <div className="@container mt-8">
