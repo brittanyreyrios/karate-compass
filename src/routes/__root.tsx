@@ -105,6 +105,12 @@ function RootComponent() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Dev-only handle so a Playwright run can force every mounted query to refetch
+  // (used to reproduce a session dying under a mounted page). Never in production.
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    (window as unknown as { __queryClient?: QueryClient }).__queryClient = queryClient;
+  }
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
