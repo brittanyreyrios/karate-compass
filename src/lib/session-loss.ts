@@ -111,19 +111,31 @@ const EXPIRED_KEY = "tigersden:session-expired";
 */
 export function markSessionExpired() {
   try {
-    sessionStorage.setItem(EXPIRED_KEY, "1");
+    sessionStorage.setItem(EXPIRED_KEY, String(Date.now()));
   } catch {
     /* fall back to the ?expired=1 search param */
   }
 }
 
-export function consumeSessionExpiredNotice(): boolean {
+/*
+  Read, don't consume: the sign-in page can mount more than once during the redirect
+  (our navigation, then the gate's own). Consuming on first mount lost the notice on the
+  remount. The flag is cleared once the parent is signed in again.
+*/
+export function hasSessionExpiredNotice(): boolean {
   try {
-    const flagged = sessionStorage.getItem(EXPIRED_KEY) === "1";
-    if (flagged) sessionStorage.removeItem(EXPIRED_KEY);
-    return flagged;
+    const at = Number(sessionStorage.getItem(EXPIRED_KEY) ?? 0);
+    return at > 0 && Date.now() - at < 10 * 60 * 1000;
   } catch {
     return false;
+  }
+}
+
+export function clearSessionExpiredNotice() {
+  try {
+    sessionStorage.removeItem(EXPIRED_KEY);
+  } catch {
+    /* nothing to clear */
   }
 }
 

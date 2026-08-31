@@ -4,7 +4,7 @@ import { z } from "zod";
 import { MailCheck, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { consumeSessionExpiredNotice } from "@/lib/session-loss";
+import { clearSessionExpiredNotice, hasSessionExpiredNotice } from "@/lib/session-loss";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +92,7 @@ function AuthPage() {
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!expiredParam && !consumeSessionExpiredNotice()) return;
+    if (!expiredParam && !hasSessionExpiredNotice()) return;
     setSessionExpired(true);
     toast.info("Your session expired — please sign in again.");
   }, [expiredParam]);
