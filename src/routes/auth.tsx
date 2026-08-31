@@ -18,6 +18,9 @@ import {
 
 const searchSchema = z.object({
   invite: z.string().trim().max(64).optional(),
+  // Set by the app-wide session-loss handler so the bounce reads as an explanation
+  // rather than as one more thing that broke.
+  expired: z.literal("1").optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -71,7 +74,7 @@ const GENERIC_RESEND =
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { invite: invitedCode } = Route.useSearch();
+  const { invite: invitedCode, expired: sessionExpired } = Route.useSearch();
 
   const [tab, setTab] = useState<"signin" | "signup">(invitedCode ? "signup" : "signin");
   const [email, setEmail] = useState("");
@@ -85,6 +88,11 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState<string | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionExpired) return;
+    toast.info("Your session expired — please sign in again.");
+  }, [sessionExpired]);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,6 +163,9 @@ function AuthPage() {
         "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
       );
     }
+    if (!familyName.trim()) {
+      return toast.error("Please enter your family name so we can label your account.");
+    }
     if (!pwCheck.allPassed) return toast.error(PASSWORD_REQUIREMENTS_MESSAGE);
 
     setLoading(true);
@@ -164,7 +175,7 @@ function AuthPage() {
       options: {
         emailRedirectTo: `${window.location.origin}/`,
         data: {
-          family_name: familyName.trim() || email.split("@")[0],
+          family_name: familyName.trim(),
           invite_code: clean,
           photo_consent: photoConsent,
           // The Media Release is now accepted by every new account (required checkbox),
@@ -219,6 +230,16 @@ function AuthPage() {
             </div>
           </div>
         </div>
+
+        {sessionExpired && !awaitingConfirm ? (
+          <p
+            role="status"
+            className="mt-6 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground"
+          >
+            Your session expired — please sign in again. Nothing is lost; your family's
+            records are safe.
+          </p>
+        ) : null}
 
         {awaitingConfirm ? (
           <div className="mt-8">
@@ -360,6 +381,7 @@ function AuthPage() {
                     <Input
                       id="family"
                       name="family-name"
+                      required
                       value={familyName}
                       onChange={(e) => setFamilyName(e.target.value)}
                       placeholder="Rodriguez"
