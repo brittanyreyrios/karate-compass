@@ -39,6 +39,7 @@ export const getRouter = () => {
       console.error("Local sign-out after session loss failed (redirecting anyway)", error);
     }
     // Unconditional: runs even if the sign-out above threw.
+    console.log("[SL] navigating", here.href, !!routerRef);
     if (routerRef) {
       routerRef.navigate({ to: "/auth", search: { expired: "1" }, replace: true });
     } else {
@@ -47,7 +48,8 @@ export const getRouter = () => {
   };
 
   const onCacheError = (error: unknown) => {
-    void handleMaybeSessionLoss(error, redirectToAuth);
+    console.log("[SL] onError", (error as {code?:string})?.code, isSessionLossError(error));
+    void handleMaybeSessionLoss(error, redirectToAuth).then((r) => console.log("[SL] handled", r));
   };
 
   const queryClient = new QueryClient({
