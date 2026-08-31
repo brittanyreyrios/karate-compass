@@ -3,7 +3,11 @@ import { createRouter, type AnyRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { RouteShellSkeleton } from "@/components/skeletons";
 import { getCspNonce } from "@/lib/csp-nonce";
-import { handleMaybeSessionLoss, isSessionLossError } from "@/lib/session-loss";
+import {
+  handleMaybeSessionLoss,
+  isSessionLossError,
+  setSessionLossRedirect,
+} from "@/lib/session-loss";
 
 export const getRouter = () => {
   /*
@@ -39,7 +43,6 @@ export const getRouter = () => {
       console.error("Local sign-out after session loss failed (redirecting anyway)", error);
     }
     // Unconditional: runs even if the sign-out above threw.
-    console.log("[SL] navigating", here.href, !!routerRef);
     if (routerRef) {
       routerRef.navigate({ to: "/auth", search: { expired: "1" }, replace: true });
     } else {
@@ -47,9 +50,10 @@ export const getRouter = () => {
     }
   };
 
+  setSessionLossRedirect(redirectToAuth);
+
   const onCacheError = (error: unknown) => {
-    console.log("[SL] onError", (error as {code?:string})?.code, isSessionLossError(error));
-    void handleMaybeSessionLoss(error, redirectToAuth).then((r) => console.log("[SL] handled", r));
+    void handleMaybeSessionLoss(error);
   };
 
   const queryClient = new QueryClient({

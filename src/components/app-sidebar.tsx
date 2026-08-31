@@ -29,6 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
+import { markIntentionalSignOut } from "@/lib/session-loss";
 import { useSession, useIsAdmin } from "@/hooks/use-auth";
 import { useTechniqueLibrary } from "@/lib/technique-library";
 
@@ -64,6 +65,9 @@ export function AppSidebar() {
   const navItems = items.filter((i) => i.url !== "/techniques" || hasLibrary);
 
   const handleSignOut = async () => {
+    // Marks this SIGNED_OUT as deliberate so the session-loss handler doesn't tell the
+    // parent their session expired when they chose to leave.
+    markIntentionalSignOut();
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
