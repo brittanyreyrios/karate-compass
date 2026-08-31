@@ -435,10 +435,12 @@ function Dashboard() {
 
 
         <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
-          {/* Batch 3: the decorative glyph was offset with negative insets, which
-              count towards scroll overflow (750/718) even though the card clips it.
-              A transform places it identically without inflating the box. */}
-          <div className="absolute right-0 top-0 -translate-y-8 translate-x-8 opacity-10" aria-hidden="true"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
+          {/* The decorative glyph deliberately hangs outside the card, which has
+              overflow-hidden, so nothing ever shows. Note for future probes: a
+              transform does NOT avoid the reported scroll overflow — border boxes
+              are measured after transforms — so -inset offsets and translate-*
+              behave identically here. Left as-is on purpose. */}
+          <div className="absolute -right-8 -top-8 opacity-10" aria-hidden="true"><Swords className="h-40 w-40" strokeWidth={1.5} /></div>
           <div className="relative">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/80">
               <Flame className="h-3 w-3" /> Next {usesBelts ? "Belt Test" : "Level Check"}

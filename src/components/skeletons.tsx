@@ -29,13 +29,30 @@ function Loading({
 }
 
 export function DashboardSkeleton() {
+  /* Mirrors index.tsx: max-w-7xl shell, xl:grid-cols-3 hero row (belt card spans
+     two), the sm:2 / lg:3 / 2xl:5 stat row, then the lg:grid-cols-2 lists. Keep
+     these breakpoints in step with the route or the dashboard jumps on load. */
   return (
-    <Loading label="Loading your dashboard" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <Loading label="Loading your dashboard" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="mt-3 h-10 w-full max-w-md" />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
+      <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-card p-6 xl:col-span-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="mt-4 h-6 w-56 max-w-full" />
+          <Skeleton className="mt-4 h-3 w-full" />
+          <Skeleton className="mt-3 h-3 w-2/3" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-4 h-8 w-32" />
+          <Skeleton className="mt-3 h-3 w-40 max-w-full" />
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="rounded-2xl border border-border bg-card p-5">
             <Skeleton className="h-3 w-24" />
             <Skeleton className="mt-3 h-8 w-20" />
@@ -44,13 +61,7 @@ export function DashboardSkeleton() {
         ))}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-border bg-card p-6">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="mt-4 h-4 w-full" />
-        <Skeleton className="mt-3 h-3 w-2/3" />
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
         {[0, 1].map((i) => (
           <div key={i} className="rounded-2xl border border-border bg-card p-6">
             <Skeleton className="h-3 w-28" />
@@ -110,20 +121,21 @@ export function CardGridSkeleton({
   cards?: number;
   label?: string;
 }) {
+  /* Must mirror the gallery album grid exactly (container query, not viewport),
+     or the skeleton paints 3 columns at 1025-1279 and the content resolves to 2. */
   return (
-    <Loading
-      label={label}
-      className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      {Array.from({ length: cards }, (_, i) => (
-        <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
-          <Skeleton className="aspect-video w-full rounded-none" />
-          <div className="p-4">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="mt-2 h-3 w-1/2" />
+    <Loading label={label} className="@container mt-6">
+      <div className="grid gap-4 @md:grid-cols-2 @3xl:grid-cols-3">
+        {Array.from({ length: cards }, (_, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Skeleton className="aspect-video w-full rounded-none" />
+            <div className="p-4">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="mt-2 h-3 w-1/2" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </Loading>
   );
 }
