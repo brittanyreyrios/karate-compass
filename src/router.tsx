@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
-import { createRouter, type AnyRouter } from "@tanstack/react-router";
+import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { RouteShellSkeleton } from "@/components/skeletons";
 import { getCspNonce } from "@/lib/csp-nonce";
@@ -18,8 +18,6 @@ export const getRouter = () => {
     The route-level beforeLoad gate in _authenticated/route.tsx is untouched — it still
     covers cold navigations; this covers a session dying under a mounted page.
   */
-  let routerRef: AnyRouter | undefined;
-
   const redirectToAuth = async () => {
     const { supabase } = await import("@/integrations/supabase/client");
     /*
@@ -99,8 +97,6 @@ export const getRouter = () => {
     defaultPendingMs: 150,
     defaultPendingMinMs: 400,
   });
-
-  routerRef = router;
 
   return router;
 };
