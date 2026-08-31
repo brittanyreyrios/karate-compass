@@ -206,7 +206,7 @@ export function EventsAdminTab() {
   const events = eventsQ.data ?? [];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr]">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,420px)_1fr]">
       <section className="rounded-2xl border border-border bg-card p-6">
         <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide">
           <CalendarPlus className="h-4 w-4 text-primary" aria-hidden="true" />
