@@ -21,7 +21,13 @@ const searchSchema = z.object({
   invite: z.string().trim().max(64).optional(),
   // Set by the app-wide session-loss handler so the bounce reads as an explanation
   // rather than as one more thing that broke.
-  expired: z.literal("1").optional(),
+  /*
+    The router parses ?expired=1 into the NUMBER 1, so a z.literal("1") here threw a
+    validation error and the whole sign-in page rendered the error boundary instead of the
+    notice — that was the missing "expiredNotice". Coerce, and never let a stray value in
+    this param break the page a locked-out parent has to reach.
+  */
+  expired: z.coerce.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/auth")({
