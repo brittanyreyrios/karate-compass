@@ -202,11 +202,16 @@ export async function handleMaybeSessionLoss(error: unknown): Promise<boolean> {
 /** Same single-flight path, entered from the SIGNED_OUT auth event. */
 export async function handleSignedOutEvent(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if (wasIntentionalSignOut()) return false;
   return runOnce();
 }
 
 function runOnce(): Promise<boolean> {
+  /*
+    Guarded here rather than at each entry point: a query or mutation that 401s during
+    sign-out teardown also reaches this path, and a parent who chose to leave must never
+    be told their session expired.
+  */
+  if (wasIntentionalSignOut()) return Promise.resolve(false);
   if (!inFlight) {
     inFlight = redirectIfSessionLost().finally(() => {
       // Allow a later, genuine loss to be handled again.
