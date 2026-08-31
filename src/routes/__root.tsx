@@ -16,6 +16,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
+import { handleSignedOutEvent } from "@/lib/session-loss";
 
 function NotFoundComponent() {
   return (
@@ -105,11 +106,30 @@ function RootComponent() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Dev-only handle so a Playwright run can force every mounted query to refetch
+  // (used to reproduce a session dying under a mounted page). Never in production.
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    (window as unknown as { __queryClient?: QueryClient }).__queryClient = queryClient;
+  }
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      /*
+        Deliberately NOT invalidating on SIGNED_OUT: that would refetch every mounted
+        protected query against a cleared session — a 401 storm and a screenful of error
+        flashes on the way out. Kept as-is; the session-loss handler tears the cache down
+        instead of refetching it.
+      */
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      /*
+        A revoked/expired refresh token emits SIGNED_OUT exactly like a real sign-out
+        (measured), so this re-validates and only redirects on a confirmed dead session —
+        an unmarked SIGNED_OUT is the one signal that reaches pages whose queries swallow
+        their own errors and would otherwise just render empty.
+      */
+      if (event === "SIGNED_OUT") void handleSignedOutEvent();
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
