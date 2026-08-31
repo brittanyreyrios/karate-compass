@@ -4,6 +4,7 @@ import { z } from "zod";
 import { MailCheck, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { consumeSessionExpiredNotice } from "@/lib/session-loss";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,7 +75,8 @@ const GENERIC_RESEND =
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { invite: invitedCode, expired: sessionExpired } = Route.useSearch();
+  const { invite: invitedCode, expired: expiredParam } = Route.useSearch();
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const [tab, setTab] = useState<"signin" | "signup">(invitedCode ? "signup" : "signin");
   const [email, setEmail] = useState("");
@@ -90,9 +92,10 @@ function AuthPage() {
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sessionExpired) return;
+    if (!expiredParam && !consumeSessionExpiredNotice()) return;
+    setSessionExpired(true);
     toast.info("Your session expired — please sign in again.");
-  }, [sessionExpired]);
+  }, [expiredParam]);
 
   useEffect(() => {
     let cancelled = false;

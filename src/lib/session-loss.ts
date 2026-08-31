@@ -102,6 +102,30 @@ export async function confirmSessionLost(): Promise<boolean> {
   case marks itself, and anything unmarked is treated as a candidate session loss.
 */
 const INTENT_KEY = "tigersden:intentional-signout";
+const EXPIRED_KEY = "tigersden:session-expired";
+
+/*
+  The explanation is flagged in sessionStorage rather than relying on ?expired=1 alone:
+  the beforeLoad gate can fire its own bare redirect to /auth a beat behind ours (via the
+  root's router.invalidate on SIGNED_OUT) and strip the query string.
+*/
+export function markSessionExpired() {
+  try {
+    sessionStorage.setItem(EXPIRED_KEY, "1");
+  } catch {
+    /* fall back to the ?expired=1 search param */
+  }
+}
+
+export function consumeSessionExpiredNotice(): boolean {
+  try {
+    const flagged = sessionStorage.getItem(EXPIRED_KEY) === "1";
+    if (flagged) sessionStorage.removeItem(EXPIRED_KEY);
+    return flagged;
+  } catch {
+    return false;
+  }
+}
 
 export function markIntentionalSignOut() {
   try {
@@ -134,9 +158,7 @@ export function setSessionLossRedirect(fn: () => Promise<void>) {
 /** Re-validates, then redirects only on a confirmed "server says no user". */
 export async function redirectIfSessionLost(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  const c = await checkSession();
-  console.log("[SL] check", c, "impl", !!redirectImpl);
-  if (c !== "lost") return false;
+  if ((await checkSession()) !== "lost") return false;
   if (redirectImpl) await redirectImpl();
   return true;
 }
@@ -155,7 +177,6 @@ export async function handleMaybeSessionLoss(error: unknown): Promise<boolean> {
 
 /** Same single-flight path, entered from the SIGNED_OUT auth event. */
 export async function handleSignedOutEvent(): Promise<boolean> {
-  console.log("[SL] signedOutEvent intentional=", wasIntentionalSignOut());
   if (typeof window === "undefined") return false;
   if (wasIntentionalSignOut()) return false;
   return runOnce();

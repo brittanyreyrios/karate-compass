@@ -6,6 +6,7 @@ import { getCspNonce } from "@/lib/csp-nonce";
 import {
   handleMaybeSessionLoss,
   isSessionLossError,
+  markSessionExpired,
   setSessionLossRedirect,
 } from "@/lib/session-loss";
 
@@ -29,6 +30,7 @@ export const getRouter = () => {
     */
     const here = new URL(window.location.href);
     if (here.pathname === "/auth" && here.searchParams.get("expired") === "1") return;
+    markSessionExpired();
     try {
       await queryClient.cancelQueries();
     } catch {
