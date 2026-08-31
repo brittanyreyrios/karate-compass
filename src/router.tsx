@@ -44,12 +44,14 @@ export const getRouter = () => {
     } catch (error) {
       console.error("Local sign-out after session loss failed (redirecting anyway)", error);
     }
-    // Unconditional: runs even if the sign-out above threw.
-    if (routerRef) {
-      routerRef.navigate({ to: "/auth", search: { expired: "1" }, replace: true });
-    } else {
-      window.location.replace("/auth?expired=1");
-    }
+    /*
+      Unconditional (runs even if the sign-out above threw) and a HARD load, not
+      routerRef.navigate: the auth gate's own redirect races ours and strips the search
+      param, so an SPA navigation could land on a bare /auth with no explanation. A full
+      document load guarantees a fresh mount that reads the flag. This fires once per
+      expired session, so the reload cost is irrelevant next to the determinism.
+    */
+    window.location.replace("/auth?expired=1");
   };
 
   setSessionLossRedirect(redirectToAuth);
