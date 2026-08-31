@@ -3555,7 +3555,7 @@ function InviteCodesTab() {
   const rows = codesQ.data ?? [];
 
   return (
-    /* Round 50: same 1024/1025 trap as Manage Students — lg: handed this list
+    /* Batch 3: same 1024/1025 trap as Manage Students — lg: handed this list
        ~301px the moment the rail returned. xl: is the honest step. */
     <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <form
@@ -3639,7 +3639,7 @@ function InviteCodesTab() {
             return (
               <li key={r.code} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  {/* Round 50: an invite code has no break opportunity, so it spilled
+                  {/* Batch 3: an invite code has no break opportunity, so it spilled
                       (90/31) out of the narrow list column. break-all lets it wrap. */}
                   <div className="break-all font-mono text-base font-bold uppercase tracking-widest">{r.code}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

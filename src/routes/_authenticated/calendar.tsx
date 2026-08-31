@@ -274,7 +274,7 @@ function CalendarPage() {
       )}
 
       {!loading && !failed && view === "month" && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <MonthGrid
             month={month}
             onMonthChange={setMonth}
