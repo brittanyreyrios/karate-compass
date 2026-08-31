@@ -110,20 +110,21 @@ export function CardGridSkeleton({
   cards?: number;
   label?: string;
 }) {
+  /* Must mirror the gallery album grid exactly (container query, not viewport),
+     or the skeleton paints 3 columns at 1025-1279 and the content resolves to 2. */
   return (
-    <Loading
-      label={label}
-      className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      {Array.from({ length: cards }, (_, i) => (
-        <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
-          <Skeleton className="aspect-video w-full rounded-none" />
-          <div className="p-4">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="mt-2 h-3 w-1/2" />
+    <Loading label={label} className="@container mt-6">
+      <div className="grid gap-4 @md:grid-cols-2 @3xl:grid-cols-3">
+        {Array.from({ length: cards }, (_, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Skeleton className="aspect-video w-full rounded-none" />
+            <div className="p-4">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="mt-2 h-3 w-1/2" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </Loading>
   );
 }
