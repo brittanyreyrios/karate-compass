@@ -33,6 +33,7 @@ export const getRouter = () => {
       console.error("Local sign-out after session loss failed (redirecting anyway)", error);
     }
     // Unconditional: runs even if the sign-out above threw.
+    console.log("[session-loss] redirecting to /auth", !!routerRef);
     if (routerRef) {
       routerRef.navigate({ to: "/auth", search: { expired: "1" }, replace: true });
     } else {
