@@ -81,7 +81,19 @@ export async function checkSession(): Promise<SessionCheck> {
     if (error) {
       // Offline / DNS / timeout: getUser() cannot tell us anything. Assume nothing.
       if (isTransientNetworkError(error)) return "unreachable";
-      return "lost";
+      /*
+        Only the shapes actually measured for a dead session count as a verdict:
+        AuthSessionMissingError, or an explicit 400/401 from the auth server. A 429, 500,
+        502 or 503 means "the auth server failed to answer the question", NOT "there is no
+        user" — treating those as a verdict would sign every parent out during a rate
+        limit or an upstream hiccup, the same failure the offline path avoids.
+      */
+      const status = Number((error as { status?: number | null }).status ?? 0);
+      const isVerdict =
+        (error as { name?: string }).name === "AuthSessionMissingError" ||
+        status === 400 ||
+        status === 401;
+      return isVerdict ? "lost" : "unreachable";
     }
     return data?.user ? "valid" : "lost";
   } catch (error) {
@@ -190,11 +202,16 @@ export async function handleMaybeSessionLoss(error: unknown): Promise<boolean> {
 /** Same single-flight path, entered from the SIGNED_OUT auth event. */
 export async function handleSignedOutEvent(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if (wasIntentionalSignOut()) return false;
   return runOnce();
 }
 
 function runOnce(): Promise<boolean> {
+  /*
+    Guarded here rather than at each entry point: a query or mutation that 401s during
+    sign-out teardown also reaches this path, and a parent who chose to leave must never
+    be told their session expired.
+  */
+  if (wasIntentionalSignOut()) return Promise.resolve(false);
   if (!inFlight) {
     inFlight = redirectIfSessionLost().finally(() => {
       // Allow a later, genuine loss to be handled again.
