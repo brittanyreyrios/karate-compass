@@ -2901,7 +2901,9 @@ function CsvImporter() {
         Upload a Kicksite roster with columns: <code className="rounded bg-secondary px-1">First Name, Last Name, Parent Email, Start Date, Current Belt</code>. Rows whose parent email has no matching account go to the Unlinked Students Audit so you can catch typos.
       </p>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+      {/* Batch 3: same mirrored trap as calendar.tsx — a fixed 320px panel beside a
+          flexible column, splitting at 1024 where the sidebar rail returns. xl:. */}
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 hover:border-primary/60">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
