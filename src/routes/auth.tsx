@@ -18,7 +18,10 @@ import {
 } from "@/lib/password-rules";
 
 const searchSchema = z.object({
-  invite: z.string().trim().max(64).optional(),
+  // The router parses all-numeric params (e.g. ?invite=20260901) into numbers, so a
+  // raw z.string() would throw and land the family on the error boundary. Coerce,
+  // and degrade malformed values to undefined so the parent can still type by hand.
+  invite: z.coerce.string().trim().max(64).optional().catch(undefined),
   // Set by the app-wide session-loss handler so the bounce reads as an explanation
   // rather than as one more thing that broke.
   /*
