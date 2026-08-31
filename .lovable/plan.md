@@ -1,31 +1,68 @@
-# Responsive overflow batch 3 — seven remainders + two unlisted `lg:` splits
+# Session-loss handling (app-wide) + required family name
 
-Display/layout only. No query, RLS, `useTournaments`, or placement-helper changes. No touch-target changes.
+## Part 0 — Empirical checks before any code
 
-## The shared root cause
+Run these and report real output, not doc claims:
 
-Three separate mechanisms are behind all nine items, and each item is fixed with the mechanism that actually applies — not with a breakpoint by reflex:
+1. **Auth event on token death vs sign-out.** In a Playwright session on a mounted
+   authenticated page, log every `onAuthStateChange` event. Then (a) corrupt the stored
+   refresh token in the session and force a refresh, and (b) revoke the session
+   server-side, and (c) call `signOut()`. Report the exact event names/sequence seen for
+   each case.
+2. **Error shape of a query with a dead JWT.** With an expired/invalid access token, run a
+   normal table read and print the full error object (`code`, `message`, `details`,
+   `hint`, HTTP status). Compare with a genuine network failure (offline) so the fix can
+   tell them apart.
 
-1. **`lg:` splits that fire where content is narrowest.** `lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]` fires at 1024, one pixel before the 255px rail returns, so at 1025 the flexible column gets ~301px. Fix: move the split to `xl:` (or drive the grid off its own width with a container query where the grid's width — not the viewport's — is the honest input).
-2. **Missing `min-w-0`.** A `Select` inside a flex/grid child without `min-w-0` refuses to shrink below its content width, so `SelectTrigger`'s `[&>span]:line-clamp-1` never gets a chance to clamp. This is what produces absurd pairs like 1654/611.
-3. **Unbreakable inline content.** `font-mono ... tracking-widest` invite codes and the belt ladder strip have no wrap or shrink allowance.
+The observed values drive the exact predicate used below. No code lands until these are in.
 
-## Per item
+## Part 1 — App-wide session-loss handling
 
-**1 — Invite Codes (`admin.tsx` InviteCodesTab, ~3558).** Non-structural: the code line is unbreakable text in a `min-w-0 flex-1` cell. Add `truncate` (and `break-all` on the wrapped meta line) so it fits at 390 and 1025 without changing the row shape. Also move that tab's split to `xl:` since it is the same trap. I will measure the other tabs sharing the identical pattern and report — not fix — any that share the bug.
+Shared wiring only — nothing per page.
 
-**2 — Media Gallery (`gallery.tsx`).** Audit at runtime first: `gallery.tsx` contains no `Select`, so the two overflowing triggers are in a control rendered around it; I identify them by DOM before touching anything, then add `min-w-0` + `w-full` on their wrapper. The album grid's column count is driven by the grid's own width, so convert `sm:grid-cols-2 lg:grid-cols-3` to a container query (`@container` wrapper, `@sm:`/`@3xl:` steps).
+- **`src/lib/session-loss.ts` (new).** `looksLikeSessionLoss(error)` matching the
+  empirically observed shapes (expected: PostgREST `PGRST301` / JWT-expired message /
+  HTTP 401), explicitly excluding `TypeError: Failed to fetch`-class network errors, and
+  `confirmSessionLost()` which calls `supabase.auth.getUser()` and returns true only when
+  the server says there is no valid user. A single in-flight guard so a burst of failed
+  queries triggers one check and one redirect.
+- **`src/router.tsx`.** Add a `QueryCache`/`MutationCache` `onError` to the `QueryClient`
+  so every authenticated query and mutation on every page funnels into the handler. This is
+  the app-wide seam; individual pages keep their existing `QueryErrorState` UI for real
+  network problems.
+- **Redirect path.** On confirmed loss: cancel + clear the query cache, `signOut()` locally,
+  then navigate to `/auth?expired=1` with history replace. Transient failures fall through
+  untouched.
+- **`src/routes/auth.tsx`.** Accept `expired` in the existing `validateSearch` schema and
+  show "Your session expired — please sign in again." (inline notice on the card, plus the
+  toast style already used there).
+- **`_authenticated/route.tsx` untouched** — the cold-navigation `beforeLoad` gate stays
+  exactly as is.
 
-**3 — Belt Curriculum.** Split `lg:` → `xl:`; `min-w-0` on the two Select wrappers; the "Pick a program first" placeholder gets `truncate`/wrap so 129/117 clears.
+### The `SIGNED_OUT` invalidate question
 
-**4 — Technique Library (`admin-technique-library.tsx`:219).** Audited directly at all four widths, not assumed clean. If it measures broken at 1025 it gets the same `xl:` split + `min-w-0` treatment; if genuinely clean, I say so with the measured pairs.
+`__root.tsx:112` currently skips `queryClient.invalidateQueries()` on `SIGNED_OUT`. That is
+**intentional and correct**, and it is not the cause of this bug: invalidating on sign-out
+refetches every mounted protected query against a cleared session, producing a 401 storm
+and error flashes on the way out. The bug is the *absence* of a failure path, not this
+line. Plan: leave it as is, and add cache *teardown* (`cancelQueries` + `clear`) in the
+session-loss handler instead of a refetch.
 
-**5 — Post Announcement.** Diagnosis before fix: the trigger is `<SelectTrigger id="new-ann-link">` / `#new-ann-existing-event` inside `sm:col-span-2` card, and the long option labels ("Create a new event from this announcement", `title — date`) are the content. I will confirm at runtime whether `[&>span]:line-clamp-1` is present-but-defeated (missing `min-w-0` on the ancestor) or genuinely bypassed by an extra wrapper, then fix that cause only, and state which it was in the report.
+## Part 2 — Family name required (`src/routes/auth.tsx` only)
 
-**6 — Dashboard + podium.** `index.tsx`:346 `mt-8 grid gap-6 lg:grid-cols-3` is one fix covering both the belt strip (55/51) and Next Belt Test (334/302): step the grid at the honest breakpoint (`xl:grid-cols-3`, keeping a `sm:`/`lg:` two-up step so nothing regresses at 1024), plus `min-w-0` on the affected cards and shrink allowance on the ladder items. Leaderboard podium at 390: the first-place `scale-105` widens the card past the viewport column; gate the horizontal growth so it applies only from `sm:` up. **PodiumCard's accent-to-rank mapping (gold=1, silver=2, bronze=3) is not touched** — the edit is in the wrapper's transform classes only.
+- Add `required` to the Family name input (and keep its label/placeholder as-is).
+- Add a guard next to the existing invite/consent/password guards:
+  blank trimmed name → `toast.error("Please enter your family name.")`, no submit.
+- Delete the `|| email.split("@")[0]` fallback; send `familyName.trim()`.
+- No min length, no allow-list, no capitalisation. Whitespace trim only.
+- Nothing else in the signup flow changes.
 
-**7 — Events Calendar.** `min-w-0` on the view/filter Select wrappers so the triggers clamp at 1024 and 1025.
+## Verification to report
 
-## Verification
-
-Playwright, both admin and parent, at 390 / 768 / 1024 / 1025: before/after `scrollWidth`/`clientWidth` for every item, `document.body.scrollWidth` vs viewport at all four widths, screenshots per page, and an explicit statement on whether `admin-events-tab.tsx` and `admin-content-tabs.tsx` share the bug (reported, not fixed).
+- `git diff --stat` (no `supabase/migrations/`, no RLS/grant/DB-function change anywhere).
+- Real console output for the auth event and the error shape.
+- Reproduction with a genuinely invalidated test session: before/after on two originally
+  reported pages plus one page not in the report (e.g. Leaderboard).
+- Simulated offline failure showing no redirect.
+- `grep` proving `email.split("@")` is gone from `auth.tsx`; blank-name signup blocked;
+  "Torres-Hillail" stored byte-exact; test account deleted and confirmed gone.
