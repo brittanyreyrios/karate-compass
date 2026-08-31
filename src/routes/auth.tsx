@@ -138,6 +138,7 @@ function AuthPage() {
           : authErrorMessage(error, GENERIC_SIGNIN),
       );
     }
+    clearSessionExpiredNotice();
     navigate({ to: "/" });
   };
 
