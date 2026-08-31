@@ -96,25 +96,71 @@ export async function confirmSessionLost(): Promise<boolean> {
   return (await checkSession()) === "lost";
 }
 
+/*
+  supabase-js emits SIGNED_OUT for BOTH an explicit sign-out and a refresh token that
+  the server rejected (measured — identical event, identical payload). So the deliberate
+  case marks itself, and anything unmarked is treated as a candidate session loss.
+*/
+const INTENT_KEY = "tigersden:intentional-signout";
+
+export function markIntentionalSignOut() {
+  try {
+    sessionStorage.setItem(INTENT_KEY, String(Date.now()));
+  } catch {
+    /* private mode: worst case the parent sees an extra explanation */
+  }
+}
+
+export function wasIntentionalSignOut(): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(INTENT_KEY) ?? 0);
+    return at > 0 && Date.now() - at < 15000;
+  } catch {
+    return false;
+  }
+}
+
+/*
+  The redirect itself lives in router.tsx (it owns the QueryClient and the router) and
+  registers itself here, so both entry points — a failing query and a SIGNED_OUT event —
+  go through one implementation.
+*/
+let redirectImpl: (() => Promise<void>) | null = null;
+
+export function setSessionLossRedirect(fn: () => Promise<void>) {
+  redirectImpl = fn;
+}
+
+/** Re-validates, then redirects only on a confirmed "server says no user". */
+export async function redirectIfSessionLost(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if ((await checkSession()) !== "lost") return false;
+  if (redirectImpl) await redirectImpl();
+  return true;
+}
+
 let inFlight: Promise<boolean> | null = null;
 
 /**
  * Single-flight: a burst of failing queries on one page must produce one getUser()
  * check and one redirect, not one per query.
  */
-export async function handleMaybeSessionLoss(
-  error: unknown,
-  onConfirmedLoss: () => void | Promise<void>,
-): Promise<boolean> {
+export async function handleMaybeSessionLoss(error: unknown): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (!isSessionLossError(error)) return false;
+  return runOnce();
+}
+
+/** Same single-flight path, entered from the SIGNED_OUT auth event. */
+export async function handleSignedOutEvent(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (wasIntentionalSignOut()) return false;
+  return runOnce();
+}
+
+function runOnce(): Promise<boolean> {
   if (!inFlight) {
-    inFlight = (async () => {
-      const result = await checkSession();
-      if (result !== "lost") return false;
-      await onConfirmedLoss();
-      return true;
-    })().finally(() => {
+    inFlight = redirectIfSessionLost().finally(() => {
       // Allow a later, genuine loss to be handled again.
       setTimeout(() => {
         inFlight = null;
