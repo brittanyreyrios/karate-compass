@@ -17,8 +17,14 @@ export const getRouter = () => {
 
   const redirectToAuth = async () => {
     const { supabase } = await import("@/integrations/supabase/client");
-    // Don't bounce a parent who is already looking at the sign-in page.
-    if (window.location.pathname === "/auth") return;
+    /*
+      Only bail out if the parent is already looking at the expired-session notice.
+      Bailing on "/auth" alone was wrong: the root SIGNED_OUT listener can invalidate the
+      router first, so the beforeLoad gate lands the parent on a bare /auth and the
+      explanation never appears.
+    */
+    const here = new URL(window.location.href);
+    if (here.pathname === "/auth" && here.searchParams.get("expired") === "1") return;
     try {
       await queryClient.cancelQueries();
     } catch {
@@ -33,7 +39,6 @@ export const getRouter = () => {
       console.error("Local sign-out after session loss failed (redirecting anyway)", error);
     }
     // Unconditional: runs even if the sign-out above threw.
-    console.log("[session-loss] redirecting to /auth", !!routerRef);
     if (routerRef) {
       routerRef.navigate({ to: "/auth", search: { expired: "1" }, replace: true });
     } else {
