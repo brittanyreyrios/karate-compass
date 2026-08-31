@@ -134,7 +134,9 @@ export function setSessionLossRedirect(fn: () => Promise<void>) {
 /** Re-validates, then redirects only on a confirmed "server says no user". */
 export async function redirectIfSessionLost(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if ((await checkSession()) !== "lost") return false;
+  const c = await checkSession();
+  console.log("[SL] check", c, "impl", !!redirectImpl);
+  if (c !== "lost") return false;
   if (redirectImpl) await redirectImpl();
   return true;
 }
@@ -153,6 +155,7 @@ export async function handleMaybeSessionLoss(error: unknown): Promise<boolean> {
 
 /** Same single-flight path, entered from the SIGNED_OUT auth event. */
 export async function handleSignedOutEvent(): Promise<boolean> {
+  console.log("[SL] signedOutEvent intentional=", wasIntentionalSignOut());
   if (typeof window === "undefined") return false;
   if (wasIntentionalSignOut()) return false;
   return runOnce();
