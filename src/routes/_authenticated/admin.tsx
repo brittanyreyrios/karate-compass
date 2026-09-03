@@ -26,7 +26,11 @@ import {
   ExternalLink,
   Camera,
   CameraOff,
+  Archive,
+  ArchiveRestore,
+  UserRoundX,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -67,6 +71,12 @@ import {
 import { EnrollmentEditor } from "@/components/admin-enrollment";
 import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  setParentAccountArchived,
+  deleteParentAccount,
+} from "@/lib/parent-accounts.functions";
+
 
 import { ProgramsCard } from "@/components/admin-programs";
 import { BeltSwatch } from "@/components/belt-chip";
@@ -3306,6 +3316,7 @@ type ParentProfile = {
   photo_consent: boolean;
   photo_consent_updated_at: string | null;
   created_at: string;
+  archived_at: string | null;
 };
 
 function ParentsTab({
@@ -3317,6 +3328,8 @@ function ParentsTab({
 }) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [noStudentsOnly, setNoStudentsOnly] = useState(false);
   const { data: pendingConsent } = useUnacknowledgedConsentOff();
   const acknowledge = useAcknowledgeConsentEvents();
   const { data: adminIds } = useAdminUserIds();
@@ -3327,13 +3340,33 @@ function ParentsTab({
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at",
+          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at, archived_at",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ParentProfile[];
     },
   });
+
+  /**
+   * Student counts per family, counting EVERY row regardless of `active`. The
+   * "no students" badge below is display only, but the count also tells an admin
+   * up front why a delete will be refused, so it must match the server's rule.
+   */
+  const studentCountsQ = useQuery({
+    queryKey: ["admin-student-counts-by-parent"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("students").select("parent_id");
+      if (error) throw error;
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const id = row.parent_id as string;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      return counts;
+    },
+  });
+  const childCount = (id: string) => studentCountsQ.data?.get(id) ?? 0;
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "free" | "premium" }) => {
@@ -3347,14 +3380,51 @@ function ParentsTab({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const setArchivedFn = useServerFn(setParentAccountArchived);
+  const deleteAccountFn = useServerFn(deleteParentAccount);
+
+  const invalidateAccounts = () => {
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    qc.invalidateQueries({ queryKey: ["admin-student-counts-by-parent"] });
+    qc.invalidateQueries({ queryKey: ["admin-students"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-ids"] });
+  };
+
+  const setArchived = useMutation({
+    mutationFn: async (v: { profileId: string; archived: boolean }) =>
+      await setArchivedFn({ data: v }),
+    onSuccess: (r) => {
+      toast.success(
+        r.archived
+          ? `Account archived — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} set inactive`
+          : `Account restored — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} active again`,
+      );
+      invalidateAccounts();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: async (profileId: string) => await deleteAccountFn({ data: { profileId } }),
+    onSuccess: (r) => {
+      toast.success(`${r.familyName ?? r.email} deleted — login, profile and staff roles all removed`);
+      invalidateAccounts();
+    },
+    onError: (e: Error) => toast.error(e.message, { duration: 12000 }),
+  });
+
   const list = (profilesQ.data ?? []).filter((p) => {
+    if (showArchived ? !p.archived_at : !!p.archived_at) return false;
     if (consentOnly && p.photo_consent) return false;
+    if (noStudentsOnly && childCount(p.id) > 0) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
     return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
   });
 
+  const archivedCount = (profilesQ.data ?? []).filter((p) => p.archived_at).length;
   const pendingCount = (pendingConsent ?? []).length;
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -3391,12 +3461,40 @@ function ParentsTab({
         >
           <CameraOff className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Photos off only
         </Button>
+        <Button
+          size="sm"
+          variant={noStudentsOnly ? "default" : "outline"}
+          className={noStudentsOnly ? "bg-gradient-red" : ""}
+          aria-pressed={noStudentsOnly}
+          onClick={() => setNoStudentsOnly((v) => !v)}
+        >
+          <UserRoundX className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> No students only
+        </Button>
+        <Button
+          size="sm"
+          variant={showArchived ? "default" : "outline"}
+          className={showArchived ? "bg-gradient-red" : ""}
+          aria-pressed={showArchived}
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          <Archive className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+          Archived ({archivedCount})
+        </Button>
         {pendingCount > 0 && (
           <span className="text-xs text-muted-foreground">
             {pendingCount} recent consent change{pendingCount === 1 ? "" : "s"} still need a staff review.
           </span>
         )}
       </div>
+
+      {showArchived && (
+        <p className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-xs text-amber-100">
+          Archived accounts are hidden from the default list and their students are inactive. The parent can
+          still sign in — archiving is a staff-side filing state, not a lock. Deleting an account is permanent
+          and is refused while any student record still points at it.
+        </p>
+      )}
+
 
       <div className="mt-5 space-y-2">
         {profilesQ.isLoading && <p className="text-sm text-muted-foreground" aria-busy="true">Loading…</p>}
@@ -3430,7 +3528,18 @@ function ParentsTab({
                       <CameraOff className="mr-1 h-3 w-3" aria-hidden="true" /> Photos off
                     </Badge>
                   )}
+                  {childCount(p.id) === 0 && (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      <UserRoundX className="mr-1 h-3 w-3" aria-hidden="true" /> No students
+                    </Badge>
+                  )}
+                  {p.archived_at && (
+                    <Badge variant="outline" className="border-amber-400/60 text-amber-200">
+                      <Archive className="mr-1 h-3 w-3" aria-hidden="true" /> Archived
+                    </Badge>
+                  )}
                 </div>
+
                 <div className="mt-0.5 break-words text-xs text-muted-foreground">
                   {p.email}
                   {p.photo_consent_updated_at
@@ -3464,7 +3573,83 @@ function ParentsTab({
                   isAdmin={staff}
                   adminCount={adminIds?.size ?? 0}
                 />
+                {!p.archived_at ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="h-11 w-full sm:w-auto" disabled={setArchived.isPending}>
+                        <Archive className="mr-1 h-4 w-4" aria-hidden="true" /> Archive
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Archive {p.family_name ?? p.email}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          The account leaves the default list and any student records on it are set inactive.
+                          Nothing is deleted, the parent can still sign in, and you can restore everything from
+                          the Archived filter.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => setArchived.mutate({ profileId: p.id, archived: true })}
+                        >
+                          Archive account
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="h-11 w-full sm:w-auto"
+                      disabled={setArchived.isPending}
+                      onClick={() => setArchived.mutate({ profileId: p.id, archived: false })}
+                    >
+                      <ArchiveRestore className="mr-1 h-4 w-4" aria-hidden="true" /> Restore
+                    </Button>
+                    {/* Delete is offered only from the archived state, so deletion is always
+                        two deliberate steps. The button being enabled is not the guard — the
+                        server refuses whenever any student row still points at this account. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-11 w-full border-destructive/50 text-destructive sm:w-auto"
+                          disabled={deleteAccount.isPending}
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" /> Delete permanently
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
+                            Permanently delete {p.family_name ?? p.email}?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This removes their login, their profile and any staff role. It cannot be undone.
+                            {childCount(p.id) > 0
+                              ? ` This account still has ${childCount(p.id)} student record${childCount(p.id) === 1 ? "" : "s"} attached, so the delete will be refused — move each student to another family first.`
+                              : " This account has no student records attached, so no family history is affected."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep account</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground"
+                            onClick={() => deleteAccount.mutate(p.id)}
+                          >
+                            Delete for ever
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
               </div>
+
             </div>
           );
         })}
