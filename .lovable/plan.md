@@ -1,41 +1,53 @@
-# Scheduled-post marker on the parent-facing pages (admin only)
+# Winner's Circle — phone row alignment, container-driven columns, orphan-free collapse
 
-Presentational only. No migration, no filtering, no change to `get_school_news`, policies or grants.
+Scope: `src/components/winners-circle-section.tsx` only, plus a one-line comment
+correction in `src/components/tournament-results-section.tsx`. No query, migration,
+data or privacy change; `{r.first_name} {r.last_initial}` stays exactly as is.
 
-## New files
+## 1 — Phone row reads as one unit
 
-### `src/components/scheduled-badge.tsx`
-The single copy of the amber marker, lifted verbatim from `admin-announcements-manage.tsx:495`:
-`<Badge className="border-amber-400/60 bg-amber-500/15 text-amber-200" variant="outline">` with the
-`CalendarClock` icon and `Scheduled · {formatChicagoDateTime(publishAt)}`. No new date logic —
-`formatChicagoDateTime` supplies the zone abbreviation itself.
+Today the row is `flex flex-wrap` with the chip group in `ml-auto … justify-end`,
+so at 390px the chip wraps to its own full-width right-aligned line. Fix: move the
+discipline chips out of the `ml-auto` right-aligned group and render them inside
+the text column, on their own line directly beneath the event/division, left-aligned
+with the name. At wide container widths the chips return to the right of the row.
+The switch is driven by the section's container query (same mechanism as §3), not a
+viewport breakpoint, so the 1024/1025 inversion cannot break it.
 
-### `src/lib/scheduled-announcements.ts`
-`useScheduledAnnouncementIds()` — an admin-only read:
+Tournament Results keeps its current row layout untouched — its row has one text
+line, so the chip never wraps there; matching it means "chip sits with its text",
+which is what this change produces.
 
-- `supabase.from("announcements").select("id, publish_at").not("publish_at", "is", null)`
-- `enabled: isAdmin`, using the app's existing `useSession()` + `useIsAdmin()` from `@/hooks/use-auth`
-- returns a `Map<string, string>` of announcement id → `publish_at`, keeping only ids where the
-  existing `isScheduled(publish_at)` from `src/lib/schedule-time.ts` is true
+## 2/3 — Columns from a container query, collapse = exactly one row
 
-The `.not("publish_at","is",null)` is a *presence* test, not a future/past comparison — the
-future-vs-now decision stays in `isScheduled()` on the client. RLS is the only visibility gate:
-a non-admin gets zero rows regardless.
+- `@container` goes on the section (or the grid wrapper), and the grid resolves
+  1 / 2 / 3 columns from measured container-width thresholds — no `lg:`.
+- Thresholds are derived from a measured minimum 3-across card width:
+  tile (96px) + gap (12px) + longest realistic name/division text + gap + widest
+  discipline chip + card padding (2 × 16px) + grid gaps. I will measure the real
+  widths in the browser before fixing the numbers, and report them.
+- Collapsed count = the active column count, except single column where it stays 3.
+  One source of truth: a single exported-in-file `WC_COLUMN_STEPS` array of
+  `{ minWidth, columns }`. The CSS classes and the JS collapsed count both read
+  that array — the JS side observes the container with a `ResizeObserver`, so the
+  two can never drift.
+- "View all N tournaments" / "Show less" unchanged; N stays the total tournament
+  count; the control is absent when everything already fits in one row.
+- If 3 across does not actually fit, I stay at 2 and say so — no shrinking the tile
+  or the text.
 
-## Edited files
+## Comment correction
 
-- `src/routes/_authenticated/index.tsx` — dashboard news list item: render `<ScheduledBadge>` when the
-  id is in the map. No filtering, no ordering change, no layout change.
-- `src/routes/_authenticated/announcements.tsx` — same, inside the existing article.
-- `src/components/admin-announcements-manage.tsx` — replace the inline badge with `<ScheduledBadge>`;
-  the `Live` badge and everything else stays.
+`tournament-results-section.tsx:48` claims content is <768px below 1024 because of
+the persistent sidebar. Round 48 made the sidebar a Sheet at ≤1024, so content is
+full width there. Comment text only — no code change in that file.
 
 ## Verification I will report
 
-- `git diff --stat` (no `supabase/migrations/` entry).
-- Every added line mentioning `publish_at`, to show none filters on time.
-- Admin screenshots: dashboard, Announcements page (scheduled marked, live unmarked), Manage Announcements.
-- As a real non-admin parent over REST: `get_school_news` and a direct `announcements` select both lack
-  the scheduled id; the new admin query returns 0 rows. Account named.
-- Rendered announcement id set identical before and after, same account.
-- A note on whether `events` has the same unmarked-admin gap (report only, no change).
+`git diff --stat`; the measured min card width and both thresholds; a width →
+columns → collapsed-cards table at 390/768/1024/1025/1280/1440/1536; 1024 vs 1025
+side by side (columns, card width, `row.scrollWidth <= row.clientWidth`);
+screenshots at 390/768/1024/1025/1280/1440 collapsed plus one expanded; a 390px
+Winner's Circle vs Tournament Results comparison; Tournament Results screenshots at
+390 and 1024 with its isolated one-line diff; and `grep` proving `placementLabel`,
+`placementChipClass`, `placementTileClass` and `PLACEMENT_TILE_BOX` are byte-identical.
