@@ -3528,7 +3528,18 @@ function ParentsTab({
                       <CameraOff className="mr-1 h-3 w-3" aria-hidden="true" /> Photos off
                     </Badge>
                   )}
+                  {childCount(p.id) === 0 && (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      <UserRoundX className="mr-1 h-3 w-3" aria-hidden="true" /> No students
+                    </Badge>
+                  )}
+                  {p.archived_at && (
+                    <Badge variant="outline" className="border-amber-400/60 text-amber-200">
+                      <Archive className="mr-1 h-3 w-3" aria-hidden="true" /> Archived
+                    </Badge>
+                  )}
                 </div>
+
                 <div className="mt-0.5 break-words text-xs text-muted-foreground">
                   {p.email}
                   {p.photo_consent_updated_at
