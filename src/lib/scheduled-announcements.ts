@@ -1,11 +1,9 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { supabase as sb } from "@/integrations/supabase/client";
 import { useSession, useIsAdmin } from "@/hooks/use-auth";
 import { isScheduled } from "@/lib/schedule-time";
 
-void sb;
 
 /**
  * Round 45 — admin-only lookup of which announcements are still scheduled.
