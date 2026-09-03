@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/select";
 import { count } from "@/lib/plural";
 import { formatDateOnly } from "@/lib/date-only";
+import { ScheduledBadge } from "@/components/scheduled-badge";
 import {
   chicagoToInstant,
-  formatChicagoDateTime,
   instantToChicago,
   isScheduled,
 } from "@/lib/schedule-time";
