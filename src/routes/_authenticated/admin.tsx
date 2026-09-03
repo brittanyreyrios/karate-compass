@@ -3316,6 +3316,7 @@ type ParentProfile = {
   photo_consent: boolean;
   photo_consent_updated_at: string | null;
   created_at: string;
+  archived_at: string | null;
 };
 
 function ParentsTab({
@@ -3327,6 +3328,8 @@ function ParentsTab({
 }) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [noStudentsOnly, setNoStudentsOnly] = useState(false);
   const { data: pendingConsent } = useUnacknowledgedConsentOff();
   const acknowledge = useAcknowledgeConsentEvents();
   const { data: adminIds } = useAdminUserIds();
@@ -3337,13 +3340,33 @@ function ParentsTab({
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at",
+          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at, archived_at",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ParentProfile[];
     },
   });
+
+  /**
+   * Student counts per family, counting EVERY row regardless of `active`. The
+   * "no students" badge below is display only, but the count also tells an admin
+   * up front why a delete will be refused, so it must match the server's rule.
+   */
+  const studentCountsQ = useQuery({
+    queryKey: ["admin-student-counts-by-parent"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("students").select("parent_id");
+      if (error) throw error;
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const id = row.parent_id as string;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      return counts;
+    },
+  });
+  const childCount = (id: string) => studentCountsQ.data?.get(id) ?? 0;
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "free" | "premium" }) => {
@@ -3357,14 +3380,51 @@ function ParentsTab({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const setArchivedFn = useServerFn(setParentAccountArchived);
+  const deleteAccountFn = useServerFn(deleteParentAccount);
+
+  const invalidateAccounts = () => {
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    qc.invalidateQueries({ queryKey: ["admin-student-counts-by-parent"] });
+    qc.invalidateQueries({ queryKey: ["admin-students"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-ids"] });
+  };
+
+  const setArchived = useMutation({
+    mutationFn: async (v: { profileId: string; archived: boolean }) =>
+      await setArchivedFn({ data: v }),
+    onSuccess: (r) => {
+      toast.success(
+        r.archived
+          ? `Account archived — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} set inactive`
+          : `Account restored — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} active again`,
+      );
+      invalidateAccounts();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: async (profileId: string) => await deleteAccountFn({ data: { profileId } }),
+    onSuccess: (r) => {
+      toast.success(`${r.familyName ?? r.email} deleted — login, profile and staff roles all removed`);
+      invalidateAccounts();
+    },
+    onError: (e: Error) => toast.error(e.message, { duration: 12000 }),
+  });
+
   const list = (profilesQ.data ?? []).filter((p) => {
+    if (showArchived ? !p.archived_at : !!p.archived_at) return false;
     if (consentOnly && p.photo_consent) return false;
+    if (noStudentsOnly && childCount(p.id) > 0) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
     return `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(needle);
   });
 
+  const archivedCount = (profilesQ.data ?? []).filter((p) => p.archived_at).length;
   const pendingCount = (pendingConsent ?? []).length;
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
