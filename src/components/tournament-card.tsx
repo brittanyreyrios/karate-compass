@@ -5,6 +5,9 @@ import { DisciplineTags } from "@/components/discipline-tags";
 import { disciplinesOf } from "@/lib/calendar-data";
 import { daysUntilDateOnly, formatDateOnly, formatDateRange } from "@/lib/date-only";
 import type { Tournament } from "@/lib/announcements";
+import { ScheduledBadge } from "@/components/scheduled-badge";
+import { isScheduled } from "@/lib/schedule-time";
+import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
 /**
  * The ONE tournament card. Rendered by both the dashboard (condensed) and the
@@ -22,6 +25,12 @@ export function TournamentCard({
   variant: "full" | "condensed";
 }) {
   const days = t.event_date ? daysUntilDateOnly(t.event_date) : null;
+  /**
+   * Round 52: one check for BOTH sources. useTournaments() returns publish_at
+   * uniformly from the announcements branch and the events branch, so the
+   * marker cannot cover one path and miss the other.
+   */
+  const showScheduled = useShowScheduledMarker();
   const tags = disciplinesOf(t);
 
   return (
@@ -46,6 +55,11 @@ export function TournamentCard({
             </span>
           )}
         </div>
+        {showScheduled && isScheduled(t.publish_at) && (
+          <div className="mt-3">
+            <ScheduledBadge publishAt={t.publish_at!} />
+          </div>
+        )}
         <h3 className="mt-3 font-display text-lg font-bold uppercase leading-tight">{t.title}</h3>
         {variant === "full" && (
           <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>

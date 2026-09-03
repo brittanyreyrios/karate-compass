@@ -45,6 +45,8 @@ import { GoogleReviewCard } from "@/components/google-review-card";
 import { QueryErrorState } from "@/components/query-error";
 import { TournamentResultsSection } from "@/components/tournament-results-section";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
+import { isScheduled } from "@/lib/schedule-time";
+import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -595,7 +597,11 @@ function NextUpStrip() {
     queryFn: async () => {
       const { data } = await supabase
         .from("events")
-        .select("id, title, event_type, starts_at, all_day, location, audience_label, disciplines")
+        // Round 52: publish_at added to the select list only, for the admin-only
+        // marker. The .eq("published", true) filter below is untouched.
+        .select(
+          "id, title, event_type, starts_at, all_day, location, audience_label, disciplines, publish_at",
+        )
         .eq("published", true)
         .gte("starts_at", new Date().toISOString())
         .order("starts_at", { ascending: true })
@@ -605,6 +611,7 @@ function NextUpStrip() {
   });
 
   const events = eventsQ.data ?? [];
+  const showScheduled = useShowScheduledMarker();
   if (events.length === 0) return null;
 
   return (
@@ -630,6 +637,11 @@ function NextUpStrip() {
               </span>
               <DisciplineTags disciplines={cleanDisciplines(event.disciplines)} />
             </div>
+            {showScheduled && isScheduled(event.publish_at) && (
+              <div className="mt-2">
+                <ScheduledBadge publishAt={event.publish_at!} />
+              </div>
+            )}
             <h3 className="mt-3 font-semibold text-foreground">{event.title}</h3>
             <div className="mt-1 text-xs text-muted-foreground">
               {new Date(event.starts_at).toLocaleDateString(undefined, {

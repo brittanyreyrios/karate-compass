@@ -30,6 +30,9 @@ import {
 
 } from "@/lib/calendar-data";
 import { formatDateOnly } from "@/lib/date-only";
+import { ScheduledBadge } from "@/components/scheduled-badge";
+import { isScheduled } from "@/lib/schedule-time";
+import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -85,7 +88,10 @@ export function useCalendarData(month: Date) {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id, disciplines",
+          // Round 52: publish_at is a SELECT-LIST addition for the admin-only
+          // "Scheduled" marker. The .eq("published", true) below is unchanged and
+          // no predicate mentions publish_at — RLS stays the only gate.
+          "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id, disciplines, publish_at",
         )
         .eq("published", true)
         .gte("starts_at", `${fromKey}T00:00:00Z`)
@@ -415,6 +421,8 @@ function DayPanel({ dateKey, items }: { dateKey: string; items: CalendarItem[] }
 
 function ItemCard({ item }: { item: CalendarItem }) {
   const meta = chipMeta(item.eventType);
+  // Round 52: admin-only marker, reusing Round 45's gate, badge and check.
+  const showScheduled = useShowScheduledMarker();
   return (
     <article
       className={`rounded-xl border p-4 ${
@@ -424,6 +432,9 @@ function ItemCard({ item }: { item: CalendarItem }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className={`${CHIP_BASE} ${meta.badge}`}>{meta.label}</span>
         <DisciplineTags disciplines={item.disciplines} />
+        {showScheduled && isScheduled(item.publishAt) && (
+          <ScheduledBadge publishAt={item.publishAt!} />
+        )}
         {item.dayLabel && (
           <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {item.dayLabel}
