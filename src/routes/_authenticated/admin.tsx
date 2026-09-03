@@ -3573,7 +3573,83 @@ function ParentsTab({
                   isAdmin={staff}
                   adminCount={adminIds?.size ?? 0}
                 />
+                {!p.archived_at ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="h-11 w-full sm:w-auto" disabled={setArchived.isPending}>
+                        <Archive className="mr-1 h-4 w-4" aria-hidden="true" /> Archive
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Archive {p.family_name ?? p.email}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          The account leaves the default list and any student records on it are set inactive.
+                          Nothing is deleted, the parent can still sign in, and you can restore everything from
+                          the Archived filter.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => setArchived.mutate({ profileId: p.id, archived: true })}
+                        >
+                          Archive account
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="h-11 w-full sm:w-auto"
+                      disabled={setArchived.isPending}
+                      onClick={() => setArchived.mutate({ profileId: p.id, archived: false })}
+                    >
+                      <ArchiveRestore className="mr-1 h-4 w-4" aria-hidden="true" /> Restore
+                    </Button>
+                    {/* Delete is offered only from the archived state, so deletion is always
+                        two deliberate steps. The button being enabled is not the guard — the
+                        server refuses whenever any student row still points at this account. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-11 w-full border-destructive/50 text-destructive sm:w-auto"
+                          disabled={deleteAccount.isPending}
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" /> Delete permanently
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
+                            Permanently delete {p.family_name ?? p.email}?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This removes their login, their profile and any staff role. It cannot be undone.
+                            {childCount(p.id) > 0
+                              ? ` This account still has ${childCount(p.id)} student record${childCount(p.id) === 1 ? "" : "s"} attached, so the delete will be refused — move each student to another family first.`
+                              : " This account has no student records attached, so no family history is affected."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep account</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground"
+                            onClick={() => deleteAccount.mutate(p.id)}
+                          >
+                            Delete for ever
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
               </div>
+
             </div>
           );
         })}
