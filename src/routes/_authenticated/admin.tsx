@@ -3461,12 +3461,40 @@ function ParentsTab({
         >
           <CameraOff className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Photos off only
         </Button>
+        <Button
+          size="sm"
+          variant={noStudentsOnly ? "default" : "outline"}
+          className={noStudentsOnly ? "bg-gradient-red" : ""}
+          aria-pressed={noStudentsOnly}
+          onClick={() => setNoStudentsOnly((v) => !v)}
+        >
+          <UserRoundX className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> No students only
+        </Button>
+        <Button
+          size="sm"
+          variant={showArchived ? "default" : "outline"}
+          className={showArchived ? "bg-gradient-red" : ""}
+          aria-pressed={showArchived}
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          <Archive className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+          Archived ({archivedCount})
+        </Button>
         {pendingCount > 0 && (
           <span className="text-xs text-muted-foreground">
             {pendingCount} recent consent change{pendingCount === 1 ? "" : "s"} still need a staff review.
           </span>
         )}
       </div>
+
+      {showArchived && (
+        <p className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-xs text-amber-100">
+          Archived accounts are hidden from the default list and their students are inactive. The parent can
+          still sign in — archiving is a staff-side filing state, not a lock. Deleting an account is permanent
+          and is refused while any student record still points at it.
+        </p>
+      )}
+
 
       <div className="mt-5 space-y-2">
         {profilesQ.isLoading && <p className="text-sm text-muted-foreground" aria-busy="true">Loading…</p>}
