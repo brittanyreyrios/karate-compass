@@ -105,6 +105,8 @@ export type TournamentRow = {
   event_end_date: string | null;
   registration_deadline: string | null;
   event_url: string | null;
+  /** Round 52: carried for the admin-only marker. Never used as a filter. */
+  publish_at: string | null;
 };
 
 
@@ -408,7 +410,9 @@ export function buildCalendarItems(options: {
         registrationDeadline: t.registration_deadline,
         eventUrl: t.event_url,
         disciplines: tags,
-        publishAt: null,
+        // Round 52: an announcement-sourced tournament can be future-scheduled
+        // too, so it gets the same marker input as an event-sourced one.
+        publishAt: t.publish_at,
       });
     });
   }

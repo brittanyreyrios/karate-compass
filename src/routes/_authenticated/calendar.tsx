@@ -115,7 +115,9 @@ export function useCalendarData(month: Date) {
       const { data, error } = await supabase
         .from("announcements")
         .select(
-          "id, title, body, discipline, disciplines, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url",
+          // Round 52: publish_at is a SELECT-LIST addition only — no predicate here
+          // or anywhere else mentions it.
+          "id, title, body, discipline, disciplines, location, venue, address, divisions, event_date, event_end_date, registration_deadline, event_url, publish_at",
         )
         .eq("category", "tournament")
         .not("event_date", "is", null)
