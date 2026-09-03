@@ -36,10 +36,16 @@ export type Tournament = {
   spectator_info: string | null;
   event_url: string | null;
   created_at: string;
+  /**
+   * Round 52: one uniform field for BOTH branches of the union, so the card has
+   * a single value to check and the two code paths cannot drift. It is a plain
+   * select-list column — nothing below filters on it; RLS remains the only gate.
+   */
+  publish_at: string | null;
 };
 
 const TOURNAMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at, publish_at";
 
 /** Local calendar day, not UTC — a date-only column must not shift timezone. */
 function todayKey() {
@@ -93,7 +99,7 @@ export function useTournaments(limit?: number) {
 
       let evQuery = supabase
         .from("events")
-        .select("id, title, description, starts_at, ends_at, location, disciplines")
+        .select("id, title, description, starts_at, ends_at, location, disciplines, publish_at")
         .eq("event_type", "tournament")
         .is("announcement_id", null)
         .eq("published", true)
@@ -155,6 +161,7 @@ export function useTournaments(limit?: number) {
         spectator_info: null,
         event_url: null,
         created_at: e.starts_at,
+        publish_at: e.publish_at,
       }));
 
       const merged = [...fromAnnouncements, ...fromEvents].sort(byEventDate);

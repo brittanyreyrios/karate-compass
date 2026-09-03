@@ -31,6 +31,8 @@ export type DojoEvent = {
   published: boolean;
   announcement_id: string | null;
   disciplines: string[] | null;
+  /** Round 52: carried for the admin-only marker. Never used as a filter. */
+  publish_at: string | null;
 };
 
 
@@ -203,6 +205,12 @@ export type CalendarItem = {
    * item came from. Closures and testing dates are always [].
    */
   disciplines: string[];
+  /**
+   * Round 52: the event row's publish_at, for the admin-only "Scheduled"
+   * marker. null for closures, belt tests and tournament rows, which have no
+   * such column. Display only — it filters nothing.
+   */
+  publishAt: string | null;
 };
 
 /**
