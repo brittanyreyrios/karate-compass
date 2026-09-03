@@ -32,13 +32,15 @@ function PlacementIcon({ placement }: { placement: number | null }) {
  * Measured, not guessed: 96px medal tile + 12px gap + 168px name/division text
  * column (the longest realistic "Christopher T" over "Gi Intermediate 12-13") +
  * 20px row padding (p-2.5 both sides) + 32px card padding (p-4 both sides) = 328px.
- * Rounded to 20.5rem / 328px and fed straight into the grid track minimum, so the
+ * Rounded to 20.5rem / 328px and fed to the grid track minimum as
+ * min(20.5rem,100%), so a container narrower than one card still yields exactly
+ * one full-width column instead of a card wider than its own section, so the
  * COLUMN COUNT IS RESOLVED BY CSS from the grid's own width. That inherently
  * handles the 1024-vs-1025 inversion (Sheet sidebar below 1025, 255px rail at or
  * above it) that no min-width breakpoint can express.
  */
 const WC_MIN_CARD_PX = 328;
-const WC_GRID_COLS = "grid-cols-[repeat(auto-fill,minmax(20.5rem,1fr))]";
+const WC_GRID_COLS = "grid-cols-[repeat(auto-fill,minmax(min(20.5rem,100%),1fr))]";
 
 /** Single column reads fine as a list, so phone keeps three. */
 const WC_SINGLE_COLUMN_COUNT = 3;
