@@ -282,6 +282,7 @@ export function buildCalendarItems(options: {
       registrationDeadline: null,
       eventUrl: null,
       disciplines: [],
+      publishAt: null,
     });
   }
 
@@ -309,6 +310,7 @@ export function buildCalendarItems(options: {
       registrationDeadline: null,
       eventUrl: null,
       disciplines: [],
+      publishAt: null,
     });
   }
 
@@ -370,6 +372,8 @@ export function buildCalendarItems(options: {
       registrationDeadline: null,
       eventUrl: null,
       disciplines: cleanDisciplines(e.disciplines),
+      // Round 52: display-only marker input; no query filters on it.
+      publishAt: e.publish_at,
     });
   }
 
@@ -404,6 +408,7 @@ export function buildCalendarItems(options: {
         registrationDeadline: t.registration_deadline,
         eventUrl: t.event_url,
         disciplines: tags,
+        publishAt: null,
       });
     });
   }
