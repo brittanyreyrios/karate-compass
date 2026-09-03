@@ -28,16 +28,16 @@ function PlacementIcon({ placement }: { placement: number | null }) {
  * never staff notes. Order is the function's; grouping is a run-length pass.
  */
 /**
- * Minimum width one tournament card needs for its event rows to stay on ONE line.
- * Measured, not guessed: 96px medal tile + 12px gap + 168px name/division text
- * column (the longest realistic "Christopher T" over "Gi Intermediate 12-13") +
- * 20px row padding (p-2.5 both sides) + 32px card padding (p-4 both sides) = 328px.
- * Rounded to 20.5rem / 328px and fed to the grid track minimum as
+ * Minimum width one tournament card needs before CSS is willing to add a second
+ * column. Measured, not guessed: 96px medal tile + 12px gap + 168px name/division
+ * text column (the longest realistic "Christopher T" over "Gi Intermediate 12-13")
+ * + 20px row padding (p-2.5 both sides) + 32px card padding (p-4 both sides) =
+ * 328px. Rounded to 20.5rem / 328px and fed to the grid track minimum as
  * min(20.5rem,100%), so a container narrower than one card still yields exactly
- * one full-width column instead of a card wider than its own section, so the
- * COLUMN COUNT IS RESOLVED BY CSS from the grid's own width. That inherently
- * handles the 1024-vs-1025 inversion (Sheet sidebar below 1025, 255px rail at or
- * above it) that no min-width breakpoint can express.
+ * one full-width column instead of a card wider than its own section. The column
+ * count is resolved by CSS from the grid's own width, which inherently handles
+ * the 1024-vs-1025 inversion (Sheet sidebar below 1025, 255px rail at or above
+ * it) that no min-width breakpoint can express.
  */
 const WC_MIN_CARD_PX = 328;
 const WC_GRID_COLS = "grid-cols-[repeat(auto-fill,minmax(min(20.5rem,100%),1fr))]";
@@ -48,7 +48,8 @@ const WC_SINGLE_COLUMN_COUNT = 3;
 /**
  * Reads the column count the browser ACTUALLY resolved for the grid, rather than
  * recomputing thresholds in JS beside the CSS (two derivations that agree only by
- * discipline). Collapsed tracks from auto-fit report as 0px, so they are dropped.
+ * discipline). Empty tracks from an auto-fill grid can report as 0px, so any
+ * zero-width tracks are dropped as a defensive guard.
  */
 function resolvedColumnCount(el: HTMLElement): number {
   const tracks = getComputedStyle(el)
