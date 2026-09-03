@@ -83,3 +83,17 @@ export function useScheduledAnnouncements() {
 
   return { isAdmin, scheduled };
 }
+
+/**
+ * Round 52 — the same admin gate Round 45 used, as one function.
+ *
+ * Events carry publish_at on the row itself, so no lookup query is needed: the
+ * only thing the surfaces need is "am I an admin". Kept here rather than copied
+ * into three components so the marker's visibility rule lives in one place.
+ * Nothing above is changed.
+ */
+export function useShowScheduledMarker(): boolean {
+  const { user } = useSession();
+  const isAdminQ = useIsAdmin(user?.id);
+  return !!isAdminQ.data;
+}
