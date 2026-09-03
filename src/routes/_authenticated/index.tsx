@@ -198,6 +198,11 @@ function Dashboard() {
 
   const news = (announcementsQ.data ?? []).slice(0, 4);
   const tournaments = tournamentsQ.data ?? [];
+  /**
+   * Round 45: admin-only marker. Presentational — the news list above is not
+   * filtered or reordered by this, RLS remains the only visibility gate.
+   */
+  const { scheduled: scheduledAnnouncements } = useScheduledAnnouncements();
 
 
   // Yearly attendance log — counts only classes logged in the current calendar
