@@ -45,7 +45,6 @@ import { GoogleReviewCard } from "@/components/google-review-card";
 import { QueryErrorState } from "@/components/query-error";
 import { TournamentResultsSection } from "@/components/tournament-results-section";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
-import { ScheduledBadge } from "@/components/scheduled-badge";
 import { isScheduled } from "@/lib/schedule-time";
 import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
