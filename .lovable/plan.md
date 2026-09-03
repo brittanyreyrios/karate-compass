@@ -1,53 +1,71 @@
-# Winner's Circle — phone row alignment, container-driven columns, orphan-free collapse
+# Archive, then delete, parent accounts (admin-only)
 
-Scope: `src/components/winners-circle-section.tsx` only, plus a one-line comment
-correction in `src/components/tournament-results-section.tsx`. No query, migration,
-data or privacy change; `{r.first_name} {r.last_initial}` stays exactly as is.
+## Mechanism decision (before code)
 
-## 1 — Phone row reads as one unit
+**Chosen: a TanStack server function using the service role and the GoTrue Admin API
+(`supabase.auth.admin.deleteUser`) — not a Supabase edge function, and not a
+SECURITY DEFINER SQL function.**
 
-Today the row is `flex flex-wrap` with the chip group in `ml-auto … justify-end`,
-so at 390px the chip wraps to its own full-width right-aligned line. Fix: move the
-discipline chips out of the `ml-auto` right-aligned group and render them inside
-the text column, on their own line directly beneath the event/division, left-aligned
-with the name. At wide container widths the chips return to the right of the row.
-The switch is driven by the section's container query (same mechanism as §3), not a
-viewport breakpoint, so the 1024/1025 inversion cannot break it.
+Why:
+- This project's backend convention is `createServerFn` for app-internal logic; edge
+  functions are not used here, so no new infrastructure is stood up.
+- `auth.admin.deleteUser` is GoTrue's own delete path, so its internal state
+  (sessions, identities, refresh tokens, MFA factors) stays consistent. A SQL
+  `DELETE FROM auth.users` bypasses GoTrue and is exactly the inconsistency risk you
+  named — and it would also mean touching the `auth` schema, which is off limits.
+- Consequence: **no new database function is created**, so there is no new
+  `pg_proc.proacl` to harden. I will still show `proacl` evidence — that no new
+  function exists — and confirm existing function ACLs are unchanged.
 
-Tournament Results keeps its current row layout untouched — its row has one text
-line, so the chip never wraps there; matching it means "chip sits with its text",
-which is what this change produces.
+Server-side authority for every action in this feature: the server function runs
+`requireSupabaseAuth`, then re-checks `has_role(<caller>, 'admin')` through the
+caller's own RLS-scoped client. Non-admins get a thrown error before any write.
 
-## 2/3 — Columns from a container query, collapse = exactly one row
+## 1 — Archive state on accounts
 
-- `@container` goes on the section (or the grid wrapper), and the grid resolves
-  1 / 2 / 3 columns from measured container-width thresholds — no `lg:`.
-- Thresholds are derived from a measured minimum 3-across card width:
-  tile (96px) + gap (12px) + longest realistic name/division text + gap + widest
-  discipline chip + card padding (2 × 16px) + grid gaps. I will measure the real
-  widths in the browser before fixing the numbers, and report them.
-- Collapsed count = the active column count, except single column where it stays 3.
-  One source of truth: a single exported-in-file `WC_COLUMN_STEPS` array of
-  `{ minWidth, columns }`. The CSS classes and the JS collapsed count both read
-  that array — the JS side observes the container with a `ResizeObserver`, so the
-  two can never drift.
-- "View all N tournaments" / "Show less" unchanged; N stays the total tournament
-  count; the control is absent when everything already fits in one row.
-- If 3 across does not actually fit, I stay at 2 and say so — no shrinking the tile
-  or the text.
+- Migration: `ALTER TABLE public.profiles ADD COLUMN archived_at timestamptz` (nullable).
+  No policy, grant, trigger, or auth setting changes.
+- Note: `profiles` has no admin UPDATE policy today (only "Users update own profile"),
+  so archiving cannot be a client write. It goes through the same admin server function,
+  which is why no RLS change is needed. Sign-in is untouched — archiving is display state
+  only. No login gate (asking first if you ever want one).
+- Archive: set `archived_at = now()` and `active = false` on every student with that
+  `parent_id`. Restore: `archived_at = null` and `active = true` on those students.
+- Accounts list: archived accounts drop out of the default list and appear behind an
+  "Archived" filter with a Restore control, mirroring `ArchivedStudentsPanel`.
 
-## Comment correction
+## 2 & 3 — Delete, only from archived state
 
-`tournament-results-section.tsx:48` claims content is <768px below 1024 because of
-the persistent sidebar. Round 48 made the sidebar a Sheet at ≤1024, so content is
-full width there. Comment text only — no code change in that file.
+- The Delete control renders only on an already-archived account (two deliberate steps).
+- Server refusal (authoritative, independent of the UI): count **all** rows in
+  `students` with that `parent_id` — no `active` filter. If > 0, throw with the count and
+  the children's names, pointing at the existing "move student to another family" tool.
+- On success, delete all three pieces explicitly, in order: `user_roles` rows for that
+  user, the `profiles` row, then the `auth.users` row via the Admin API. Each step's
+  result is checked; the report proves all three are gone.
 
-## Verification I will report
+## 4 — Zero-child badge / filter
 
-`git diff --stat`; the measured min card width and both thresholds; a width →
-columns → collapsed-cards table at 390/768/1024/1025/1280/1440/1536; 1024 vs 1025
-side by side (columns, card width, `row.scrollWidth <= row.clientWidth`);
-screenshots at 390/768/1024/1025/1280/1440 collapsed plus one expanded; a 390px
-Winner's Circle vs Tournament Results comparison; Tournament Results screenshots at
-390 and 1024 with its isolated one-line diff; and `grep` proving `placementLabel`,
-`placementChipClass`, `placementTileClass` and `PLACEMENT_TILE_BOX` are byte-identical.
+- Accounts list gets a "No students" badge plus a filter toggle, computed from a
+  `students` count grouped by `parent_id`. Display only — it gates nothing, and no delete
+  behaviour keys off it.
+
+## Files
+
+- `supabase/migrations/*` — the one `ALTER TABLE`.
+- `src/lib/parent-accounts.functions.ts` — new: `archiveParentAccount`,
+  `restoreParentAccount`, `deleteParentAccount` (admin-verified, service-role writes).
+- `src/routes/_authenticated/admin.tsx` — `ParentsTab`: archived filter, no-students
+  badge/filter, archive/restore/delete controls with confirm dialogs.
+
+## Test plan (real output in the report)
+
+Throwaway accounts I create and remove myself, clearly labelled
+(`zz-throwaway-*@example.com`). Never touching `brittanyrey1214@gmail.com` or
+`falconpllc@gmail.com`; `brittanyrey1214@utexas.edu` left alone unless you say otherwise
+(it is not needed for testing).
+
+Evidence: `git diff --stat`, the full migration, refusal called directly on the server for
+both an active child and an archived child, archive/restore round trip, a clean delete
+with post-delete queries against `auth.users`, `profiles`, `user_roles`, a policy/grant
+diff showing nothing else changed, and a final sweep proving zero test accounts remain.
