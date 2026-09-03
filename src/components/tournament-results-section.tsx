@@ -45,9 +45,11 @@ export function TournamentResultsSection({
   // the Round 40 @container two-up events list (the two solved the same
   // problem in conflicting ways, and the two-up cells were too tight for a
    // medal tile plus a right-aligned chip).
-  // The second column waits for lg: below 1024px the persistent sidebar leaves
-  // main content <768px wide, where 2-col cards drop under ~200px and the
-  // 96px medal tile plus right-aligned chips cannot fit on one row.
+  // The second column waits for lg: so a 2-col card never drops under ~200px,
+  // where the 96px medal tile plus a right-aligned chip cannot share one row.
+  // (Round 48 moved MOBILE_BREAKPOINT to 1024 inclusive, so below 1024 the
+  // sidebar is a Sheet and main content is full width — the earlier note here
+  // about a persistent sidebar shrinking content below 768px is obsolete.)
   const gridCols = "lg:grid-cols-2";
 
   return (
