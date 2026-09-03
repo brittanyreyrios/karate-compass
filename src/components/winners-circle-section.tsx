@@ -38,7 +38,7 @@ function PlacementIcon({ placement }: { placement: number | null }) {
  * above it) that no min-width breakpoint can express.
  */
 const WC_MIN_CARD_PX = 328;
-const WC_GRID_COLS = "grid-cols-[repeat(auto-fit,minmax(20.5rem,1fr))]";
+const WC_GRID_COLS = "grid-cols-[repeat(auto-fill,minmax(20.5rem,1fr))]";
 
 /** Single column reads fine as a list, so phone keeps three. */
 const WC_SINGLE_COLUMN_COUNT = 3;
