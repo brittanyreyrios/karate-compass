@@ -1,71 +1,61 @@
-# Archive, then delete, parent accounts (admin-only)
+# Round 52 — mark future-scheduled events for admins
 
-## Mechanism decision (before code)
+Same gap Round 45 closed for announcements, applied to events. Scope is exactly one
+state: `published = true` with `publish_at` in the future. Nothing else changes.
 
-**Chosen: a TanStack server function using the service role and the GoTrue Admin API
-(`supabase.auth.admin.deleteUser`) — not a Supabase edge function, and not a
-SECURITY DEFINER SQL function.**
+## Rule I am holding to
 
-Why:
-- This project's backend convention is `createServerFn` for app-internal logic; edge
-  functions are not used here, so no new infrastructure is stood up.
-- `auth.admin.deleteUser` is GoTrue's own delete path, so its internal state
-  (sessions, identities, refresh tokens, MFA factors) stays consistent. A SQL
-  `DELETE FROM auth.users` bypasses GoTrue and is exactly the inconsistency risk you
-  named — and it would also mean touching the `auth` schema, which is off limits.
-- Consequence: **no new database function is created**, so there is no new
-  `pg_proc.proacl` to harden. I will still show `proacl` evidence — that no new
-  function exists — and confirm existing function ACLs are unchanged.
+`publish_at` is added to **select lists only**. No `.eq`, `.gte`, `.lte`, `.or`, `.not`,
+or any other predicate mentioning `publish_at` or `published` is added, removed or
+altered. RLS stays the only gate. The three existing `.eq("published", true)` filters are
+left exactly as they are.
 
-Server-side authority for every action in this feature: the server function runs
-`requireSupabaseAuth`, then re-checks `has_role(<caller>, 'admin')` through the
-caller's own RLS-scoped client. Non-admins get a thrown error before any write.
+## Admin gate
 
-## 1 — Archive state on accounts
+Reused from Round 45: `useSession()` + `useIsAdmin(user?.id)` from `@/hooks/use-auth`.
+Badge renders only when that is true, so a parent's DOM contains no badge markup.
+`ScheduledBadge` and `isScheduled` are used byte-identical — no fork, no restyle, no
+second future-date check.
 
-- Migration: `ALTER TABLE public.profiles ADD COLUMN archived_at timestamptz` (nullable).
-  No policy, grant, trigger, or auth setting changes.
-- Note: `profiles` has no admin UPDATE policy today (only "Users update own profile"),
-  so archiving cannot be a client write. It goes through the same admin server function,
-  which is why no RLS change is needed. Sign-in is untouched — archiving is display state
-  only. No login gate (asking first if you ever want one).
-- Archive: set `archived_at = now()` and `active = false` on every student with that
-  `parent_id`. Restore: `archived_at = null` and `active = true` on those students.
-- Accounts list: archived accounts drop out of the default list and appear behind an
-  "Archived" filter with a Restore control, mirroring `ArchivedStudentsPanel`.
+## The three surfaces
 
-## 2 & 3 — Delete, only from archived state
+1. **Calendar** (`src/routes/_authenticated/calendar.tsx` + `src/lib/calendar-data.ts`)
+   - add `publish_at` to the events select list and to the `DojoEvent` type;
+   - carry it onto `CalendarItem` as `publishAt` (null for closures, testing dates and
+     tournament rows, which have no such column);
+   - render `<ScheduledBadge>` in `ItemCard` (the day panel) when admin and
+     `isScheduled(item.publishAt)`.
+   - Honest limitation: the month-grid tiles are single-line chips a few characters wide
+     and cannot host the badge as-is. I will not invent a compact variant. The badge
+     appears on the day panel card, which is where an event's detail already lives. If
+     you want a marker on the tile itself, that is a separate decision.
 
-- The Delete control renders only on an already-archived account (two deliberate steps).
-- Server refusal (authoritative, independent of the UI): count **all** rows in
-  `students` with that `parent_id` — no `active` filter. If > 0, throw with the count and
-  the children's names, pointing at the existing "move student to another family" tool.
-- On success, delete all three pieces explicitly, in order: `user_roles` rows for that
-  user, the `profiles` row, then the `auth.users` row via the Admin API. Each step's
-  result is checked; the report proves all three are gone.
+2. **Dashboard "Next Up" strip** (`NextUpStrip` in `src/routes/_authenticated/index.tsx`)
+   - add `publish_at` to the select list; render the badge inside the list item.
 
-## 4 — Zero-child badge / filter
+3. **Tournaments list** (`useTournaments()` in `src/lib/announcements.ts`, rendered by
+   `TournamentCard`)
+   - add `publish_at` to the events-branch select list and map it onto the `Tournament`
+     shape (announcement-sourced rows carry their own `publish_at`, already covered by
+     Round 45's map on the announcements page — the event-derived rows are the gap);
+   - `TournamentCard` gains one optional `publishAt` prop; the two call sites (dashboard
+     and announcements page) pass it and do the admin check. No change to the card's
+     existing layout when the prop is absent, so the parent view is byte-for-byte the
+     same.
 
-- Accounts list gets a "No students" badge plus a filter toggle, computed from a
-  `students` count grouped by `parent_id`. Display only — it gates nothing, and no delete
-  behaviour keys off it.
+## Untouched
 
-## Files
+No migration, no policy, no grant, no database function, no `get_school_news`. Nothing
+from Rounds 43, 45, 47 or 50 changes.
 
-- `supabase/migrations/*` — the one `ALTER TABLE`.
-- `src/lib/parent-accounts.functions.ts` — new: `archiveParentAccount`,
-  `restoreParentAccount`, `deleteParentAccount` (admin-verified, service-role writes).
-- `src/routes/_authenticated/admin.tsx` — `ParentsTab`: archived filter, no-students
-  badge/filter, archive/restore/delete controls with confirm dialogs.
+## Verification I will report
 
-## Test plan (real output in the report)
+`git diff --stat` (no `supabase/migrations/` entry); every added/changed line mentioning
+`publish_at` or `published`, pasted; admin screenshots of a badged future-scheduled event
+and an unbadged normal event on all three surfaces; a real non-admin parent session
+(named) showing the scheduled event absent and zero badge markup; before/after rendered
+event-id sets per surface for the same account; the grep proving `ScheduledBadge` and
+`isScheduled` are byte-identical; test rows deleted with a zero-remaining query.
 
-Throwaway accounts I create and remove myself, clearly labelled
-(`zz-throwaway-*@example.com`). Never touching `brittanyrey1214@gmail.com` or
-`falconpllc@gmail.com`; `brittanyrey1214@utexas.edu` left alone unless you say otherwise
-(it is not needed for testing).
-
-Evidence: `git diff --stat`, the full migration, refusal called directly on the server for
-both an active child and an archived child, archive/restore round trip, a clean delete
-with post-delete queries against `auth.users`, `profiles`, `user_roles`, a policy/grant
-diff showing nothing else changed, and a final sweep proving zero test accounts remain.
+Plus the report-only analysis of the three `.eq("published", true)` client filters —
+what removing them would show an admin and what argues against it. No change to them.
