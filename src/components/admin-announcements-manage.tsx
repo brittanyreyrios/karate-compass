@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/select";
 import { count } from "@/lib/plural";
 import { formatDateOnly } from "@/lib/date-only";
+import { ScheduledBadge } from "@/components/scheduled-badge";
 import {
   chicagoToInstant,
-  formatChicagoDateTime,
   instantToChicago,
   isScheduled,
 } from "@/lib/schedule-time";
@@ -493,10 +493,7 @@ function ManageRow({
               </Badge>
             )}
             {scheduledNow ? (
-              <Badge className="border-amber-400/60 bg-amber-500/15 text-amber-200" variant="outline">
-                <CalendarClock className="mr-1 h-3 w-3" aria-hidden="true" /> Scheduled ·{" "}
-                {formatChicagoDateTime(row.publish_at!)}
-              </Badge>
+              <ScheduledBadge publishAt={row.publish_at!} />
             ) : (
               <Badge variant="outline" className="border-emerald-400/50 text-emerald-300">
                 Live

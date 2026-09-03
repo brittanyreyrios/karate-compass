@@ -33,6 +33,8 @@ import { daysUntilDateOnly, formatDateOnlyLong, formatMonthYear, yearsSinceDateO
 import { TournamentCard } from "@/components/tournament-card";
 import { WinnersCircleSection } from "@/components/winners-circle-section";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
+import { ScheduledBadge } from "@/components/scheduled-badge";
+import { useScheduledAnnouncements } from "@/lib/scheduled-announcements";
 import { DisciplineTags } from "@/components/discipline-tags";
 import { Link } from "@tanstack/react-router";
 
@@ -196,6 +198,11 @@ function Dashboard() {
 
   const news = (announcementsQ.data ?? []).slice(0, 4);
   const tournaments = tournamentsQ.data ?? [];
+  /**
+   * Round 45: admin-only marker. Presentational — the news list above is not
+   * filtered or reordered by this, RLS remains the only visibility gate.
+   */
+  const { scheduled: scheduledAnnouncements } = useScheduledAnnouncements();
 
 
   // Yearly attendance log — counts only classes logged in the current calendar
@@ -529,6 +536,11 @@ function Dashboard() {
                     eventEndDate={n.event_end_date}
                     pinned={n.pinned}
                   />
+                  {scheduledAnnouncements.has(n.id) && (
+                    <div className="mt-2">
+                      <ScheduledBadge publishAt={scheduledAnnouncements.get(n.id)!} />
+                    </div>
+                  )}
                   <h3 className="mt-3 font-semibold text-foreground group-hover:text-primary">{n.title}</h3>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
                   <NewsPostedLine createdAt={n.created_at} />
