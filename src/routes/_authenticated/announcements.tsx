@@ -10,6 +10,8 @@ import { QueryErrorState } from "@/components/query-error";
 import { useTournaments } from "@/lib/announcements";
 import { TournamentCard } from "@/components/tournament-card";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
+import { ScheduledBadge } from "@/components/scheduled-badge";
+import { useScheduledAnnouncements } from "@/lib/scheduled-announcements";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -101,6 +103,11 @@ function Announcements() {
    * filtered out of a shared feed and sorted here — see src/lib/announcements.ts
    * for why a client-side sort of a paginated feed is silently wrong.
    */
+  /**
+   * Round 45: admin-only marker. RLS returns zero rows to a parent, and this
+   * lookup never filters the feed — the news list itself is untouched.
+   */
+  const { scheduled: scheduledAnnouncements } = useScheduledAnnouncements();
   const tournamentsQ = useTournaments();
   const tournaments = tournamentsQ.data ?? [];
   const showTournamentSkeleton = useDelayedLoading(tournamentsQ.isLoading);
@@ -135,6 +142,11 @@ function Announcements() {
                   eventEndDate={n.event_end_date}
                   pinned={n.pinned}
                 />
+                {scheduledAnnouncements.has(n.id) && (
+                  <div className="mt-3">
+                    <ScheduledBadge publishAt={scheduledAnnouncements.get(n.id)!} />
+                  </div>
+                )}
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
                 <NewsPostedLine createdAt={n.created_at} />
