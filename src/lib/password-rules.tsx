@@ -77,25 +77,26 @@ export const LEAKED_PASSWORD_NOTE =
 export function PasswordChecklist({ password, id }: { password: string; id: string }) {
   const { results } = checkPassword(password);
   return (
-    <ul
-      id={id}
-      aria-live="polite"
-      className="mt-2 space-y-1 rounded-xl border border-border bg-background p-3"
-    >
-      {results.map(({ rule, ok }) => (
-        <li
-          key={rule.id}
-          className={`flex items-center gap-2 text-xs ${ok ? "text-emerald-300" : "text-muted-foreground"}`}
-        >
-          {ok ? (
-            <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          ) : (
-            <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          )}
-          <span>{rule.label}</span>
-          <span className="sr-only">{ok ? "— met" : "— not met"}</span>
-        </li>
-      ))}
-    </ul>
+    <div id={id} className="mt-2 rounded-xl border border-border bg-background p-3">
+      <ul aria-live="polite" className="space-y-1">
+        {results.map(({ rule, ok }) => (
+          <li
+            key={rule.id}
+            className={`flex items-center gap-2 text-xs ${ok ? "text-emerald-300" : "text-muted-foreground"}`}
+          >
+            {ok ? (
+              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            )}
+            <span>{rule.label}</span>
+            <span className="sr-only">{ok ? "— met" : "— not met"}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
+        {LEAKED_PASSWORD_NOTE}
+      </p>
+    </div>
   );
 }
