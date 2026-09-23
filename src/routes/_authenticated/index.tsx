@@ -28,7 +28,8 @@ import { LevelChip } from "@/components/level-chip";
 import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
-import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, type DojoEvent } from "@/lib/calendar-data";
+import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, toDateKey, type DojoEvent } from "@/lib/calendar-data";
+import { useEnrollments } from "@/lib/enrollment";
 import { daysUntilDateOnly, formatDateOnlyLong, formatMonthYear, yearsSinceDateOnly } from "@/lib/date-only";
 import { TournamentCard } from "@/components/tournament-card";
 import { WinnersCircleSection } from "@/components/winners-circle-section";
@@ -67,7 +68,13 @@ type Student = {
   belt_rank_id: string | null;
   attendance_count: number;
   start_date: string;
-  next_test_date: string | null;
+  /*
+    students.next_test_date is deliberately NOT read here. Round 54: the belt
+    test date is derived from the classes the child is enrolled in
+    (class_schedules.next_test_date — the single source of truth), exactly as the
+    Calendar does. The per-student copy is never written when a class date is
+    set, so 30 active children saw nothing.
+  */
   class_name: string;
   points: number;
 };
@@ -251,11 +258,54 @@ function Dashboard() {
   // Delayed + minimum-duration so the skeleton never appears for one frame.
   const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
 
+  /**
+   * Round 54: the belt test date comes from the student's classes.
+   *
+   * Readable by a parent under existing RLS — class_schedules SELECT is `true`
+   * for authenticated, and student_classes SELECT allows a parent their own
+   * children. No policy change was needed.
+   */
+  const enrollmentsQ = useEnrollments();
+  const classTestDatesQ = useQuery({
+    queryKey: ["class-test-dates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("class_schedules")
+        .select("id, class_name, next_test_date")
+        .not("next_test_date", "is", null)
+        .order("next_test_date");
+      if (error) throw error;
+      return (data ?? []) as { id: string; class_name: string; next_test_date: string }[];
+    },
+  });
+
   // Hooks must run in the same order on every render — compute derived values
   // BEFORE any conditional early return.
+  /**
+   * ONE value feeds both the countdown and the date label below, so they can
+   * never disagree (that split is exactly how a correct day count once appeared
+   * beside the wrong date).
+   *
+   * A child in several classes takes the soonest UPCOMING date. "Upcoming" is
+   * compared as a local calendar day key — never against a UTC-derived today,
+   * which would drop a test scheduled for today during Central evening hours.
+   */
+  const nextTest = useMemo(() => {
+    if (!student) return null;
+    const classIds = new Set(
+      (enrollmentsQ.data ?? []).filter((e) => e.student_id === student.id).map((e) => e.class_id),
+    );
+    const todayKey = toDateKey(new Date());
+    const upcoming = (classTestDatesQ.data ?? [])
+      .filter((c) => classIds.has(c.id) && c.next_test_date >= todayKey)
+      .sort((a, b) => a.next_test_date.localeCompare(b.next_test_date));
+    const soonest = upcoming[0];
+    return soonest ? { date: soonest.next_test_date, className: soonest.class_name } : null;
+  }, [student, enrollmentsQ.data, classTestDatesQ.data]);
+
   const daysToTest = useMemo(
-    () => (student?.next_test_date ? daysUntilDateOnly(student.next_test_date) : null),
-    [student?.next_test_date],
+    () => (nextTest ? daysUntilDateOnly(nextTest.date) : null),
+    [nextTest],
   );
 
   if (showSkeleton) {
@@ -464,10 +514,11 @@ function Dashboard() {
               {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : "No test scheduled"}
             </div>
 
-            {student.next_test_date && (
+            {/* Same `nextTest` value as the countdown above — one source. */}
+            {nextTest && (
               <div className="mt-6 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-xs uppercase tracking-widest">
                 <Calendar className="h-3.5 w-3.5" />
-                {formatDateOnlyLong(student.next_test_date)}
+                {formatDateOnlyLong(nextTest.date)}
               </div>
             )}
           </div>
