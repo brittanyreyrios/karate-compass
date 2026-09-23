@@ -298,7 +298,11 @@ function AuthPage() {
                 disabled={loading || resendSecondsLeft > 0}
                 onClick={() => resendConfirmation()}
               >
-                {loading ? "Sending…" : "Resend email"}
+                {loading
+                  ? "Sending…"
+                  : resendSecondsLeft > 0
+                    ? `Resend email in ${resendSecondsLeft}s`
+                    : "Resend email"}
               </Button>
               <Button
                 variant="ghost"
