@@ -51,6 +51,24 @@ export const PASSWORD_REQUIREMENTS_MESSAGE =
   "Your password needs 8+ characters with an uppercase letter, a lowercase letter, a number and a special character.";
 
 /**
+ * Round 53 — what the server enforces, verified empirically against the live
+ * auth service (not from documentation):
+ *
+ *   minimum length 8;
+ *   at least one of each: a-z, A-Z, 0-9, and SPECIAL_CHARACTERS above
+ *     (byte-identical to the server's set, backtick and tilde included);
+ *   PLUS a breached-password (HIBP) check, which no browser-side checklist can
+ *     perform.
+ *
+ * That last one is why an all-green checklist can still be refused. The
+ * checklist says so out loud, and src/routes/auth.tsx turns the server's
+ * structured rejection reason into a plain-English message.
+ */
+export const LEAKED_PASSWORD_NOTE =
+  "Also checked against known leaked passwords when you submit.";
+
+
+/**
  * Live checklist rendered beneath a new-password field. Always visible, so a
  * parent sees the rules before typing. Never colour-only: each row pairs its
  * colour with an icon and screen-reader-only "Met"/"Not met" text, and the list
