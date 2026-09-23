@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
 import { EMAIL_TLD_MESSAGE, isEmailWithTld } from "@/lib/email-check";
+import { authErrorMessage } from "@/lib/auth-errors";
 import {
   PASSWORD_REQUIREMENTS_MESSAGE,
   PasswordChecklist,

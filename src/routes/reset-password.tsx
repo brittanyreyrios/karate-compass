@@ -11,6 +11,10 @@ import {
   PasswordChecklist,
   checkPassword,
 } from "@/lib/password-rules";
+import { authErrorMessage } from "@/lib/auth-errors";
+
+const GENERIC_PASSWORD_UPDATE =
+  "We couldn't update your password just now. Please try again, or contact the front desk if it keeps happening.";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
@@ -75,7 +79,9 @@ function ResetPasswordPage() {
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    // Round 53 — never dump the raw backend string here; the shared translator
+    // names the real objection (breached password, length, character class).
+    if (error) return toast.error(authErrorMessage(error, GENERIC_PASSWORD_UPDATE));
     toast.success("Password updated. You're signed in.");
     navigate({ to: "/" });
   };
