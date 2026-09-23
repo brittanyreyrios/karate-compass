@@ -51,6 +51,24 @@ export const PASSWORD_REQUIREMENTS_MESSAGE =
   "Your password needs 8+ characters with an uppercase letter, a lowercase letter, a number and a special character.";
 
 /**
+ * Round 53 — what the server enforces, verified empirically against the live
+ * auth service (not from documentation):
+ *
+ *   minimum length 8;
+ *   at least one of each: a-z, A-Z, 0-9, and SPECIAL_CHARACTERS above
+ *     (byte-identical to the server's set, backtick and tilde included);
+ *   PLUS a breached-password (HIBP) check, which no browser-side checklist can
+ *     perform.
+ *
+ * That last one is why an all-green checklist can still be refused. The
+ * checklist says so out loud, and src/routes/auth.tsx turns the server's
+ * structured rejection reason into a plain-English message.
+ */
+export const LEAKED_PASSWORD_NOTE =
+  "Also checked against known leaked passwords when you submit.";
+
+
+/**
  * Live checklist rendered beneath a new-password field. Always visible, so a
  * parent sees the rules before typing. Never colour-only: each row pairs its
  * colour with an icon and screen-reader-only "Met"/"Not met" text, and the list
@@ -59,25 +77,26 @@ export const PASSWORD_REQUIREMENTS_MESSAGE =
 export function PasswordChecklist({ password, id }: { password: string; id: string }) {
   const { results } = checkPassword(password);
   return (
-    <ul
-      id={id}
-      aria-live="polite"
-      className="mt-2 space-y-1 rounded-xl border border-border bg-background p-3"
-    >
-      {results.map(({ rule, ok }) => (
-        <li
-          key={rule.id}
-          className={`flex items-center gap-2 text-xs ${ok ? "text-emerald-300" : "text-muted-foreground"}`}
-        >
-          {ok ? (
-            <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          ) : (
-            <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          )}
-          <span>{rule.label}</span>
-          <span className="sr-only">{ok ? "— met" : "— not met"}</span>
-        </li>
-      ))}
-    </ul>
+    <div id={id} className="mt-2 rounded-xl border border-border bg-background p-3">
+      <ul aria-live="polite" className="space-y-1">
+        {results.map(({ rule, ok }) => (
+          <li
+            key={rule.id}
+            className={`flex items-center gap-2 text-xs ${ok ? "text-emerald-300" : "text-muted-foreground"}`}
+          >
+            {ok ? (
+              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            )}
+            <span>{rule.label}</span>
+            <span className="sr-only">{ok ? "— met" : "— not met"}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
+        {LEAKED_PASSWORD_NOTE}
+      </p>
+    </div>
   );
 }

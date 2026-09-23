@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
+import { EMAIL_TLD_MESSAGE, isEmailWithTld } from "@/lib/email-check";
+import { authErrorMessage } from "@/lib/auth-errors";
 import {
   PASSWORD_REQUIREMENTS_MESSAGE,
   PasswordChecklist,
@@ -56,22 +58,9 @@ export const Route = createFileRoute("/auth")({
 
 type InviteState = "idle" | "checking" | "valid" | "invalid";
 
-/**
- * Parents must never be shown a raw backend error string — that is how the
- * password rules once surfaced as a wall of escaped character sets in a toast.
- * The real error object is always console.error'd so it stays diagnosable.
- */
-function authErrorMessage(error: unknown, fallback: string): string {
-  console.error("Auth error", error);
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (/too many requests|rate limit|for security purposes/i.test(message)) {
-    return "Too many attempts just now. Please wait a moment and try again.";
-  }
-  if (/email address.*invalid|invalid email|unable to validate email/i.test(message)) {
-    return "That email address doesn't look right. Please check it and try again.";
-  }
-  return fallback;
-}
+// authErrorMessage (and its Round 53 password-policy branch) lives in
+// src/lib/auth-errors.ts so the new-password page shares exactly this wording.
+
 
 const GENERIC_SIGNUP =
   "We couldn't create your account just now. Please try again, or contact the front desk if it keeps happening.";
@@ -137,6 +126,8 @@ function AuthPage() {
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Round 53 — type="email" accepts name@gmail; a missing TLD can only fail.
+    if (!isEmailWithTld(email)) return toast.error(EMAIL_TLD_MESSAGE);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -154,6 +145,7 @@ function AuthPage() {
   const forgotPassword = async () => {
     const target = email.trim();
     if (!target) return toast.error("Enter your email above first, then tap Forgot password.");
+    if (!isEmailWithTld(target)) return toast.error(EMAIL_TLD_MESSAGE);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(target, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -179,6 +171,9 @@ function AuthPage() {
     if (!familyName.trim()) {
       return toast.error("Please enter your family name so we can label your account.");
     }
+    // Round 53 — an address with no TLD (name@gmail) was accepted once and left a
+    // family with an unconfirmable account. Blocked before the API is called.
+    if (!isEmailWithTld(email)) return toast.error(EMAIL_TLD_MESSAGE);
     if (!pwCheck.allPassed) return toast.error(PASSWORD_REQUIREMENTS_MESSAGE);
 
     setLoading(true);
