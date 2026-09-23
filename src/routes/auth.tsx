@@ -57,67 +57,9 @@ export const Route = createFileRoute("/auth")({
 
 type InviteState = "idle" | "checking" | "valid" | "invalid";
 
-/**
- * Round 53 — the server's password policy is stricter than anything the browser
- * can check: besides length and character classes it rejects passwords found in
- * known breach corpora (HIBP). A parent whose checklist was all green was told
- * only "we couldn't create your account", which named nothing.
- *
- * This reads the structured reasons the auth client attaches to a weak-password
- * error (`AuthWeakPasswordError.reasons`) and falls back to matching the message
- * text, so it keeps working if the setting drifts again. The raw backend string
- * is never shown — Round 33 removed that on purpose.
- */
-const WEAK_PASSWORD_SENTENCES: Record<string, string> = {
-  pwned:
-    "That password has appeared in a known data breach, so it can't be used here. Please choose a different one — something unique to this account.",
-  length: "That password is too short. Please use at least 8 characters.",
-  characters:
-    "That password is missing a required character type. Please include an uppercase letter, a lowercase letter, a number and a symbol.",
-};
+// authErrorMessage (and its Round 53 password-policy branch) lives in
+// src/lib/auth-errors.ts so the new-password page shares exactly this wording.
 
-function weakPasswordMessage(error: unknown, message: string): string | null {
-  const raw = (error as { reasons?: unknown } | null)?.reasons;
-  const reasons = Array.isArray(raw) ? raw.filter((r): r is string => typeof r === "string") : [];
-
-  if (!reasons.length) {
-    const code = (error as { code?: unknown } | null)?.code;
-    const looksWeak =
-      code === "weak_password" || /password/i.test(message) === true && /should|weak|breach|pwned|at least/i.test(message);
-    if (!looksWeak) return null;
-    if (/known to be weak|pwned|breach|leaked/i.test(message)) return WEAK_PASSWORD_SENTENCES['pwned']!;
-    if (/at least \d+ characters/i.test(message)) return WEAK_PASSWORD_SENTENCES['length']!;
-    if (/one character of each|contain at least/i.test(message))
-      return WEAK_PASSWORD_SENTENCES['characters']!;
-    return "That password doesn't meet our security requirements. Please try a different one.";
-  }
-
-  // Breach is the one a parent cannot see coming, so it leads.
-  const ordered = ["pwned", "length", "characters"].filter((r) => reasons.includes(r));
-  const sentences = ordered.map((r) => WEAK_PASSWORD_SENTENCES[r]!).filter(Boolean);
-  if (!sentences.length)
-    return "That password doesn't meet our security requirements. Please try a different one.";
-  return sentences.join(" ");
-}
-
-/**
- * Parents must never be shown a raw backend error string — that is how the
- * password rules once surfaced as a wall of escaped character sets in a toast.
- * The real error object is always console.error'd so it stays diagnosable.
- */
-function authErrorMessage(error: unknown, fallback: string): string {
-  console.error("Auth error", error);
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (/too many requests|rate limit|for security purposes/i.test(message)) {
-    return "Too many attempts just now. Please wait a moment and try again.";
-  }
-  const weak = weakPasswordMessage(error, message);
-  if (weak) return weak;
-  if (/email address.*invalid|invalid email|unable to validate email/i.test(message)) {
-    return "That email address doesn't look right. Please check it and try again.";
-  }
-  return fallback;
-}
 
 const GENERIC_SIGNUP =
   "We couldn't create your account just now. Please try again, or contact the front desk if it keeps happening.";
