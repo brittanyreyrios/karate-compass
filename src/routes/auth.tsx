@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
+import { EMAIL_TLD_MESSAGE, isEmailWithTld } from "@/lib/email-check";
 import {
   PASSWORD_REQUIREMENTS_MESSAGE,
   PasswordChecklist,
@@ -182,6 +183,8 @@ function AuthPage() {
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Round 53 — type="email" accepts name@gmail; a missing TLD can only fail.
+    if (!isEmailWithTld(email)) return toast.error(EMAIL_TLD_MESSAGE);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -199,6 +202,7 @@ function AuthPage() {
   const forgotPassword = async () => {
     const target = email.trim();
     if (!target) return toast.error("Enter your email above first, then tap Forgot password.");
+    if (!isEmailWithTld(target)) return toast.error(EMAIL_TLD_MESSAGE);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(target, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -224,6 +228,9 @@ function AuthPage() {
     if (!familyName.trim()) {
       return toast.error("Please enter your family name so we can label your account.");
     }
+    // Round 53 — an address with no TLD (name@gmail) was accepted once and left a
+    // family with an unconfirmable account. Blocked before the API is called.
+    if (!isEmailWithTld(email)) return toast.error(EMAIL_TLD_MESSAGE);
     if (!pwCheck.allPassed) return toast.error(PASSWORD_REQUIREMENTS_MESSAGE);
 
     setLoading(true);
