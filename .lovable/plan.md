@@ -1,53 +1,60 @@
-# Next Belt Test card — read the class's date, not the per-student copy
+# Round 54b — "Email not confirmed" shown plainly, with a resend button
 
-## What changes
+## What I observed (real output, throwaway account `zz.test.r54b.unconfirmed@example.com`)
 
-On the parent dashboard, the "Next Belt Test" card stops reading each child's own
-copy of the test date and instead derives it from the classes that child is
-enrolled in — exactly as the Calendar already does. The ~30 children whose class
-has a date but whose individual copy is blank will start seeing the card.
+```
+signUp:  {"user":"94bcb529-...","session":false,"error":null}
+signIn error: {"name":"AuthApiError","code":"email_not_confirmed","status":400,"message":"Email not confirmed"}
+resend (immediately after signup):
+  {"error":{"name":"AuthApiError","status":429,"code":"over_email_send_rate_limit",
+   "message":"For security purposes, you can only request this after 58 seconds."}}
+resend (62s later): {"data":{"user":null,"session":null},"error":null}
+```
 
-## How the date is chosen
+- The code is confirmed as `email_not_confirmed`, status 400.
+- Resend works for an existing, unconfirmed account. It is limited to one email every
+  60 seconds per address. That 429 already maps to the existing "Too many attempts just
+  now" message, and I will leave that as is.
+- Side effect: the test sign-up used one use of real invite code `9HLG5W95`. I will put
+  its `used_count` back when I clean up, and say so in the report.
 
-- Collect every class the selected child is enrolled in.
-- Keep the classes that have a test date of today or later.
-- Take the earliest of those. That single value feeds both the countdown number
-  and the date label, so they can never disagree.
-- If nothing qualifies (all dates past, or none set), the card renders exactly as
-  it does today with no date: "—" days and "No test scheduled".
+## Changes
 
-## Technical detail
+1. **`src/lib/auth-errors.ts`**: add `isEmailNotConfirmed(error)`. It checks
+   `code === "email_not_confirmed"` first, then falls back to `/email not confirmed/i` on
+   the message. Add a branch in `authErrorMessage` after the rate-limit branch that
+   returns: "Your email address hasn't been confirmed yet. Check your inbox — including
+   spam and Promotions — for a confirmation link from Tiger's Den. You can also resend it
+   below." `console.error` stays. The weak-password and malformed-email branches do not
+   change.
+2. **`src/routes/auth.tsx`**:
+   - `signIn`: the "Invalid login credentials" check stays exactly as it is. If the error
+     matches `isEmailNotConfirmed`, set new state `unconfirmedEmail = email.trim()`, which
+     makes the button appear.
+   - `resendConfirmation` becomes `resendConfirmation(target = awaitingConfirm)`. It is the
+     same function and the same `supabase.auth.resend({ type: "signup" })` call, now taking
+     the address as an input. The "Check your email" screen still calls it with no argument,
+     so its behaviour does not change.
+   - On the sign-in tab, a "Resend confirmation email" button appears under the form only
+     while `unconfirmedEmail` is set. It sends to the email in the sign-in field at the
+     moment of the click, not an older value. Editing the email field clears the button.
+     After a successful send it shows "Confirmation email sent to {email}."
 
-- `src/routes/_authenticated/index.tsx` only.
-- Add one query, `["student-test-dates"]`: `class_schedules` → `id, class_name,
-  next_test_date` with `.not("next_test_date","is",null)`, combined with the
-  existing `useEnrollments()` hook from `src/lib/enrollment.ts` (both readable by
-  a parent under current RLS — `class_schedules` SELECT is `true` for
-  authenticated, `student_classes` SELECT allows a parent their own children; no
-  policy change needed).
-- One `useMemo` returns `{ date, className } | null` for the selected student,
-  using `parseDateOnly` for the today-or-later comparison. `daysToTest` becomes
-  `daysUntilDateOnly(testDate)`; the label becomes `formatDateOnlyLong(testDate)`
-  — both off the same memo value.
-- Remove `next_test_date` from the dashboard `Student` type so the old field
-  cannot be read again by accident.
-- No writes, no backfill, no trigger, no migration, no RLS/grant/function change.
-  Calendar untouched.
+## Not changing
 
-## Not doing unless you say so
+Email confirmation stays on, and nobody is auto-confirmed. No migration, RLS, grant or
+database function change. The "Invalid login credentials" wording, the Round 53
+weak-password branch, and the invite, consent and family-name guards all stay as they are.
 
-Showing which class the test belongs to when a child is in several. The memo will
-carry the class name so it is a one-line addition later.
+## Verification to report
 
-## Verification
-
-Playwright over HTTPS signed in as the real parent `falconpllc@gmail.com`
-(non-admin, data untouched): screenshot of Lily Khan / Eliza Khan showing the
-countdown and the 2026-11-10 label together; a temporary clearly-labelled test
-student in two classes with different dates proving the soonest wins, deleted
-afterwards; a student with no class date proving unchanged behaviour; Calendar
-screenshot unchanged; `git diff --stat`; grep proving `students.next_test_date`
-is gone from the dashboard path.
-
-Plus a report (no fix) of everywhere `students.next_test_date` is still written
-or editable.
+- `git diff --stat`, with nothing under `supabase/migrations/`.
+- Playwright on /auth with the unconfirmed test account: the old message (the same error
+  run through the previous function) next to the new message, with the button visible.
+- Click resend and capture the network request body, proving it used the typed email.
+  Before clicking, I will type a second address and then change it back, to show the
+  button follows the field and not an older value.
+- A confirmed account with a wrong password still gets "That email and password don't
+  match an account".
+- Cleanup: delete the test account and restore the invite code's `used_count`. Zero test
+  accounts will remain.
