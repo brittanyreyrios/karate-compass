@@ -99,7 +99,12 @@ function AuthPage() {
 
   useEffect(() => {
     if (resendCooldownUntil <= Date.now()) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      // Stop ticking once the countdown hits zero — no re-render every second forever.
+      if (n >= resendCooldownUntil) clearInterval(t);
+    }, 1000);
     setNow(Date.now());
     return () => clearInterval(t);
   }, [resendCooldownUntil]);
@@ -225,6 +230,9 @@ function AuthPage() {
       return navigate({ to: "/" });
     }
     setAwaitingConfirm(email.trim());
+    // Signup itself just sent an email, opening the server's 60s window — start
+    // the countdown now so the first tap can't hit a 429.
+    setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
   };
 
   // One function for both callers: the "Check your email" screen (no argument →
