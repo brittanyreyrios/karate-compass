@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
 import { EMAIL_TLD_MESSAGE, isEmailWithTld } from "@/lib/email-check";
-import { authErrorMessage } from "@/lib/auth-errors";
+import { authErrorMessage, isEmailNotConfirmed } from "@/lib/auth-errors";
 import {
   PASSWORD_REQUIREMENTS_MESSAGE,
   PasswordChecklist,
@@ -70,6 +70,8 @@ const GENERIC_RESET =
   "We couldn't send that reset email just now. Please try again, or contact the front desk if it keeps happening.";
 const GENERIC_RESEND =
   "We couldn't resend that email just now. Please try again, or contact the front desk if it keeps happening.";
+// Measured Round 54b: the service allows one confirmation email per 60s per address.
+const RESEND_COOLDOWN_MS = 60_000;
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -88,6 +90,19 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState<string | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
+  // Round 54b — set only when sign-in failed because the email is unconfirmed;
+  // cleared the moment the email field is edited.
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resendCooldownUntil, setResendCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const resendSecondsLeft = Math.max(0, Math.ceil((resendCooldownUntil - now) / 1000));
+
+  useEffect(() => {
+    if (resendCooldownUntil <= Date.now()) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    setNow(Date.now());
+    return () => clearInterval(t);
+  }, [resendCooldownUntil]);
 
   useEffect(() => {
     if (!expiredParam && !hasSessionExpiredNotice()) return;
@@ -131,6 +146,7 @@ function AuthPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+    setUnconfirmed(error ? isEmailNotConfirmed(error) : false);
     if (error) {
       return toast.error(
         /invalid login credentials/i.test(error.message)
@@ -211,17 +227,22 @@ function AuthPage() {
     setAwaitingConfirm(email.trim());
   };
 
-  const resendConfirmation = async () => {
-    if (!awaitingConfirm) return;
+  // One function for both callers: the "Check your email" screen (no argument →
+  // awaitingConfirm) and the sign-in tab (the address typed in the field).
+  const resendConfirmation = async (target: string | null = awaitingConfirm) => {
+    if (!target || resendSecondsLeft > 0) return;
     setLoading(true);
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: awaitingConfirm,
+      email: target,
       options: { emailRedirectTo: `${window.location.origin}/` },
     });
     setLoading(false);
+    // 429 still maps to "Too many attempts" as a backstop; the cooldown below
+    // means a parent should not normally reach it.
     if (error) return toast.error(authErrorMessage(error, GENERIC_RESEND));
-    toast.success("Confirmation email resent.");
+    setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
+    toast.success(`Confirmation email sent to ${target}.`);
   };
 
   return (
@@ -264,7 +285,11 @@ function AuthPage() {
               Nothing after a few minutes? Check spam, or resend below.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              <Button variant="outline" disabled={loading} onClick={resendConfirmation}>
+              <Button
+                variant="outline"
+                disabled={loading || resendSecondsLeft > 0}
+                onClick={() => resendConfirmation()}
+              >
                 {loading ? "Sending…" : "Resend email"}
               </Button>
               <Button
@@ -302,7 +327,10 @@ function AuthPage() {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setUnconfirmed(false);
+                      }}
                     />
                   </div>
                   <div>
@@ -328,6 +356,32 @@ function AuthPage() {
                   >
                     Forgot password?
                   </button>
+                  {unconfirmed && (
+                    <div
+                      role="status"
+                      className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground"
+                    >
+                      <p>
+                        Can't find it? Resend the confirmation link to{" "}
+                        <span className="font-semibold text-foreground">{email.trim()}</span> below.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 w-full"
+                        disabled={loading || resendSecondsLeft > 0}
+                        onClick={() => resendConfirmation(email.trim())}
+                      >
+                        {loading ? "Sending…" : "Resend confirmation email"}
+                      </Button>
+                      {resendSecondsLeft > 0 && (
+                        <p className="mt-2 text-center" aria-live="polite">
+                          You can resend in {resendSecondsLeft}s
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {resetSentTo && (
                     <p className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground">
                       A reset link is on its way to{" "}

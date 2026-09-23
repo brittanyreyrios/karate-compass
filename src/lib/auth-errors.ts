@@ -46,12 +46,30 @@ export function weakPasswordMessage(error: unknown, message: string): string | n
   return WEAK_PASSWORD_GENERIC;
 }
 
+/**
+ * Round 54b — observed live: signInWithPassword on an unconfirmed account returns
+ * { code: "email_not_confirmed", status: 400, message: "Email not confirmed" }.
+ * Structured code first; message text only as a fallback if the string drifts.
+ */
+export function isEmailNotConfirmed(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "email_not_confirmed") return true;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /email not confirmed/i.test(message);
+}
+
+// Shared by every caller, so it names only what is true on every page. The
+// "resend it below" pointer lives next to the button in auth.tsx.
+export const EMAIL_NOT_CONFIRMED_MESSAGE =
+  "Your email address hasn't been confirmed yet. Check your inbox — including spam and Promotions — for a confirmation link from Tiger's Den.";
+
 export function authErrorMessage(error: unknown, fallback: string): string {
   console.error("Auth error", error);
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (/too many requests|rate limit|for security purposes/i.test(message)) {
     return "Too many attempts just now. Please wait a moment and try again.";
   }
+  if (isEmailNotConfirmed(error)) return EMAIL_NOT_CONFIRMED_MESSAGE;
   const weak = weakPasswordMessage(error, message);
   if (weak) return weak;
   if (/email address.*invalid|invalid email|unable to validate email/i.test(message)) {
