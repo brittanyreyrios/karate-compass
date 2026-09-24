@@ -2211,6 +2211,9 @@ type ClassSchedule = {
   class_name: string;
   next_test_date: string | null;
   location: string | null;
+  days: string | null;
+  time_start: string | null;
+  time_end: string | null;
   is_teen_adult: boolean;
   /** AT2 — which programme this class belongs to, set by hand, never inferred. */
   program_id: string | null;
@@ -2230,7 +2233,7 @@ function ClassSchedulesTab() {
       const { data, error } = await supabase
         .from("class_schedules")
         .select(
-          "id, class_name, next_test_date, location, is_teen_adult, program_id, test_announcement_id, updated_at",
+          "id, class_name, next_test_date, location, days, time_start, time_end, is_teen_adult, program_id, test_announcement_id, updated_at",
         )
         .order("class_name");
       if (error) throw error;
@@ -2441,6 +2444,44 @@ function ClassScheduleRow({
     saveLocation.mutate(next);
   };
 
+  // Round 55 — days and times, same save-on-blur as Location. Free text,
+  // stored verbatim ("Tue/Thu", "5:15pm"); the dashboard renders it as is.
+  const [days, setDays] = useState(schedule.days ?? "");
+  const [timeStart, setTimeStart] = useState(schedule.time_start ?? "");
+  const [timeEnd, setTimeEnd] = useState(schedule.time_end ?? "");
+  useEffect(() => setDays(schedule.days ?? ""), [schedule.days]);
+  useEffect(() => setTimeStart(schedule.time_start ?? ""), [schedule.time_start]);
+  useEffect(() => setTimeEnd(schedule.time_end ?? ""), [schedule.time_end]);
+
+  const saveTextField = useMutation({
+    mutationFn: async ({ field, next }: { field: "days" | "time_start" | "time_end"; next: string }) => {
+      const { error } = await supabase
+        .from("class_schedules")
+        .update(
+          field === "days"
+            ? { days: next.trim() === "" ? null : next.trim() }
+            : field === "time_start"
+              ? { time_start: next.trim() === "" ? null : next.trim() }
+              : { time_end: next.trim() === "" ? null : next.trim() },
+        )
+        .eq("id", schedule.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Class times saved");
+      qc.invalidateQueries({ queryKey: ["class-schedules"] });
+      qc.invalidateQueries({ queryKey: ["class-schedule-mine"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const commitText = (field: "days" | "time_start" | "time_end", value: string) => {
+    const next = value.trim();
+    if (next === (schedule[field] ?? "").trim()) return;
+    saveTextField.mutate({ field, next });
+  };
+
+
 
   /**
    * AO1 — one transaction, not five round trips.
@@ -2591,6 +2632,27 @@ function ClassScheduleRow({
           />
         </div>
       </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {([
+          ["days", "Days", days, setDays, "e.g. Tue/Thu"],
+          ["time_start", "Start time", timeStart, setTimeStart, "e.g. 5:15pm"],
+          ["time_end", "End time", timeEnd, setTimeEnd, "e.g. 6:00pm"],
+        ] as const).map(([field, label, value, set, ph]) => (
+          <div key={field} className="min-w-0">
+            <Label className="text-xs" htmlFor={`${field}-${schedule.id}`}>{label}</Label>
+            <Input
+              id={`${field}-${schedule.id}`}
+              value={value}
+              onChange={(e) => set(e.target.value)}
+              onBlur={() => commitText(field, value)}
+              placeholder={ph}
+              className="mt-1 h-11 w-full"
+            />
+          </div>
+        ))}
+      </div>
+
 
       <label
         className="mt-3 flex items-start gap-2 text-sm"
