@@ -2433,7 +2433,7 @@ function ClassScheduleRow({
     onSuccess: () => {
       toast.success("Location saved");
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
-      qc.invalidateQueries({ queryKey: ["class-schedule-mine"] });
+      qc.invalidateQueries({ queryKey: ["class-catalog"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2470,7 +2470,7 @@ function ClassScheduleRow({
     onSuccess: () => {
       toast.success("Class times saved");
       qc.invalidateQueries({ queryKey: ["class-schedules"] });
-      qc.invalidateQueries({ queryKey: ["class-schedule-mine"] });
+      qc.invalidateQueries({ queryKey: ["class-catalog"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
