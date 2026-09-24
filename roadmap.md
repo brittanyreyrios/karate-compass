@@ -12,3 +12,8 @@
 - [x] Dedicated test invite code "ZZ TEST — do not issue"; never spend real codes
 - [x] isEmailNotConfirmed + shared message (no "below"); button sentence in auth.tsx
 - [x] Resend button on sign-in, follows field, 60s countdown
+
+## Round 55
+- [x] A: placeholders -> "e.g. TIGER123", "e.g. Rodriguez"
+- [x] B: days/start/end editable on Classes tab (save-on-blur). Rename held back — students.class_name and the dashboard class card are keyed by name.
+- [x] C: four icons + manifest + head tags; no service worker
