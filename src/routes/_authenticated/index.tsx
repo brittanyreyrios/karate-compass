@@ -30,7 +30,7 @@ import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, toDateKey, type DojoEvent } from "@/lib/calendar-data";
 import { useEnrollments } from "@/lib/enrollment";
-import { daysUntilDateOnly, formatDateOnlyLong, formatMonthYear, yearsSinceDateOnly } from "@/lib/date-only";
+import { daysUntilDateOnly, formatDateOnlyLong } from "@/lib/date-only";
 import { TournamentCard } from "@/components/tournament-card";
 import { WinnersCircleSection } from "@/components/winners-circle-section";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
@@ -67,7 +67,12 @@ type Student = {
   current_belt: string;
   belt_rank_id: string | null;
   attendance_count: number;
-  start_date: string;
+  /*
+    students.start_date is deliberately NOT read here. Round 56: every value is
+    the date the record was created in the portal, not when the child started
+    training, and the school confirmed the real dates were never recorded. The
+    "Training Since" card was removed; the column stays in the database.
+  */
   /*
     students.next_test_date is deliberately NOT read here. Round 54: the belt
     test date is derived from the classes the child is enrolled in
@@ -362,8 +367,6 @@ function Dashboard() {
 
   const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
-  const yearsTraining = yearsSinceDateOnly(student.start_date);
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="grid grid-cols-1 items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
@@ -525,7 +528,7 @@ function Dashboard() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Trophy className="h-5 w-5" />}
           label={usesBelts ? "Current Belt" : "Current Level"}
@@ -553,7 +556,6 @@ function Dashboard() {
           value={`${yearlyAttendanceQ.data ?? 0}`}
           sub={`classes logged in ${currentYear}`}
         />
-        <StatCard icon={<Clock className="h-5 w-5" />} label="Training Since" value={formatMonthYear(student.start_date)} sub={`${yearsTraining} years on the mat`} />
       </section>
 
       <GoogleReviewCard profileId={profileQ.data?.id} />

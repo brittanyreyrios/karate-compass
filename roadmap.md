@@ -17,3 +17,5 @@
 - [x] A: placeholders -> "e.g. TIGER123", "e.g. Rodriguez"
 - [x] B: days/start/end editable on Classes tab (save-on-blur). Rename held back — students.class_name and the dashboard class card are keyed by name.
 - [x] C: four icons + manifest + head tags; no service worker
+
+- Round 56: remove Training Since card, 4-card grid, fix class-catalog invalidation, permanent test child for zz.test.negative
