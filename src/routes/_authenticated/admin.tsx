@@ -2457,7 +2457,13 @@ function ClassScheduleRow({
     mutationFn: async ({ field, next }: { field: "days" | "time_start" | "time_end"; next: string }) => {
       const { error } = await supabase
         .from("class_schedules")
-        .update({ [field]: next.trim() === "" ? null : next.trim() })
+        .update(
+          field === "days"
+            ? { days: next.trim() === "" ? null : next.trim() }
+            : field === "time_start"
+              ? { time_start: next.trim() === "" ? null : next.trim() }
+              : { time_end: next.trim() === "" ? null : next.trim() },
+        )
         .eq("id", schedule.id);
       if (error) throw error;
     },
