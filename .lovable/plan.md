@@ -1,60 +1,33 @@
-# Round 54b — "Email not confirmed" shown plainly, with a resend button
+# Round 55 — three small fixes
 
-## What I observed (real output, throwaway account `zz.test.r54b.unconfirmed@example.com`)
+## A — Sign-up / sign-in placeholders
+Only two placeholders exist on those forms that read like real answers:
+- Invite code: `TIGER123` -> `e.g. TIGER123`
+- Family name: `Rodriguez` -> `e.g. Rodriguez`
 
-```
-signUp:  {"user":"94bcb529-...","session":false,"error":null}
-signIn error: {"name":"AuthApiError","code":"email_not_confirmed","status":400,"message":"Email not confirmed"}
-resend (immediately after signup):
-  {"error":{"name":"AuthApiError","status":429,"code":"over_email_send_rate_limit",
-   "message":"For security purposes, you can only request this after 58 seconds."}}
-resend (62s later): {"data":{"user":null,"session":null},"error":null}
-```
+Email and password fields have no placeholder today; I will not add any. No label, help text, validation or `required` change.
 
-- The code is confirmed as `email_not_confirmed`, status 400.
-- Resend works for an existing, unconfirmed account. It is limited to one email every
-  60 seconds per address. That 429 already maps to the existing "Too many attempts just
-  now" message, and I will leave that as is.
-- Side effect: the test sign-up used one use of real invite code `9HLG5W95`. I will put
-  its `used_count` back when I clean up, and say so in the report.
+## B — Class days and times
 
-## Changes
+### Rename finding (stated before any code): rename does NOT ship this round
+- `students.class_name` goes stale. The only trigger that writes it (`sync_primary_class_name`) fires on `student_classes` changes, not on `class_schedules`. Renaming a class leaves every enrolled student carrying the old label.
+- Worse than stale: the parent dashboard's class card looks the schedule up by name (`.eq("class_name", student.class_name)`), so after a rename every enrolled child's card would show nothing — days, times and location all gone.
+- `class_holidays` is keyed by class name text (0 rows today, but a future holiday would detach from a renamed class). `pending_student_imports.class_name` is also text.
+- `class_student_counts` is NOT stale — it counts live through `student_classes` by id; only the admin tab then matches the result back by name, which stays consistent because both come from the same row.
 
-1. **`src/lib/auth-errors.ts`**: add `isEmailNotConfirmed(error)`. It checks
-   `code === "email_not_confirmed"` first, then falls back to `/email not confirmed/i` on
-   the message. Add a branch in `authErrorMessage` after the rate-limit branch that
-   returns: "Your email address hasn't been confirmed yet. Check your inbox — including
-   spam and Promotions — for a confirmation link from Tiger's Den. You can also resend it
-   below." `console.error` stays. The weak-password and malformed-email branches do not
-   change.
-2. **`src/routes/auth.tsx`**:
-   - `signIn`: the "Invalid login credentials" check stays exactly as it is. If the error
-     matches `isEmailNotConfirmed`, set new state `unconfirmedEmail = email.trim()`, which
-     makes the button appear.
-   - `resendConfirmation` becomes `resendConfirmation(target = awaitingConfirm)`. It is the
-     same function and the same `supabase.auth.resend({ type: "signup" })` call, now taking
-     the address as an input. The "Check your email" screen still calls it with no argument,
-     so its behaviour does not change.
-   - On the sign-in tab, a "Resend confirmation email" button appears under the form only
-     while `unconfirmedEmail` is set. It sends to the email in the sign-in field at the
-     moment of the click, not an older value. Editing the email field clears the button.
-     After a successful send it shows "Confirmation email sent to {email}."
+Making rename safe needs either a database change (out of scope) or switching those reads to ids — a separate round.
 
-## Not changing
+### What lands
+In the Classes tab row editor (`ClassSchedulesTab` in the admin page): add Days, Start time, End time as plain text inputs, saved on blur only when the value changed — copied from the existing Location field's pattern. Add the three columns to that tab's select. Values stored verbatim (`Tue/Thu`, `5:15pm`); no pickers, no reformatting, no trimming beyond what Location already does. The 12 existing rows are only touched if an admin edits one.
 
-Email confirmation stays on, and nobody is auto-confirmed. No migration, RLS, grant or
-database function change. The "Invalid login credentials" wording, the Round 53
-weak-password branch, and the invite, consent and family-name guards all stay as they are.
+Verification: snapshot all 12 rows' days/times before, edit one real class, re-read the row, show it on a parent dashboard (via a clearly labelled ZZ TEST student in that class on the test account, deleted afterwards), restore the original value, and diff the other 11 against the snapshot.
 
-## Verification to report
+## C — Home-screen icon
+- Copy the four uploaded PNGs byte-for-byte into `public/` (plain `cp`, checksums compared).
+- Add `public/manifest.webmanifest`: name "Tiger's Den Parent Portal", short_name "Tiger's Den" (measured against a home-screen label width in the browser before settling), start_url "/", display "standalone", background_color and theme_color `#08090B`, the three icons (512 maskable marked `purpose: "maskable"`).
+- In the root route head: apple-touch-icon link, manifest link, `theme-color` meta, `apple-mobile-web-app-title` meta. Existing favicon line untouched; the logo file untouched.
+- No service worker, no caching, no install prompt — I will grep to prove none exists.
+- I cannot install to a real iPhone or Android home screen from here; I will say so and show the files served correctly plus the manifest parsed in a browser instead.
 
-- `git diff --stat`, with nothing under `supabase/migrations/`.
-- Playwright on /auth with the unconfirmed test account: the old message (the same error
-  run through the previous function) next to the new message, with the button visible.
-- Click resend and capture the network request body, proving it used the typed email.
-  Before clicking, I will type a second address and then change it back, to show the
-  button follows the field and not an older value.
-- A confirmed account with a wrong password still gets "That email and password don't
-  match an account".
-- Cleanup: delete the test account and restore the invite code's `used_count`. Zero test
-  accounts will remain.
+## Untouched
+No migration, RLS, grant or database function. Nothing in the Round 54 belt-test path or Round 54b auth path.
