@@ -415,7 +415,7 @@ function AuthPage() {
                         required
                         value={inviteCode}
                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        placeholder="TIGER123"
+                        placeholder="e.g. TIGER123"
                         aria-describedby="invite-help"
                         aria-invalid={inviteState === "invalid"}
                         className="pr-10 uppercase tracking-widest"
@@ -458,7 +458,7 @@ function AuthPage() {
                       required
                       value={familyName}
                       onChange={(e) => setFamilyName(e.target.value)}
-                      placeholder="Rodriguez"
+                      placeholder="e.g. Rodriguez"
                     />
                   </div>
                   <div>
