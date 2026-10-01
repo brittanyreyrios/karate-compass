@@ -428,6 +428,183 @@ function useStudents() {
   });
 }
 
+/** Round 61: one profiles query shared by Families and the student rows (same cache key). */
+function useAdminProfiles() {
+  return useQuery({
+    queryKey: ["admin-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at, archived_at",
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ParentProfile[];
+    },
+  });
+}
+
+/** Round 61 A: the linked parent's email, selectable so the desk can copy it. */
+function ParentEmailLine({ parentId }: { parentId: string }) {
+  const { data } = useAdminProfiles();
+  if (!data) return null;
+  const p = data.find((x) => x.id === parentId);
+  return (
+    <div className="mt-1 min-w-0 select-text break-all text-xs text-muted-foreground">
+      {p ? (
+        <>
+          <span className="sr-only">Parent email: </span>
+          {p.email}
+        </>
+      ) : (
+        "No linked account"
+      )}
+    </div>
+  );
+}
+
+/**
+ * Round 61 B: link a child to a family with no students, starting from the
+ * account. Calls the SAME admin_reassign_student the student-record panel uses —
+ * there is deliberately no second path, so history always travels with the child.
+ */
+function LinkStudentToAccount({ target }: { target: ParentProfile }) {
+  const qc = useQueryClient();
+  const studentsQ = useStudents();
+  const profilesQ = useAdminProfiles();
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [chosen, setChosen] = useState<Student | null>(null);
+
+  const familyOf = (id: string) => profilesQ.data?.find((p) => p.id === id);
+  const results = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return (studentsQ.data ?? [])
+      .filter((s) => s.parent_id !== target.id)
+      .filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(q))
+      .slice(0, 20);
+  }, [term, studentsQ.data, target.id]);
+
+  const move = useMutation({
+    mutationFn: async (s: Student) => {
+      const { data, error } = await supabase.rpc("admin_reassign_student", {
+        _student_id: s.id,
+        _new_parent_email: target.email,
+      });
+      if (error) throw error;
+      return data as unknown as { student_name: string; new_family_name: string };
+    },
+    onSuccess: (res) => {
+      toast.success(`${res.student_name} moved to the ${res.new_family_name} family`);
+      qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["students-mine"] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-student-counts-by-parent"] });
+      setChosen(null);
+      setTerm("");
+      setOpen(false);
+    },
+    onError: (e: Error) => {
+      setChosen(null);
+      toast.error(e.message);
+    },
+  });
+
+  const targetName = target.family_name || target.email;
+  const from = chosen ? familyOf(chosen.parent_id) : undefined;
+  const fromName = from ? from.family_name || from.email : "no linked account";
+
+  return (
+    <div className="mt-2">
+      {!open ? (
+        <Button variant="outline" size="sm" className="h-11 sm:h-9" onClick={() => setOpen(true)}>
+          <Users className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Link a student
+        </Button>
+      ) : (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <Label htmlFor={`link-${target.id}`} className="text-xs">
+            Find the student to link to the {targetName} family
+          </Label>
+          <Input
+            id={`link-${target.id}`}
+            type="search"
+            autoComplete="off"
+            className="mt-1 h-11"
+            placeholder="Type a student's name"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+          />
+          <ul className="mt-2 space-y-1">
+            {term.trim().length >= 2 && results.length === 0 && (
+              <li className="text-xs text-muted-foreground">No students match.</li>
+            )}
+            {results.map((s) => {
+              const fam = familyOf(s.parent_id);
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border px-3 py-2 text-left text-sm hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => setChosen(s)}
+                  >
+                    <span className="font-semibold">{s.first_name} {s.last_name}</span>
+                    {!s.active && (
+                      <Badge variant="outline" className="border-amber-400/60 text-amber-200">Inactive</Badge>
+                    )}
+                    <span className="w-full break-all text-xs text-muted-foreground">
+                      {fam ? `${fam.family_name || "—"} family · ${fam.email}` : "No linked account"} · {s.class_name}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <Button variant="ghost" size="sm" className="mt-2 h-11 sm:h-9" onClick={() => { setOpen(false); setTerm(""); }}>
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={!!chosen} onOpenChange={(o) => { if (!o && !move.isPending) setChosen(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Move {chosen?.first_name} {chosen?.last_name} to the {targetName} family?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  {chosen?.first_name} is currently attached to the <strong>{fromName}</strong>
+                  {from ? ` family (${from.email})` : ""}. They will be removed from that family's portal.
+                </p>
+                {chosen && !chosen.active && (
+                  <p className="font-semibold text-amber-200">
+                    This student is INACTIVE — they are no longer training. Moving them will not make them
+                    active, but they will appear in the {targetName} family's portal. Only continue if you are
+                    fixing an old record.
+                  </p>
+                )}
+                <p>They keep their belt, Dojo Points and full attendance history.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={move.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={move.isPending}
+              onClick={(e) => { e.preventDefault(); if (chosen) move.mutate(chosen); }}
+            >
+              {move.isPending ? "Moving…" : "Move student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 /* ---------- ATTENDANCE ---------- */
 
 function AttendanceTab() {
@@ -1210,6 +1387,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <span>{student.attendance_count} classes</span>
         </div>
+        <ParentEmailLine parentId={student.parent_id} />
         <EnrollmentEditor studentId={student.id} />
       </div>
 
@@ -3396,19 +3574,7 @@ function ParentsTab({
   const acknowledge = useAcknowledgeConsentEvents();
   const { data: adminIds } = useAdminUserIds();
 
-  const profilesQ = useQuery({
-    queryKey: ["admin-profiles"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, email, family_name, subscription_status, photo_consent, photo_consent_updated_at, created_at, archived_at",
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as ParentProfile[];
-    },
-  });
+  const profilesQ = useAdminProfiles();
 
   /**
    * Student counts per family, counting EVERY row regardless of `active`. The
@@ -3608,6 +3774,7 @@ function ParentsTab({
                     ? ` · preference updated ${new Date(p.photo_consent_updated_at).toLocaleDateString()}`
                     : ""}
                 </div>
+                {childCount(p.id) === 0 && <LinkStudentToAccount target={p} />}
               </div>
               <div className="mt-3 flex flex-col gap-2 sm:mt-0 sm:flex-row sm:items-center">
                 {(pendingConsent ?? []).some((e) => e.profile_id === p.id) && (
