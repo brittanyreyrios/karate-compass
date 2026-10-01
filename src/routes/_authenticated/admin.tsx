@@ -476,7 +476,7 @@ function ParentEmailLine({ parentId }: { parentId: string }) {
  */
 function LinkStudentToAccount({ target }: { target: ParentProfile }) {
   const qc = useQueryClient();
-  const studentsQ = useStudents();
+  const studentsQ = useStudentsData();
   const profilesQ = useAdminProfiles();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
