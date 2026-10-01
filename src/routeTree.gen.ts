@@ -25,7 +25,6 @@ import { Route as AuthenticatedCurriculumRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authenticated/announcements'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as ApiPublicZzR61SetupRouteImport } from './routes/api/public/zz-r61-setup'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 
@@ -110,11 +109,6 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiPublicZzR61SetupRoute = ApiPublicZzR61SetupRouteImport.update({
-  id: '/api/public/zz-r61-setup',
-  path: '/api/public/zz-r61-setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
   id: '/lovable/email/auth/webhook',
   path: '/lovable/email/auth/webhook',
@@ -142,7 +136,6 @@ export interface FileRoutesByFullPath {
   '/polls': typeof AuthenticatedPollsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/techniques': typeof AuthenticatedTechniquesRoute
-  '/api/public/zz-r61-setup': typeof ApiPublicZzR61SetupRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -162,7 +155,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/techniques': typeof AuthenticatedTechniquesRoute
   '/': typeof AuthenticatedIndexRoute
-  '/api/public/zz-r61-setup': typeof ApiPublicZzR61SetupRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -184,7 +176,6 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/techniques': typeof AuthenticatedTechniquesRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/api/public/zz-r61-setup': typeof ApiPublicZzR61SetupRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -206,7 +197,6 @@ export interface FileRouteTypes {
     | '/polls'
     | '/settings'
     | '/techniques'
-    | '/api/public/zz-r61-setup'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -226,7 +216,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/techniques'
     | '/'
-    | '/api/public/zz-r61-setup'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   id:
@@ -247,7 +236,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/techniques'
     | '/_authenticated/'
-    | '/api/public/zz-r61-setup'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesById: FileRoutesById
@@ -259,7 +247,6 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
-  ApiPublicZzR61SetupRoute: typeof ApiPublicZzR61SetupRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
 }
@@ -378,13 +365,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/zz-r61-setup': {
-      id: '/api/public/zz-r61-setup'
-      path: '/api/public/zz-r61-setup'
-      fullPath: '/api/public/zz-r61-setup'
-      preLoaderRoute: typeof ApiPublicZzR61SetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/lovable/email/auth/webhook': {
       id: '/lovable/email/auth/webhook'
       path: '/lovable/email/auth/webhook'
@@ -438,7 +418,6 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
-  ApiPublicZzR61SetupRoute: ApiPublicZzR61SetupRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
 }
