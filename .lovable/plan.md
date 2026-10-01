@@ -1,26 +1,34 @@
-# Round 56 — Remove "Training Since" + fix dead class query key
+# Round 61 — parent email on the student row, and linking a child from the account
 
-## What I found (before any change)
-- `formatMonthYear` and `yearsSinceDateOnly` are each used exactly once in the dashboard file, both only by the Training Since card (line 365 `yearsTraining`, line 556 the card). Once the card goes, nothing else in that file uses them, so both come out of the import. `src/lib/date-only.ts` stays as it is.
-- The `Clock` icon import: I'll check for other uses and remove it only if the card was its only user.
-- `["class-schedule-mine"]` appears only at admin.tsx:2436 and :2473. The dashboard class card uses `["class-catalog", className]` (index.tsx:731).
+Front-end only, one file: `src/routes/_authenticated/admin.tsx` (plus a `roadmap.md` entry). Nothing under `supabase/migrations/`, no access rule, permission or database function change.
 
-## Changes — dashboard file (index.tsx)
-1. Delete the Training Since StatCard (line 556) and the `yearsTraining` line (365).
-2. Remove `start_date` from the `Student` type and add a comment saying why (the values are portal-creation dates, not real start dates, and there's no source for the real ones), in the same style as the Round 54 `next_test_date` comment. `.select("*")` stays as it is.
-3. Trim the date-only import to `daysUntilDateOnly, formatDateOnlyLong`.
-4. Grid: `sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5` → `sm:grid-cols-2 xl:grid-cols-4`.
-   - 390: 1 column (4 rows). 768 / 1024 / 1025: 2×2. 1280 and up (including 1536): 4 across.
-   - No width uses 3 columns, which would leave one card alone on a second row, and no width uses 5, which would leave an empty column.
+## A — Parent email on the student row (Manage Students)
 
-## Changes — admin.tsx (only these two lines)
-- Lines 2436 and 2473: `["class-schedule-mine"]` → `["class-catalog"]`. This is a prefix match, so it refreshes every `["class-catalog", className]` entry, whichever class the dashboard is showing.
+- Look up each student's `parent_id` against the profiles list the page already loads; no new query for this.
+- Show the email on the row itself, under the name/class line, as plain selectable text (`select-text`, `break-all` so long addresses wrap instead of causing sideways scroll). If no profile matches, show "No linked account".
+- Round 58 (multiple guardians) has not landed — there is no guardians table in the app — so one email per student.
+- Check 390 / 768 / 1024 / 1025 and record `document.body.scrollWidth` vs viewport at each.
 
-## Not touched
-The `students.start_date` column and its data, the CSV importer, the admin roster, the other StatCards, the Round 54 belt-test path and the Round 54b auth path. No migration, access-rule, permission or database-function change.
+## B — "Link a student" from a family with no students (Families tab)
 
-## Verification (real output)
-- List of changed files (git isn't available in this sandbox, so I'll give the file list instead of `git diff --stat`), with nothing under supabase/migrations/.
-- Dashboard screenshots at 390 / 768 / 1024 / 1025 / 1536 as the test parent zz.test.negative@example.com, with `document.body.scrollWidth` vs `innerWidth` at each width.
-- Read-only query: count and min/max of `students.start_date`, to show the values are still there.
-- Invalidation demo in one admin browser session: open the dashboard, change a class's days in the Classes tab, go back to the dashboard without reloading and show the new value, then restore the original value. Because the dashboard shows the admin's own child's class, I'll use the class of a student I can view as admin. If that isn't possible without touching real data, I'll add a clearly-labelled ZZTEST child, delete it afterwards and report the counts.
+- On a family card where the child count is 0, add a "Link a student" button. Filter logic of "No students only" untouched.
+- Opens a search box: type a student name, results show name, current family name (and their email), and class — enough to tell two same-named children apart. Search runs over students already loaded on the page.
+- Picking a result opens a confirmation dialog: "Move {child} from the {current} family to the {target} family? They keep their belt, Dojo Points and attendance." Requires an explicit Confirm.
+- Confirm calls the existing `admin_reassign_student(_student_id, _new_parent_email = target account email)` — the same call the student-record panel makes. No second path.
+- Success: "{student_name} moved to the {new_family_name} family." from the function's own result; same cache refreshes as the existing panel.
+- Refusal: the function's own message shown as-is.
+- Not changed: `admin_reassign_student`, the existing "Move to another parent" panel, any email, accounts, parked students, Round 54/54b/58 work.
+
+## Testing
+
+- Child: the ZZTEST Fixture-DoNotEnroll student on zz.test.negative@example.com. Read `students.parent_id`, belt, points and attendance count from the database before and after each move.
+- Move it to a second test account from the Families side, then back to zz.test.negative@example.com.
+- **Second test account:** none exists yet. Proposal: create one permanent confirmed account `zz.test.secondary@example.com`, switching ZZTEST54 on only for that sign-up and off again (uses 1 of its 20 uses), and save its password to project knowledge next to the first one. Alternative: use Britt's own test account brittanyrey1214@gmail.com (zero students) as the temporary target — only with your say-so.
+- Refusal path: this flow only targets existing accounts, so a missing account can't be chosen in the UI. I'll exercise it by calling the same function with a non-existent email from the admin session and show the message staff would see in the same toast.
+- Confirm no real family's student moved: compare every student's `parent_id` before and after the run.
+- Also: the saved password for zz.test.negative@example.com was rejected last round. I'd reset it to a new one and update project knowledge, unless you say otherwise.
+
+## Questions before building
+
+1. Second test account: create `zz.test.secondary@example.com` (burns one ZZTEST54 use), or use brittanyrey1214@gmail.com temporarily?
+2. OK to reset and re-save the zz.test.negative@example.com password?
