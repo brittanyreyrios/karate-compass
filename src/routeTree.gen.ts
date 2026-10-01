@@ -9,42 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as MediaReleaseRouteImport } from './routes/media-release'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as MediaReleaseRouteImport } from './routes/media-release'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authenticated/announcements'
-import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedCurriculumRouteImport } from './routes/_authenticated/curriculum'
-import { Route as AuthenticatedGalleryRouteImport } from './routes/_authenticated/gallery'
-import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
-import { Route as AuthenticatedPollsRouteImport } from './routes/_authenticated/polls'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTechniquesRouteImport } from './routes/_authenticated/techniques'
-import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedPollsRouteImport } from './routes/_authenticated/polls'
+import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
+import { Route as AuthenticatedGalleryRouteImport } from './routes/_authenticated/gallery'
+import { Route as AuthenticatedCurriculumRouteImport } from './routes/_authenticated/curriculum'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authenticated/announcements'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MediaReleaseRoute = MediaReleaseRouteImport.update({
-  id: '/media-release',
-  path: '/media-release',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -52,9 +38,23 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MediaReleaseRoute = MediaReleaseRouteImport.update({
+  id: '/media-release',
+  path: '/media-release',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -62,30 +62,19 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedTechniquesRoute = AuthenticatedTechniquesRouteImport.update({
+  id: '/techniques',
+  path: '/techniques',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAnnouncementsRoute =
-  AuthenticatedAnnouncementsRouteImport.update({
-    id: '/announcements',
-    path: '/announcements',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCurriculumRoute = AuthenticatedCurriculumRouteImport.update({
-  id: '/curriculum',
-  path: '/curriculum',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGalleryRoute = AuthenticatedGalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
+const AuthenticatedPollsRoute = AuthenticatedPollsRouteImport.update({
+  id: '/polls',
+  path: '/polls',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLeaderboardRoute =
@@ -94,29 +83,40 @@ const AuthenticatedLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPollsRoute = AuthenticatedPollsRouteImport.update({
-  id: '/polls',
-  path: '/polls',
+const AuthenticatedGalleryRoute = AuthenticatedGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AuthenticatedCurriculumRoute = AuthenticatedCurriculumRouteImport.update({
+  id: '/curriculum',
+  path: '/curriculum',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedTechniquesRoute = AuthenticatedTechniquesRouteImport.update({
-  id: '/techniques',
-  path: '/techniques',
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
-  id: '/lovable/email/auth/preview',
-  path: '/lovable/email/auth/preview',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedAnnouncementsRoute =
+  AuthenticatedAnnouncementsRouteImport.update({
+    id: '/announcements',
+    path: '/announcements',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
   id: '/lovable/email/auth/webhook',
   path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -253,32 +253,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/media-release': {
-      id: '/media-release'
-      path: '/media-release'
-      fullPath: '/media-release'
-      preLoaderRoute: typeof MediaReleaseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -288,11 +267,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/media-release': {
+      id: '/media-release'
+      path: '/media-release'
+      fullPath: '/media-release'
+      preLoaderRoute: typeof MediaReleaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -302,53 +302,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/announcements': {
-      id: '/_authenticated/announcements'
-      path: '/announcements'
-      fullPath: '/announcements'
-      preLoaderRoute: typeof AuthenticatedAnnouncementsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/calendar': {
-      id: '/_authenticated/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/curriculum': {
-      id: '/_authenticated/curriculum'
-      path: '/curriculum'
-      fullPath: '/curriculum'
-      preLoaderRoute: typeof AuthenticatedCurriculumRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/gallery': {
-      id: '/_authenticated/gallery'
-      path: '/gallery'
-      fullPath: '/gallery'
-      preLoaderRoute: typeof AuthenticatedGalleryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/leaderboard': {
-      id: '/_authenticated/leaderboard'
-      path: '/leaderboard'
-      fullPath: '/leaderboard'
-      preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/polls': {
-      id: '/_authenticated/polls'
-      path: '/polls'
-      fullPath: '/polls'
-      preLoaderRoute: typeof AuthenticatedPollsRouteImport
+    '/_authenticated/techniques': {
+      id: '/_authenticated/techniques'
+      path: '/techniques'
+      fullPath: '/techniques'
+      preLoaderRoute: typeof AuthenticatedTechniquesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -358,25 +316,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/techniques': {
-      id: '/_authenticated/techniques'
-      path: '/techniques'
-      fullPath: '/techniques'
-      preLoaderRoute: typeof AuthenticatedTechniquesRouteImport
+    '/_authenticated/polls': {
+      id: '/_authenticated/polls'
+      path: '/polls'
+      fullPath: '/polls'
+      preLoaderRoute: typeof AuthenticatedPollsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/lovable/email/auth/preview': {
-      id: '/lovable/email/auth/preview'
-      path: '/lovable/email/auth/preview'
-      fullPath: '/lovable/email/auth/preview'
-      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/leaderboard': {
+      id: '/_authenticated/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gallery': {
+      id: '/_authenticated/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof AuthenticatedGalleryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/curriculum': {
+      id: '/_authenticated/curriculum'
+      path: '/curriculum'
+      fullPath: '/curriculum'
+      preLoaderRoute: typeof AuthenticatedCurriculumRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/announcements': {
+      id: '/_authenticated/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AuthenticatedAnnouncementsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/lovable/email/auth/webhook': {
       id: '/lovable/email/auth/webhook'
       path: '/lovable/email/auth/webhook'
       fullPath: '/lovable/email/auth/webhook'
       preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
