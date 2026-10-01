@@ -415,6 +415,11 @@ function useStudents() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  return useStudentsData();
+}
+
+/** Same query and cache as useStudents, without the realtime channel (safe to call many times). */
+function useStudentsData() {
   return useQuery({
     queryKey: ["admin-students"],
     queryFn: async () => {
@@ -471,7 +476,7 @@ function ParentEmailLine({ parentId }: { parentId: string }) {
  */
 function LinkStudentToAccount({ target }: { target: ParentProfile }) {
   const qc = useQueryClient();
-  const studentsQ = useStudents();
+  const studentsQ = useStudentsData();
   const profilesQ = useAdminProfiles();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
