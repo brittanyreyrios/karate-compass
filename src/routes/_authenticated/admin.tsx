@@ -415,6 +415,11 @@ function useStudents() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  return useStudentsData();
+}
+
+/** Same query and cache as useStudents, without the realtime channel (safe to call many times). */
+function useStudentsData() {
   return useQuery({
     queryKey: ["admin-students"],
     queryFn: async () => {
