@@ -1,34 +1,61 @@
-# Round 61 — parent email on the student row, and linking a child from the account
+# Round 58: Two guardians per child
 
-Front-end only, one file: `src/routes/_authenticated/admin.tsx` (plus a `roadmap.md` entry). Nothing under `supabase/migrations/`, no access rule, permission or database function change.
+## Outcome
+A child can be linked to more than one parent account. Only staff can add or remove a link, from the admin panel. Each linked parent sees that child's records in full. If any guardian has photo consent off, the child is treated as no-photos, and staff see when the guardians disagree.
 
-## A — Parent email on the student row (Manage Students)
+## 1. Migration (one file)
+- New table `student_guardians` (`id`, `student_id`, `profile_id`, `is_primary`, `created_at`, `updated_at`). It has a unique constraint on (`student_id`, `profile_id`), a partial unique index allowing only one primary per child, and deletes cascade with the student or the profile. GRANTs, then RLS:
+  - Admins can do everything.
+  - A parent can read only their own link rows.
+  - Parents cannot insert, update or delete. There are no such policies, so those actions are denied.
+- Backfill: one primary row per student from `students.parent_id`.
+- Sync trigger, mirroring `student_classes_sync_label`. It fires on `AFTER INSERT OR UPDATE OF parent_id` only, so belt or points changes never touch it. It runs in this order:
+  1. Upsert the incoming parent with `ON CONFLICT (student_id, profile_id) DO UPDATE SET is_primary = true`. This **promotes** an existing secondary guardian instead of inserting a duplicate.
+  2. Only after that, delete the old parent's row.
+  3. Make sure exactly one primary remains.
 
-- Look up each student's `parent_id` against the profiles list the page already loads; no new query for this.
-- Show the email on the row itself, under the name/class line, as plain selectable text (`select-text`, `break-all` so long addresses wrap instead of causing sideways scroll). If no profile matches, show "No linked account".
-- Round 58 (multiple guardians) has not landed — there is no guardians table in the app — so one email per student.
-- Check 390 / 768 / 1024 / 1025 and record `document.body.scrollWidth` vs viewport at each.
+  Because of this order, the child is never without a guardian. Running it twice changes nothing. Secondary guardians are kept. To satisfy the one-primary index, the old primary is demoted before the new one is promoted, all inside the same trigger.
+- Last-guardian guard: a BEFORE DELETE trigger refuses to remove a child's only guardian link. It also refuses to remove the primary while `students.parent_id` still points at that parent. The message is readable: "A child must always have at least one guardian. Link another guardian first, or move the child to another family." Deletes that come from a student or profile being deleted are allowed through.
+- Helper `is_guardian_of(_student_id)`: STABLE, SECURITY DEFINER, `search_path = public`. Execute is revoked from PUBLIC and anon, and granted to authenticated and service_role.
+- **Seven policies**: read live from `pg_policies`, then recreated with only one change. `s.parent_id = auth.uid()` (or `auth.uid() = parent_id` on students) is replaced by a `student_guardians` membership check. Everything else in each condition is copied verbatim. I'll quote each one before and after.
+- **Four functions**: `get_curriculum_for_all_children`, `get_curriculum_for_student`, `get_my_division`, `get_technique_library`. Each definition is read from the live database, and only the parent check is changed to a guardian check. I'll quote each before and after. Owner, SECURITY DEFINER, search_path and grants stay as they are, and I'll verify them through `proacl`.
+- **Not touched**: `handle_new_user`, `admin_reassign_student`, `award_points`, `change_attendance`, `has_role`, `pending_student_imports`, leaderboard last-initial logic, and every admin policy. `parent_id` stays NOT NULL and is still written.
+- A view `student_photo_consent`, set to `security_invoker`. Per child it shows the guardian count, how many guardians have consent off, `no_photos` (true if any has it off), and `conflict` (some yes, some no).
 
-## B — "Link a student" from a family with no students (Families tab)
+## 2. Admin screens
+- **Manage Students row**: list every guardian's email, with the primary marked. Staff get "Add guardian", which searches existing parent accounts only and asks for confirmation naming the child and the account. Each non-primary guardian gets "Remove". On the primary, Remove is disabled with the tooltip "The main family can't be removed — move the child to another family instead." If the server refuses, its message is shown word for word.
+- **Photo Consent**: the screen switches to one row per child, read from the view. It shows each guardian's choice. When the guardians disagree, it shows a clear red "Guardians disagree — treat as NO photos" label; otherwise "No photos". The existing per-parent consent log and acknowledge flow stay as they are.
+- **Settings consent**: unchanged.
+- **Delete-parent refusal**: also counts secondary guardian links. It names those children and says to remove the link first.
 
-- On a family card where the child count is 0, add a "Link a student" button. Filter logic of "No students only" untouched.
-- Opens a search box: type a student name, results show name, current family name (and their email), and class — enough to tell two same-named children apart. Search runs over students already loaded on the page.
-- Picking a result opens a confirmation dialog: "Move {child} from the {current} family to the {target} family? They keep their belt, Dojo Points and attendance." Requires an explicit Confirm.
-- Confirm calls the existing `admin_reassign_student(_student_id, _new_parent_email = target account email)` — the same call the student-record panel makes. No second path.
-- Success: "{student_name} moved to the {new_family_name} family." from the function's own result; same cache refreshes as the existing panel.
-- Refusal: the function's own message shown as-is.
-- Not changed: `admin_reassign_student`, the existing "Move to another parent" panel, any email, accounts, parked students, Round 54/54b/58 work.
+## 3. Verification (real output, test accounts and SQL only)
+- **Backfill check over the whole table.** All of these must be 0:
+  - students whose guardian row doesn't match `parent_id`
+  - students with no guardian row
+  - students with more than one guardian row
+  
+  Also: total students = total guardian rows.
+- **Isolation test**:
+  - Give zz.test.secondary a temporary labelled test child.
+  - Each test account sees only its own child across the six tables.
+  - Remove a link: that account loses the child in all six tables. Restore the link: access returns.
+- **Two guardians**:
+  - Link zz.test.secondary to the ZZTEST fixture child. Both accounts see the child; each still sees nothing else.
+  - Set one account's consent off. The child reads as no-photos, and the admin screen shows the conflict.
+- **Remove and refuse**:
+  - Removing the secondary guardian works.
+  - Removing the last guardian is refused, with that refusal shown.
+  - As a non-admin, inserting a guardian link fails.
+- **Sync trigger**:
+  - Parked child linked at a fresh test signup arrives with both `parent_id` and a primary guardian row. This briefly turns ZZTEST54 on and back off; I'll report the usage change.
+  - Moving the child with R61's Families flow: the guardian row follows the child; the old account loses access and the new one gains it.
+  - Promotion case: link the secondary first, then reassign to them. Exactly one primary row, no duplicates.
+  - A belt or points change leaves guardian rows unchanged. Points are never changed on the fixture child.
+- **Cleanup**:
+  - Unlink the test guardian. The fixture child is back to one guardian, parented by zz.test.negative.
+  - Delete the temporary child and the fresh signup account. Restore consent values.
+  - ZZTEST54 is off with `max_uses` 20.
+- **Report**: the full migration text, the file list, and a build/typecheck pass.
 
-## Testing
-
-- Child: the ZZTEST Fixture-DoNotEnroll student on zz.test.negative@example.com. Read `students.parent_id`, belt, points and attendance count from the database before and after each move.
-- Move it to a second test account from the Families side, then back to zz.test.negative@example.com.
-- **Second test account:** none exists yet. Proposal: create one permanent confirmed account `zz.test.secondary@example.com`, switching ZZTEST54 on only for that sign-up and off again (uses 1 of its 20 uses), and save its password to project knowledge next to the first one. Alternative: use Britt's own test account brittanyrey1214@gmail.com (zero students) as the temporary target — only with your say-so.
-- Refusal path: this flow only targets existing accounts, so a missing account can't be chosen in the UI. I'll exercise it by calling the same function with a non-existent email from the admin session and show the message staff would see in the same toast.
-- Confirm no real family's student moved: compare every student's `parent_id` before and after the run.
-- Also: the saved password for zz.test.negative@example.com was rejected last round. I'd reset it to a new one and update project knowledge, unless you say otherwise.
-
-## Questions before building
-
-1. Second test account: create `zz.test.secondary@example.com` (burns one ZZTEST54 use), or use brittanyrey1214@gmail.com temporarily?
-2. OK to reset and re-save the zz.test.negative@example.com password?
+## Note
+Part of your answer about the four functions was cut off in what I received after "quote the…". If it included requirements beyond "read live, transform, quote before and after", please restate them before approving.
