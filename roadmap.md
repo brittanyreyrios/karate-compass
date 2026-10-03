@@ -20,6 +20,6 @@
 
 - Round 56: remove Training Since card, 4-card grid, fix class-catalog invalidation, permanent test child for zz.test.negative
 
-- [ ] Round 58 — two guardians per child (plan revised with 4 changes; awaiting approval)
+- [x] Round 58 — two guardians per child (plan revised with 4 changes; awaiting approval)
   - R58 add: park-student.ts existing-child check must match via guardian link (fix)
   - R58 note-only: per-student poll double-count with two guardians (future round); admin.tsx:1575-1590 vote count doubles; parent-accounts.functions.ts:61 archive by parent_id
