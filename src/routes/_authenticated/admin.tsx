@@ -452,6 +452,19 @@ function useAdminProfiles() {
   });
 }
 
+/** Round 58: per-child "no photos" view on the Photo Consent filter. */
+function ParentsChildConsent({ profiles }: { profiles: ParentProfile[] }) {
+  const studentsQ = useStudents();
+  const linksQ = useGuardianLinks();
+  return (
+    <ChildConsentList
+      students={studentsQ.data ?? []}
+      profiles={profiles}
+      links={linksQ.data ?? []}
+    />
+  );
+}
+
 /** Round 61 A: the linked parent's email, selectable so the desk can copy it. */
 function ParentEmailLine({ parentId }: { parentId: string }) {
   const { data } = useAdminProfiles();
