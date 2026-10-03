@@ -117,6 +117,26 @@ export const deleteParentAccount = createServerFn({ method: "POST" })
       );
     }
 
+    // Round 58: a second-guardian link also counts. Deleting would cascade it
+    // away silently, so name those children and ask for the link to go first.
+    const { data: links, error: linksErr } = await supabaseAdmin
+      .from("student_guardians")
+      .select("student_id, students(first_name, last_name)")
+      .eq("profile_id", data.profileId);
+    if (linksErr) throw new Error(linksErr.message);
+    if ((links ?? []).length > 0) {
+      const names = (links ?? [])
+        .map((l) => {
+          const s = l.students as { first_name: string; last_name: string } | null;
+          return s ? `${s.first_name} ${s.last_name}`.trim() : "a student";
+        })
+        .join(", ");
+      throw new Error(
+        `Cannot delete this account: it is still linked as a guardian of ${names}. ` +
+          `Remove the guardian link first (Students → the student's card → Guardians → Remove).`,
+      );
+    }
+
     // ORDER MATTERS. Nothing is transactional across Postgres and GoTrue, so we
     // remove the LOGIN first. If a later step then failed we are left with inert
     // orphan rows and nobody able to sign in — untidy, but safe. The reverse

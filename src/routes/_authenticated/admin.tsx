@@ -103,10 +103,12 @@ import {
   ConsentAttentionItem,
   PhotoConsentBanner,
   NoPhotosMarker,
-  useConsentOffProfiles,
+  ChildConsentList,
+  useStudentPhotoConsent,
   useUnacknowledgedConsentOff,
   useAcknowledgeConsentEvents,
 } from "@/components/admin-photo-consent";
+import { GuardiansEditor, useGuardianLinks } from "@/components/admin-guardians";
 import { awardPoints, revertPointEvent } from "@/lib/points";
 import { changeAttendance } from "@/lib/attendance";
 import { daysUntilDateOnly, formatDateOnly, normalizeDateOnly } from "@/lib/date-only";
@@ -450,6 +452,19 @@ function useAdminProfiles() {
   });
 }
 
+/** Round 58: per-child "no photos" view on the Photo Consent filter. */
+function ParentsChildConsent({ profiles }: { profiles: ParentProfile[] }) {
+  const studentsQ = useStudents();
+  const linksQ = useGuardianLinks();
+  return (
+    <ChildConsentList
+      students={studentsQ.data ?? []}
+      profiles={profiles}
+      links={linksQ.data ?? []}
+    />
+  );
+}
+
 /** Round 61 A: the linked parent's email, selectable so the desk can copy it. */
 function ParentEmailLine({ parentId }: { parentId: string }) {
   const { data } = useAdminProfiles();
@@ -620,10 +635,11 @@ function AttendanceTab() {
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
   const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
   const [sessionPoints, setSessionPoints] = useState(0);
-  const { data: consentOff } = useConsentOffProfiles();
-  const consentOffIds = useMemo(
-    () => new Set((consentOff ?? []).map((p) => p.id)),
-    [consentOff],
+  // Round 58: per child, most restrictive guardian wins (same view as Photo Consent).
+  const { data: childConsent } = useStudentPhotoConsent();
+  const noPhotoStudentIds = useMemo(
+    () => new Set((childConsent ?? []).filter((c) => c.no_photos).map((c) => c.student_id)),
+    [childConsent],
   );
 
   const studentsQ = useStudents();
@@ -902,7 +918,7 @@ function AttendanceTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
                   <FollowUpBadge n={s.consecutive_absences} />
-                  {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
+                  {noPhotoStudentIds.has(s.id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />
@@ -1363,6 +1379,7 @@ function ManageStudentsTab() {
 
 function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void }) {
   const qc = useQueryClient();
+  const { data: profilesForGuardians } = useAdminProfiles();
   const adjustPoints = useMutation({
     mutationFn: async (delta: number) =>
       awardPoints({
@@ -1392,7 +1409,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <span>{student.attendance_count} classes</span>
         </div>
-        <ParentEmailLine parentId={student.parent_id} />
+        <GuardiansEditor student={student} profiles={profilesForGuardians} />
         <EnrollmentEditor studentId={student.id} />
       </div>
 
@@ -3719,6 +3736,8 @@ function ParentsTab({
           </span>
         )}
       </div>
+
+      {consentOnly && <ParentsChildConsent profiles={profilesQ.data ?? []} />}
 
       {showArchived && (
         <p className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-xs text-amber-100">
