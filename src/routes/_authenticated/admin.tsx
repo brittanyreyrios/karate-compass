@@ -103,10 +103,12 @@ import {
   ConsentAttentionItem,
   PhotoConsentBanner,
   NoPhotosMarker,
-  useConsentOffProfiles,
+  ChildConsentList,
+  useStudentPhotoConsent,
   useUnacknowledgedConsentOff,
   useAcknowledgeConsentEvents,
 } from "@/components/admin-photo-consent";
+import { GuardiansEditor, useGuardianLinks } from "@/components/admin-guardians";
 import { awardPoints, revertPointEvent } from "@/lib/points";
 import { changeAttendance } from "@/lib/attendance";
 import { daysUntilDateOnly, formatDateOnly, normalizeDateOnly } from "@/lib/date-only";
@@ -1364,6 +1366,7 @@ function ManageStudentsTab() {
 
 function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void }) {
   const qc = useQueryClient();
+  const { data: profilesForGuardians } = useAdminProfiles();
   const adjustPoints = useMutation({
     mutationFn: async (delta: number) =>
       awardPoints({
@@ -1393,7 +1396,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <span>{student.attendance_count} classes</span>
         </div>
-        <ParentEmailLine parentId={student.parent_id} />
+        <GuardiansEditor student={student} profiles={profilesForGuardians} />
         <EnrollmentEditor studentId={student.id} />
       </div>
 
@@ -3720,6 +3723,8 @@ function ParentsTab({
           </span>
         )}
       </div>
+
+      {consentOnly && <ParentsChildConsent profiles={profilesQ.data ?? []} />}
 
       {showArchived && (
         <p className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-xs text-amber-100">

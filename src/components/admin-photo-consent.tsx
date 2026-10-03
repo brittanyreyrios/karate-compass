@@ -27,6 +27,89 @@ export function useConsentOffProfiles() {
   });
 }
 
+/** Round 58: per-child consent — any guardian OFF means no photos. Admin-only view. */
+export type StudentPhotoConsent = {
+  student_id: string;
+  guardian_count: number;
+  consent_off_count: number;
+  no_photos: boolean;
+  conflict: boolean;
+};
+
+export function useStudentPhotoConsent() {
+  return useQuery({
+    queryKey: ["admin-student-photo-consent"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("student_photo_consent")
+        .select("student_id, guardian_count, consent_off_count, no_photos, conflict");
+      if (error) throw error;
+      return (data ?? []) as StudentPhotoConsent[];
+    },
+  });
+}
+
+/** Per-child list staff can act on; disagreements are called out as conflicts. */
+export function ChildConsentList({
+  students,
+  profiles,
+  links,
+}: {
+  students: { id: string; first_name: string; last_name: string; active: boolean }[];
+  profiles: { id: string; email: string; photo_consent: boolean }[];
+  links: { student_id: string; profile_id: string; is_primary: boolean }[];
+}) {
+  const q = useStudentPhotoConsent();
+  const rows = (q.data ?? [])
+    .filter((c) => c.no_photos)
+    .map((c) => ({ c, s: students.find((s) => s.id === c.student_id) }))
+    .filter((r) => r.s && r.s.active)
+    .sort((a, b) => Number(b.c.conflict) - Number(a.c.conflict));
+
+  return (
+    <section className="mt-4 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-4" aria-label="Children who must not be photographed">
+      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+        <CameraOff className="h-4 w-4" aria-hidden="true" /> No photos — by child ({rows.length})
+      </h3>
+      {q.isLoading ? (
+        <p className="mt-2 text-xs text-muted-foreground">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">Every active child may be photographed.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {rows.map(({ c, s }) => (
+            <li key={c.student_id} className="rounded-lg border border-border bg-background p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{s!.first_name} {s!.last_name}</span>
+                {c.conflict ? (
+                  <span className="rounded-full border border-red-500/60 bg-red-500/20 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-red-50">
+                    Guardians disagree — treat as NO photos
+                  </span>
+                ) : (
+                  <NoPhotosMarker />
+                )}
+              </div>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                {links
+                  .filter((l) => l.student_id === c.student_id)
+                  .map((l) => {
+                    const p = profiles.find((x) => x.id === l.profile_id);
+                    return (
+                      <li key={l.profile_id} className="break-all">
+                        {p?.email ?? "Unknown account"}
+                        {l.is_primary ? " (main family)" : ""}: {p?.photo_consent ? "photos OK" : "NO photos"}
+                      </li>
+                    );
+                  })}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export type ConsentEvent = {
   id: string;
   profile_id: string;
