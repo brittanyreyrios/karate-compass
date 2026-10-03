@@ -29,3 +29,19 @@ The matching RLS policies live in migrations
 - `INSERT`, `UPDATE`, and `DELETE` are restricted to users with the `admin` role.
 
 Without this bucket, every album cover upload fails with a confusing error.
+
+### Migration folders and restore order
+
+`drizzle/migrations/` is the authoritative migrations folder. Every new migration
+goes there, applied by the platform's migration tool in journal order
+(`drizzle/migrations/meta/_journal.json`).
+
+`supabase/migrations/` is **frozen** at `20260903202618_fc653468-e61d-4ec7-a0f5-b523086d10f8.sql`.
+It is fully applied history and receives nothing new — do not add a file there,
+even out of habit.
+
+On a fresh database, restore in this order:
+1. Apply every file in `supabase/migrations/`, in filename order.
+2. Then apply `drizzle/migrations/`, in journal order.
+
+Skipping either folder leaves the schema incomplete.
