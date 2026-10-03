@@ -620,10 +620,11 @@ function AttendanceTab() {
   const [pointsLock, setPointsLock] = useState<Record<string, number>>({});
   const [absentLock, setAbsentLock] = useState<Record<string, number>>({});
   const [sessionPoints, setSessionPoints] = useState(0);
-  const { data: consentOff } = useConsentOffProfiles();
-  const consentOffIds = useMemo(
-    () => new Set((consentOff ?? []).map((p) => p.id)),
-    [consentOff],
+  // Round 58: per child, most restrictive guardian wins (same view as Photo Consent).
+  const { data: childConsent } = useStudentPhotoConsent();
+  const noPhotoStudentIds = useMemo(
+    () => new Set((childConsent ?? []).filter((c) => c.no_photos).map((c) => c.student_id)),
+    [childConsent],
   );
 
   const studentsQ = useStudents();
@@ -902,7 +903,7 @@ function AttendanceTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="truncate font-semibold">{s.first_name} {s.last_name}</div>
                   <FollowUpBadge n={s.consecutive_absences} />
-                  {consentOffIds.has(s.parent_id) && <NoPhotosMarker />}
+                  {noPhotoStudentIds.has(s.id) && <NoPhotosMarker />}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <AdminBeltBadge rankId={s.belt_rank_id} fallback={s.current_belt} dense />

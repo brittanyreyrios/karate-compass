@@ -83,10 +83,13 @@ export async function findDuplicateStudent(opts: {
   if ((parked ?? []).length > 0) return { kind: "parked" as const };
 
   if (opts.parentId) {
+    // Round 58: match a child reachable through ANY guardian link, not only
+    // parent_id — otherwise adding a child under their second guardian would
+    // create a duplicate record and split their history.
     const { data: existing, error: exErr } = await supabase
       .from("students")
-      .select("id, active")
-      .eq("parent_id", opts.parentId)
+      .select("id, active, student_guardians!inner(profile_id)")
+      .eq("student_guardians.profile_id", opts.parentId)
       .ilike("first_name", first)
       .ilike("last_name", last)
       .eq("active", true);
