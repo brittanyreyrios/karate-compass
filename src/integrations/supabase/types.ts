@@ -989,6 +989,48 @@ export type Database = {
           },
         ]
       }
+      student_guardians: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          profile_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          profile_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          profile_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_guardians_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_guardians_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           active: boolean
@@ -1219,7 +1261,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      student_photo_consent: {
+        Row: {
+          conflict: boolean | null
+          consent_off_count: number | null
+          guardian_count: number | null
+          no_photos: boolean | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_guardians_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_reassign_student: {
@@ -1384,6 +1443,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_guardian_of: { Args: { _student_id: string }; Returns: boolean }
       next_curriculum_sort_order: {
         Args: { _belt_rank_id: string; _curriculum_tier: string }
         Returns: number
