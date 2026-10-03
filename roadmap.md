@@ -19,3 +19,5 @@
 - [x] C: four icons + manifest + head tags; no service worker
 
 - Round 56: remove Training Since card, 4-card grid, fix class-catalog invalidation, permanent test child for zz.test.negative
+
+- [ ] Round 58 — two guardians per child (plan revised with 4 changes; awaiting approval)
