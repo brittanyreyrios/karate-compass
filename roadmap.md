@@ -29,3 +29,4 @@
   - add: archive update includes .eq("active", true)
 
 - [x] Round 57 — Dojo Points two-month Chicago periods (points_period_start), occurred_on Chicago default + date fix, copy
+- [ ] Round 66 — pre-link second guardian by email (pending_guardian_links + handle_new_user block + admin UI)
