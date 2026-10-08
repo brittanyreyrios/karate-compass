@@ -71,7 +71,7 @@ function PrivacyPolicyPage() {
             Privacy <span className="text-gradient-red">Policy</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Effective Date: July 30th, 2026 · Last Updated: August 19th, 2026
+            Effective Date: July 30th, 2026 · Last Updated: October 8th, 2026
           </p>
         </header>
 
@@ -119,13 +119,21 @@ function PrivacyPolicyPage() {
           <p>We use the information above to:</p>
           <Bullets
             items={[
-              "Provide family-specific logins and keep each family's data separate from other families",
+              "Provide family-specific logins and keep each family's data separate from other families. A student's records are visible only to the guardian accounts linked to that student.",
               "Display class schedules, announcements, and dojo-points leaderboards",
               "Track attendance and rank progression",
               "Recognize student achievements (leaderboard, milestones, competition results)",
               "Communicate with parents about their student's participation",
             ]}
           />
+          <p>
+            A student can be linked to more than one guardian account — for example, when parents live
+            in separate households. Only Tiger's Den staff can add or remove a guardian link, and only
+            when the school has agreed it. Each linked guardian sees that student's belt rank,
+            attendance, Dojo Points, and competition results. Guardians cannot see each other's account
+            details, and a guardian is not shown which other accounts are linked to the student. To ask
+            about a guardian link, contact the front desk.
+          </p>
           <p>We do not sell student or family data, and we do not use it for advertising.</p>
         </Section>
 
@@ -142,6 +150,11 @@ function PrivacyPolicyPage() {
             If you turn consent off, we stop publishing new photos and video of your student immediately,
             and we remove existing media of your student from the Parent Portal within 14 days of your
             request.
+          </p>
+          <p>
+            If a student is linked to more than one guardian account and the guardians' photo and video
+            settings differ, we follow the most restrictive choice: the student is treated as not
+            consenting until every linked guardian's setting is on.
           </p>
           <p>
             Media that has already been posted to our social media accounts or public website is handled
