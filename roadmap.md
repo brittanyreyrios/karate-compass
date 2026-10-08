@@ -27,3 +27,5 @@
 - [x] Round 63 — archive/restore must not reactivate quit children; R58 polish; settings helper line
   - add: other-guardian check excludes the profile being archived (profile_id <> this profile)
   - add: archive update includes .eq("active", true)
+
+- [x] Round 57 — Dojo Points two-month Chicago periods (points_period_start), occurred_on Chicago default + date fix, copy
