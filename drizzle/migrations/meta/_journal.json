@@ -29,6 +29,13 @@
       "when": 1791499123452,
       "tag": "0003_r57_two_month_points_period",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791499485303,
+      "tag": "0004_r66_pending_guardian_links",
+      "breakpoints": true
     }
   ]
 }

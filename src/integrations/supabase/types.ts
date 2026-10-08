@@ -565,6 +565,38 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_guardian_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_guardian_links_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_student_imports: {
         Row: {
           belt_rank_id: string | null
