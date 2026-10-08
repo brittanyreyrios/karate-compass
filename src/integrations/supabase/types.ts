@@ -1451,6 +1451,7 @@ export type Database = {
         Args: { _belt_rank_id: string; _curriculum_tier: string }
         Returns: number
       }
+      points_period_start: { Args: { _at?: string }; Returns: string }
       resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
       revert_point_event: { Args: { _event_id: string }; Returns: Json }
       set_class_test_date: {

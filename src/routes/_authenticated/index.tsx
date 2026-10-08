@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
 import { BeltChip, BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
 import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
@@ -237,25 +238,26 @@ function Dashboard() {
     },
   });
 
-  // Monthly Dojo Points are derived from the point_events log — students.points
-  // stays the lifetime figure and is never reset.
-  const monthStart = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-  })();
-  const monthlyPointsQ = useQuery({
-    queryKey: ["points-month", student?.id, monthStart],
-    enabled: !!student?.id,
+  // Period Dojo Points are derived from the point_events log — students.points
+  // stays the lifetime figure and is never reset. The period start comes ONLY
+  // from public.points_period_start(), the same function get_leaderboard uses,
+  // so the dashboard and the leaderboard cannot disagree.
+  const periodStartQ = usePointsPeriodStart();
+  const periodStart = periodStartQ.data;
+  const periodPointsQ = useQuery({
+    queryKey: ["points-period", student?.id, periodStart],
+    enabled: !!student?.id && !!periodStart,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("point_events")
         .select("delta")
         .eq("student_id", student!.id)
-        .gte("occurred_on", monthStart);
+        .gte("occurred_on", periodStart!);
       if (error) throw error;
       return (data ?? []).reduce((sum, row) => sum + (row.delta ?? 0), 0);
     },
   });
+  const periodLabels = periodStart ? pointsPeriodLabels(periodStart) : null;
 
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
@@ -547,7 +549,11 @@ function Dashboard() {
           icon={<Sparkles className="h-5 w-5" />}
           label="Dojo Points"
           value={`all time: ${student.points}`}
-          sub={`this month: ${monthlyPointsQ.data ?? 0} · all-time points never reset`}
+          sub={
+            periodLabels
+              ? `${periodLabels.range}: ${periodPointsQ.data ?? 0} · resets ${periodLabels.resets} · all-time points never reset`
+              : "all-time points never reset"
+          }
           highlight
         />
         <StatCard
