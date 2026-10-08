@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { UserPlus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isEmailWithTld } from "@/lib/email-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,21 @@ export function useGuardianLinks() {
   });
 }
 
+/** Round 66: emails waiting to be linked at signup. Admin-only table. */
+type PendingLink = { id: string; student_id: string; email: string };
+export function usePendingGuardianLinks() {
+  return useQuery({
+    queryKey: ["admin-pending-guardian-links"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pending_guardian_links")
+        .select("id, student_id, email");
+      if (error) throw error;
+      return (data ?? []) as PendingLink[];
+    },
+  });
+}
+
 export function GuardiansEditor({
   student,
   profiles,
@@ -75,6 +91,93 @@ export function GuardiansEditor({
   const [chosen, setChosen] = useState<Profile | null>(null);
   const [removing, setRemoving] = useState<GuardianLink | null>(null);
   const rolesQ = useRoleRows();
+  const pendingQ = usePendingGuardianLinks();
+  const pending = (pendingQ.data ?? []).filter((p) => p.student_id === student.id);
+  const [preLink, setPreLink] = useState<{ email: string; parked: string[] } | null>(null);
+  const [cancelling, setCancelling] = useState<PendingLink | null>(null);
+  const [checking, setChecking] = useState(false);
+  const fullName = `${student.first_name} ${student.last_name}`;
+
+  /** Refusals first; the parked-row warning never blocks. */
+  const startPreLink = async () => {
+    const email = term.trim().toLowerCase();
+    setChecking(true);
+    try {
+      const { data: prof, error: pe } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .ilike("email", email);
+      if (pe) throw pe;
+      const match = (prof ?? []).find((p) => p.email.trim().toLowerCase() === email);
+      if (match) {
+        const isStaff = (rolesQ.data ?? []).some((r) => r.user_id === match.id && r.role === "admin");
+        toast.error(
+          isStaff
+            ? `${email} is a staff account and can't be linked as a guardian.`
+            : `${email} already has an account. Use Add guardian to link it directly.`,
+        );
+        return;
+      }
+      if (pending.some((p) => p.email === email)) {
+        toast.error(`${email} is already waiting to be linked to ${fullName}.`);
+        return;
+      }
+      const { data: parked, error: ke } = await supabase
+        .from("pending_student_imports")
+        .select("first_name, last_name, parent_email")
+        .ilike("parent_email", email);
+      if (ke) throw ke;
+      const names = (parked ?? [])
+        .filter((r) => r.parent_email.trim().toLowerCase() === email)
+        .map((r) => `${r.first_name} ${r.last_name}`);
+      setPreLink({ email, parked: names });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const savePreLink = useMutation({
+    mutationFn: async (email: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("pending_guardian_links")
+        .insert({ student_id: student.id, email, created_by: u.user?.id ?? null });
+      if (error) {
+        if (error.code === "23505") throw new Error(`${email} is already waiting to be linked to ${fullName}.`);
+        throw error;
+      }
+      return email;
+    },
+    onSuccess: (email) => {
+      toast.success(`${email} will be linked to ${student.first_name} when they sign up`);
+      qc.invalidateQueries({ queryKey: ["admin-pending-guardian-links"] });
+      setPreLink(null);
+      setTerm("");
+      setAdding(false);
+    },
+    onError: (e: Error) => {
+      setPreLink(null);
+      toast.error(e.message);
+    },
+  });
+
+  const cancelPending = useMutation({
+    mutationFn: async (p: PendingLink) => {
+      const { error } = await supabase.from("pending_guardian_links").delete().eq("id", p.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pending link cancelled");
+      setCancelling(null);
+      qc.invalidateQueries({ queryKey: ["admin-pending-guardian-links"] });
+    },
+    onError: (e: Error) => {
+      setCancelling(null);
+      toast.error(e.message);
+    },
+  });
 
   const links = useMemo(
     () =>
@@ -174,6 +277,20 @@ export function GuardiansEditor({
             </li>
           );
         })}
+        {pending.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-1.5">
+            <span className="select-text break-all">Pending: {p.email} — links at signup</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-1.5 text-xs"
+              onClick={() => setCancelling(p)}
+              aria-label={`Cancel pending link for ${p.email}`}
+            >
+              <X className="h-3 w-3" aria-hidden="true" /> Cancel
+            </Button>
+          </li>
+        ))}
       </ul>
       {links.length === 1 && (
         <p className="mt-0.5 text-[11px]">
@@ -198,7 +315,22 @@ export function GuardiansEditor({
           />
           <ul className="mt-1 space-y-1">
             {term.trim().length >= 2 && results.length === 0 && (
-              <li>No existing accounts match. The second guardian must sign up first.</li>
+              <li>
+                No existing accounts match.
+                {isEmailWithTld(term) ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 h-9 w-full text-xs"
+                    disabled={checking}
+                    onClick={() => void startPreLink()}
+                  >
+                    {checking ? "Checking…" : "Link this email when they sign up"}
+                  </Button>
+                ) : (
+                  " Type their full email to link them when they sign up."
+                )}
+              </li>
             )}
             {results.map((p) => (
               <li key={p.id}>
@@ -260,6 +392,54 @@ export function GuardiansEditor({
               onClick={(e) => { e.preventDefault(); if (chosen) link.mutate(chosen); }}
             >
               {link.isPending ? "Linking…" : "Link guardian"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!preLink} onOpenChange={(o) => { if (!o && !savePreLink.isPending) setPreLink(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Link {preLink?.email} when they sign up?</AlertDialogTitle>
+            <AlertDialogDescription>
+              When {preLink?.email} signs up, they'll be linked to {fullName} automatically and will see their belt,
+              attendance, Dojo Points and tournament results. The main family stays linked and is not told.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {preLink && preLink.parked.length > 0 && (
+            <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-foreground">
+              This email also has parked roster rows ({preLink.parked.join(", ")}). When they sign up those will be
+              created as NEW students. If one of them is this same child, delete that parked row first or you'll get
+              a duplicate.
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savePreLink.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savePreLink.isPending}
+              onClick={(e) => { e.preventDefault(); if (preLink) savePreLink.mutate(preLink.email); }}
+            >
+              {savePreLink.isPending ? "Saving…" : "Link at signup"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cancelling} onOpenChange={(o) => { if (!o && !cancelPending.isPending) setCancelling(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel the pending link for {cancelling?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              If they sign up later, they won't be linked to {fullName} automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelPending.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelPending.isPending}
+              onClick={(e) => { e.preventDefault(); if (cancelling) cancelPending.mutate(cancelling); }}
+            >
+              {cancelPending.isPending ? "Cancelling…" : "Cancel pending link"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
