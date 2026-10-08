@@ -28,7 +28,25 @@ export type GuardianLink = {
   is_primary: boolean;
 };
 
-type Profile = { id: string; email: string; family_name: string | null; photo_consent?: boolean };
+type Profile = {
+  id: string;
+  email: string;
+  family_name: string | null;
+  photo_consent?: boolean;
+  archived_at?: string | null;
+};
+
+/** Round 63: role rows, read under the existing "Admins can view all roles" policy. */
+function useRoleRows() {
+  return useQuery({
+    queryKey: ["admin-guardian-role-rows"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_roles").select("user_id, role");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
 
 export function useGuardianLinks() {
   return useQuery({
@@ -55,6 +73,8 @@ export function GuardiansEditor({
   const [adding, setAdding] = useState(false);
   const [term, setTerm] = useState("");
   const [chosen, setChosen] = useState<Profile | null>(null);
+  const [removing, setRemoving] = useState<GuardianLink | null>(null);
+  const rolesQ = useRoleRows();
 
   const links = useMemo(
     () =>
@@ -69,12 +89,18 @@ export function GuardiansEditor({
   const results = useMemo(() => {
     const q = term.trim().toLowerCase();
     if (q.length < 2) return [];
+    // Only non-archived parent-role accounts; any admin-role account (staff, the
+    // staff test fixture) is excluded even if it also holds the parent role.
+    const parents = new Set<string>();
+    const admins = new Set<string>();
+    for (const r of rolesQ.data ?? []) (r.role === "admin" ? admins : parents).add(r.user_id);
     return (profiles ?? [])
+      .filter((p) => parents.has(p.id) && !admins.has(p.id) && !p.archived_at)
       .filter((p) => !linkedIds.has(p.id))
       .filter((p) => `${p.email} ${p.family_name ?? ""}`.toLowerCase().includes(q))
       .slice(0, 10);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [term, profiles, links]);
+  }, [term, profiles, links, rolesQ.data]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-guardian-links"] });
@@ -109,10 +135,14 @@ export function GuardiansEditor({
     },
     onSuccess: () => {
       toast.success("Guardian link removed");
+      setRemoving(null);
       refresh();
     },
     // Verbatim server message, e.g. the last-guardian refusal.
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setRemoving(null);
+      toast.error(e.message);
+    },
   });
 
   return (
@@ -135,7 +165,7 @@ export function GuardiansEditor({
                   size="sm"
                   className="h-7 px-1.5 text-xs"
                   disabled={unlink.isPending}
-                  onClick={() => unlink.mutate(l)}
+                  onClick={() => setRemoving(l)}
                   aria-label={`Remove ${p?.email ?? "guardian"} as a guardian of ${student.first_name}`}
                 >
                   <X className="h-3 w-3" aria-hidden="true" /> Remove
@@ -188,6 +218,29 @@ export function GuardiansEditor({
           </Button>
         </div>
       )}
+
+      <AlertDialog open={!!removing} onOpenChange={(o) => { if (!o && !unlink.isPending) setRemoving(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removing ? (byId(removing.profile_id)?.email ?? "this account") : ""} as a guardian of {student.first_name} {student.last_name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This account will no longer see {student.first_name}'s belt, attendance, Dojo Points and tournament results.
+              The main family stays linked and is not told.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unlink.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unlink.isPending}
+              onClick={(e) => { e.preventDefault(); if (removing) unlink.mutate(removing); }}
+            >
+              {unlink.isPending ? "Removing…" : "Remove guardian"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!chosen} onOpenChange={(o) => { if (!o && !link.isPending) setChosen(null); }}>
         <AlertDialogContent>

@@ -57,18 +57,70 @@ export const setParentAccountArchived = createServerFn({ method: "POST" })
       .eq("id", data.profileId);
     if (profileErr) throw new Error(profileErr.message);
 
-    const { data: touched, error: studentErr } = await supabaseAdmin
+    // Round 63: only children this family archive actually deactivated are ever
+    // reactivated by a family restore (deactivated_by_family_archive_at marks them).
+    if (!data.archived) {
+      // parent_id check: a child moved to another family meanwhile is never touched.
+      const { data: touched, error: restoreErr } = await supabaseAdmin
+        .from("students")
+        .update({ active: true, deactivated_by_family_archive_at: null })
+        .eq("parent_id", data.profileId)
+        .not("deactivated_by_family_archive_at", "is", null)
+        .select("id");
+      if (restoreErr) throw new Error(restoreErr.message);
+      return {
+        profileId: data.profileId,
+        email: profile.email,
+        archived: false,
+        studentsChanged: (touched ?? []).length,
+        keptActive: [] as string[],
+      };
+    }
+
+    const { data: kids, error: kidsErr } = await supabaseAdmin
       .from("students")
-      .update({ active: !data.archived })
+      .select("id, first_name, last_name")
       .eq("parent_id", data.profileId)
-      .select("id");
-    if (studentErr) throw new Error(studentErr.message);
+      .eq("active", true);
+    if (kidsErr) throw new Error(kidsErr.message);
+
+    const kidIds = (kids ?? []).map((k) => k.id);
+    const keepIds = new Set<string>();
+    if (kidIds.length > 0) {
+      // Another linked guardian, explicitly excluding the profile being archived,
+      // whose own account is not archived.
+      const { data: others, error: othersErr } = await supabaseAdmin
+        .from("student_guardians")
+        .select("student_id, profiles!inner(archived_at)")
+        .in("student_id", kidIds)
+        .neq("profile_id", data.profileId)
+        .is("profiles.archived_at", null);
+      if (othersErr) throw new Error(othersErr.message);
+      for (const o of others ?? []) keepIds.add(o.student_id);
+    }
+
+    const toDeactivate = kidIds.filter((id) => !keepIds.has(id));
+    let changed = 0;
+    if (toDeactivate.length > 0) {
+      // .eq("active", true) in the write itself: a child archived individually a
+      // moment earlier is never stamped as deactivated by this family archive.
+      const { data: touched, error: studentErr } = await supabaseAdmin
+        .from("students")
+        .update({ active: false, deactivated_by_family_archive_at: new Date().toISOString() })
+        .in("id", toDeactivate)
+        .eq("parent_id", data.profileId)
+        .eq("active", true)
+        .select("id");
+      if (studentErr) throw new Error(studentErr.message);
+      changed = (touched ?? []).length;
+    }
 
     return {
       profileId: data.profileId,
       email: profile.email,
-      archived: data.archived,
-      studentsChanged: (touched ?? []).length,
+      archived: true,
+      studentsChanged: changed,
+      keptActive: (kids ?? []).filter((k) => keepIds.has(k.id)).map((k) => k.first_name),
     };
   });
 

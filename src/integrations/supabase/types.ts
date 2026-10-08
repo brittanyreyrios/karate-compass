@@ -1040,6 +1040,7 @@ export type Database = {
           consecutive_absences: number
           created_at: string
           current_belt: string
+          deactivated_by_family_archive_at: string | null
           first_name: string
           id: string
           last_name: string
@@ -1057,6 +1058,7 @@ export type Database = {
           consecutive_absences?: number
           created_at?: string
           current_belt?: string
+          deactivated_by_family_archive_at?: string | null
           first_name: string
           id?: string
           last_name: string
@@ -1074,6 +1076,7 @@ export type Database = {
           consecutive_absences?: number
           created_at?: string
           current_belt?: string
+          deactivated_by_family_archive_at?: string | null
           first_name?: string
           id?: string
           last_name?: string
