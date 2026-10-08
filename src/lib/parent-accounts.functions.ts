@@ -164,7 +164,7 @@ export const deleteParentAccount = createServerFn({ method: "POST" })
         .join(", ");
       throw new Error(
         `Cannot delete this account: ${kids!.length} student record${kids!.length === 1 ? "" : "s"} still attached — ${names}. ` +
-          `Move each student to another family first (Students → the student's card → “Move to another family”), or delete the student records themselves. ` +
+          `Move each student to another family first (Manage Students → the student's card → “Move to another family”), or delete the student records themselves. ` +
           `Deleting this account would permanently destroy their attendance, Dojo Points, tournament results and consent history.`,
       );
     }
@@ -185,7 +185,7 @@ export const deleteParentAccount = createServerFn({ method: "POST" })
         .join(", ");
       throw new Error(
         `Cannot delete this account: it is still linked as a guardian of ${names}. ` +
-          `Remove the guardian link first (Students → the student's card → Guardians → Remove).`,
+          `Remove the guardian link first (Manage Students → the student's card → Guardians → Remove).`,
       );
     }
 
