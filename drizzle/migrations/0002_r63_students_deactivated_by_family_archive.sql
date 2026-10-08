@@ -1,0 +1,2 @@
+ALTER TABLE public.students ADD COLUMN deactivated_by_family_archive_at timestamptz NULL;
+COMMENT ON COLUMN public.students.deactivated_by_family_archive_at IS 'Set only when a family archive deactivated this child; family restore reactivates only these rows, then clears it.';

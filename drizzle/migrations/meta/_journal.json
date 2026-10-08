@@ -15,6 +15,13 @@
       "when": 1791045841687,
       "tag": "0001_r58_hide_guardian_links_from_parents",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791497386434,
+      "tag": "0002_r63_students_deactivated_by_family_archive",
+      "breakpoints": true
     }
   ]
 }

@@ -1451,7 +1451,7 @@ function ArchiveStudentButton({ student }: { student: Student }) {
   const qc = useQueryClient();
   const archive = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("students").update({ active: false }).eq("id", student.id);
+      const { error } = await supabase.from("students").update({ active: false, deactivated_by_family_archive_at: null }).eq("id", student.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1503,7 +1503,7 @@ function ArchivedStudentsPanel({ students }: { students: Student[] }) {
 
   const restore = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("students").update({ active: true }).eq("id", id);
+      const { error } = await supabase.from("students").update({ active: true, deactivated_by_family_archive_at: null }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -3648,6 +3648,9 @@ function ParentsTab({
         r.archived
           ? `Account archived — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} set inactive`
           : `Account restored — ${r.studentsChanged} student record${r.studentsChanged === 1 ? "" : "s"} active again`,
+        r.keptActive.length > 0
+          ? { description: r.keptActive.map((n) => `${n} stays active — linked to another guardian.`).join(" ") }
+          : undefined,
       );
       invalidateAccounts();
     },
