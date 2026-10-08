@@ -10,6 +10,7 @@ import { beltLabelStyle } from "@/lib/belt-colors";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
+import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
       {
         name: "description",
         content:
-          "Monthly Dojo Point rankings at Tiger's Den, with a separate board for each training division.",
+          "Dojo Point rankings at Tiger's Den for the current two-month period, with a separate board for each training division.",
       },
     ],
   }),
@@ -48,6 +49,10 @@ type Division = { key: string; name: string; sort_order: number };
 
 function LeaderboardPage() {
   const qc = useQueryClient();
+  const periodStartQ = usePointsPeriodStart();
+  const labels = periodStartQ.data ? pointsPeriodLabels(periodStartQ.data) : null;
+  const range = labels?.range ?? "this period";
+  const resets = labels?.resets ?? "soon";
 
   /**
    * Labels and tab order come from leaderboard_divisions, but the authoritative
@@ -85,7 +90,7 @@ function LeaderboardPage() {
   const divisionKey = activeKey ?? preferred;
 
   const q = useQuery({
-    queryKey: ["leaderboard", divisionKey],
+    queryKey: ["leaderboard", divisionKey, periodStartQ.data],
     enabled: !!divisionKey,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_leaderboard", {
@@ -151,11 +156,11 @@ function LeaderboardPage() {
           Dojo <span className="text-gradient-red">Leaderboard</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Top 10 by Dojo Points earned this month, with a separate board for each training division.
+          Top 10 by Dojo Points earned {range}, with a separate board for each training division.
         </p>
         <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground">
-          Leaderboard resets on the 1st of each month. Your all-time points are on your dashboard and
-          never reset.
+          Leaderboard resets {resets}, then every two months. Your all-time points are on your dashboard
+          and never reset.
         </p>
       </header>
 
@@ -216,7 +221,7 @@ function LeaderboardPage() {
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground" strokeWidth={1} aria-hidden="true" />
             <p className="mt-4 text-sm text-muted-foreground">
-              No points logged yet this month. Be the first on the board!
+              No points logged yet for {range}. Be the first on the board!
             </p>
           </div>
         )}
@@ -233,18 +238,18 @@ function LeaderboardPage() {
                   row={podium[0]}
                   accent="gold"
                   featured
-                  isJiuJitsu={divisionKey === "jiu_jitsu"}
+                  isJiuJitsu={divisionKey === "jiu_jitsu"} periodRange={range}
                 />
               </div>
             )}
             {podium[1] && (
               <div className="flex w-full">
-                <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+                <PodiumCard rank={2} row={podium[1]} accent="silver" isJiuJitsu={divisionKey === "jiu_jitsu"} periodRange={range} />
               </div>
             )}
             {podium[2] && (
               <div className="flex w-full">
-                <PodiumCard rank={3} row={podium[2]} accent="bronze" isJiuJitsu={divisionKey === "jiu_jitsu"} />
+                <PodiumCard rank={3} row={podium[2]} accent="bronze" isJiuJitsu={divisionKey === "jiu_jitsu"} periodRange={range} />
               </div>
             )}
           </section>
@@ -310,12 +315,14 @@ function PodiumCard({
   accent,
   isJiuJitsu,
   featured = false,
+  periodRange,
 }: {
   rank: 1 | 2 | 3;
   row: Row;
   accent: "gold" | "silver" | "bronze";
   isJiuJitsu: boolean;
   featured?: boolean;
+  periodRange: string;
 }) {
   const accents = {
     gold: {
@@ -388,7 +395,7 @@ function PodiumCard({
           {row.period_points}
         </div>
         <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-          Dojo Points this month
+          Dojo Points {periodRange}
         </div>
       </div>
     </div>
