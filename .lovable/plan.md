@@ -1,59 +1,44 @@
-# Round 66 — Pre-link a second guardian by email
+# Round 62 — Absence log, editable absences, all-time class tally
 
-Starting commit: `30edd3196a13ede2e3d7bad80a614ab104c96197`.
+## Checked before planning (real output, 12 Oct 2026)
+- attendance_events mismatched rows (occurred_on vs created_at in Chicago): **68** (brief expected ~36 on 3 Oct — more evening check-ins since). Column default: `CURRENT_DATE`.
+- point_events mismatched rows: **0**; default `((now() AT TIME ZONE 'America/Chicago'::text))::date` (R57 pattern, followed here).
+- change_attendance proacl: `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}`.
+- change_attendance is also called by the student edit dialog (manual attendance correction, admin.tsx ~1766), not just check-in.
 
-## Checked before planning (real output)
-- `handle_new_user` proacl: `{postgres=X/postgres,service_role=X/postgres}`
-- `check_invite_code` proacl: `{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}`
-- GRANT pattern to follow (0000, student_guardians): `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated; GRANT ALL … TO service_role;` — no anon.
+## Migration (one file, drizzle/migrations/0005_r62_absence_events.sql)
+1. `public.absence_events`: id uuid PK, student_id uuid NOT NULL → students ON DELETE CASCADE, occurred_on date NOT NULL default `((now() AT TIME ZONE 'America/Chicago'))::date`, class_name text NULL, created_by uuid (plain uuid, no auth.users FK), created_at timestamptz NOT NULL default now(). Index (student_id, occurred_on).
+   - **class_name choice:** a text snapshot of the student's primary class (students.class_name) at the moment of marking. attendance_events has no class column and mark_absent takes only the student id, so a snapshot is the honest, simple option; it is display-only.
+   - GRANT SELECT/INSERT/UPDATE/DELETE to authenticated, ALL to service_role; RLS on; one policy: admins ALL via `has_role(auth.uid(),'admin')`. No parent policy.
+2. `ALTER TABLE attendance_events ALTER COLUMN occurred_on SET DEFAULT ((now() AT TIME ZONE 'America/Chicago'))::date`.
+3. `CREATE OR REPLACE change_attendance` — body byte-identical except `CURRENT_DATE` → `(now() AT TIME ZONE 'America/Chicago')::date`. Delta / partial-decrease / row-count logic untouched.
+4. `mark_absent(_student_id)` — SECURITY DEFINER, search_path public, admin check, `SELECT … FOR UPDATE` on the student, insert one row (Chicago today, class snapshot, auth.uid()), increment streak; returns jsonb {student_id, absence_id, streak}.
+5. `remove_absence(_absence_id)` — same shape; locks the student, deletes the row, adjusts the streak.
+   - **Streak rule:** decrement by 1 (never below 0) **only if the absence was recorded after the student's latest check-in** (absence created_at > newest attendance_events created_at). An absence from before the last check-in is no longer part of the current streak, so removing it leaves the streak alone. Undo of a just-marked absence therefore restores exactly the previous value.
+6. `check_in_student(_student_id)` — **separate locked function, not inside change_attendance**, because change_attendance also serves manual corrections in the edit dialog, which must not wipe the streak. It locks the student, calls change_attendance(_student_id, 1) in the same transaction, sets consecutive_absences = 0, never touches absence_events.
+7. One-time correction: the exact UPDATE from the brief on attendance_events (created_at not null only). point_events untouched.
+8. Last DDL: REVOKE EXECUTE FROM PUBLIC, anon and GRANT to authenticated on the three new functions and change_attendance; then proacl verification query.
 
-## Migration (one file, drizzle/migrations/0004_r66_pending_guardian_links.sql)
-1. `public.pending_guardian_links`: id uuid PK default gen_random_uuid(), student_id uuid NOT NULL → students ON DELETE CASCADE, email text NOT NULL, created_by uuid (plain uuid, no auth.users FK, per project rule), created_at timestamptz NOT NULL default now(). UNIQUE (student_id, email). CHECK `email = lower(btrim(email))` so storage is normalised whatever the caller sends.
-2. GRANTs as above, ENABLE RLS, one policy: admins ALL using/with check `has_role(auth.uid(),'admin')`. No parent policy.
-3. `CREATE OR REPLACE FUNCTION public.handle_new_user()` — the current body copied byte-for-byte, with one new block inserted after the parked-student block's `END;` and before `RETURN NEW;`:
-```text
--- Round 66: attach pre-linked second guardians. Never allowed to block signup.
-BEGIN
-  FOR r IN SELECT * FROM public.pending_guardian_links
-           WHERE email = lower(btrim(NEW.email)) LOOP
-    INSERT INTO public.student_guardians (student_id, profile_id, is_primary)
-    VALUES (r.student_id, NEW.id, false)
-    ON CONFLICT (student_id, profile_id) DO NOTHING;
-    DELETE FROM public.pending_guardian_links WHERE id = r.id;
-  END LOOP;
-EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'pending guardian link failed for %: %', NEW.email, SQLERRM;
-END;
-```
-   Reuses the existing `r record` variable (no DECLARE change). Never sets is_primary true, never touches students. The sync/guard triggers fire only on students / delete, so this insert does not trip them. No DROP; owner, SECURITY DEFINER, search_path unchanged.
+**Editing an absence's date:** left out. A moved date can cross a check-in and change which absences belong to the streak; remove-and-re-mark covers it.
 
-Not touched: invite-code check, profile/role inserts, parked block, student_guardians policies, is_guardian_of, triggers, R58 functions, admin_reassign_student, check_invite_code, auth path, legal pages, email confirmation.
+## Admin UI (admin.tsx; new src/lib/absences.ts)
+- Absent button → `mark_absent`; toast "Absent · streak N" with a 3-second Undo calling `remove_absence`, same pattern as the Dojo Points toast.
+- Present button → `check_in_student` (no more client update of the streak).
+- Student record (edit dialog): "Absences this year: N" at the top, then history rows (date, class, who marked it by email/family name of the admin), Remove per row → confirm "Remove the absence for {first} {last} on {date}?".
+- FollowUpBadge / riskLevel / riskCardClasses untouched.
 
-## Admin UI (src/components/admin-guardians.tsx only)
-- Add guardian search with no matching parent + `isEmailWithTld(text)` → button "Link this email when they sign up".
-- Before showing the confirm dialog, checks (admin reads, all already permitted by existing admin policies):
-  - email matches any profile → refuse: "{email} already has an account. Use Add guardian to link it directly." If that profile has the admin role → instead: "{email} is a staff account and can't be linked as a guardian."
-  - already pending for this child → "{email} is already waiting to be linked to {first} {last}." (the unique constraint backs this up; a 23505 maps to the same message).
-- Confirm dialog, exact text: "When {email} signs up, they'll be linked to {first} {last} automatically and will see their belt, attendance, Dojo Points and tournament results. The main family stays linked and is not told."
-- Non-blocking warning inside that dialog when pending_student_imports has rows for the email, naming each parked child: "This email also has parked roster rows ({names}). When they sign up those will be created as NEW students. If one of them is this same child, delete that parked row first or you'll get a duplicate."
-- On the student's card under the guardian list: "Pending: {email} — links at signup" with Cancel → confirm dialog → delete row.
-- Nothing parent-facing changes.
+## Yearly reset by filtering
+"This year" = occurred_on between Jan 1 and Dec 31 of the current Chicago year. Nothing deleted, no scheduled job.
 
-## Email confirmation
-The link attaches to the account at signup, but the new account cannot sign in until the email is confirmed — that is unchanged; the report will show the sign-in refusal before confirmation.
+## Parent dashboard (index.tsx)
+- Year from GYM_TIMEZONE (new tiny helper `gymYear()` exported from schedule-time.ts using the existing constant) instead of `new Date().getFullYear()`.
+- Attendance card: "This year: 12 · All-time: 47 (since Aug 2026)"; all-time = students.attendance_count. Layout checked at 390/768/1024/1025/1536 with scrollWidth.
 
-## End-to-end test (test accounts only)
-1. Record students / student_guardians counts. Create "ZZTEMP R66 Test" under zz.test.negative.
-2. As the zzstaff fixture, pre-link a throwaway address: `leaguecity.tigersden+zzr66@gmail.com` (inbox-capable, so Britt can confirm it; same pattern as the staff fixture). Screenshot the three refusals (zz.test.secondary = existing account, repeat = already pending, zzstaff = staff) and the parked-row warning (via a temporary labelled parked row under the throwaway address, deleted right after the screenshot, before signup).
-3. ZZTEST54 on → sign up through the real form → off; report used_count (expected 5 → 6, max 20).
-4. Show: one new non-primary student_guardians row for the new account, pending row gone, students count unchanged, temp child's parent_id unchanged.
-5. STOP and ask Britt to confirm the account in Cloud → Users; then sign in as it and screenshot the child on its dashboard.
+## Test plan (temporary "ZZTEMP R62 Test" child under zz.test.negative; fixture child not used)
+Mark ×2, Undo ×1, remove from history, check in — rows and streak after every step; two simultaneous mark_absent calls (+2 rows, +2 streak); non-admin refusal for mark_absent/remove_absence and zero rows from absence_events as zz.test.negative; last-year absence excluded from the count; follow-up badge before/after screenshot. Staff checks as the staff test account. Cleanup: temp child (cascades its rows), counts back, ZZTEST54 untouched.
 
-## Failure-safety
-Show the EXCEPTION block in the deployed function body. A forced failure would need a deliberately broken pending row or a temporary sabotage of the function on the live signup path, which I don't think is safe; I propose to stop at the structural proof plus a read of the identical existing block's behaviour, unless you want a specific forced-failure method.
-
-## Cleanup
-Remove the throwaway account's guardian link first (non-primary, allowed by the guard trigger; the delete flow refuses while a link exists), archive and delete the account via the admin flow, delete the temp child and any pending rows, ZZTEST54 off, fixture child 0 points, counts back to before-values.
+## Not touched
+point_events, award_points, leaderboard, Dojo Points display, R58 guardian objects, R54 belt-test path, R54b auth path, legal pages.
 
 ## Report
-git diff --stat including package.json / bun.lock (expected: no dependency changes), migration text, handle_new_user before/after with diff, proacl for both functions, pg_policies rows for the new table, all of the above output.
+Migration text and file list, pg_proc definitions and proacl, correction counts before/after, point_events 0, git diff --stat with package.json / bun.lock stated, all test output.
