@@ -94,6 +94,8 @@ function AuthPage() {
   // cleared the moment the email field is edited.
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [resendCooldownUntil, setResendCooldownUntil] = useState(0);
+  // Round 64 — successful resends this session; the help line shows from the second.
+  const [resendCount, setResendCount] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const resendSecondsLeft = Math.max(0, Math.ceil((resendCooldownUntil - now) / 1000));
 
@@ -216,6 +218,18 @@ function AuthPage() {
     setLoading(false);
 
     if (error) {
+      const recognised = /invite code/i.test(error.message) || /already registered/i.test(error.message);
+      // Round 64 — a code used up between the pre-check and submit makes the
+      // signup trigger refuse with a generic 500. Re-check the code to name it.
+      if (!recognised) {
+        const { data: stillValid, error: checkErr } = await supabase.rpc("check_invite_code", { _code: clean });
+        if (!checkErr && stillValid === false) {
+          setInviteState("invalid");
+          return toast.error(
+            "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one.",
+          );
+        }
+      }
       return toast.error(
         /invite code/i.test(error.message)
           ? "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one."
