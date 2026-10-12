@@ -1,3 +1,5 @@
+import { PostImagePicker } from "@/components/post-image";
+import { deletePostImageObject } from "@/lib/post-images";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Plus, Trash2, Lock, Copy, Users, EyeOff } from "lucide-react";
@@ -43,6 +45,9 @@ export function PollsAdminTab() {
   const [multiSelect, setMultiSelect] = useState(false);
   const [resultsVisible, setResultsVisible] = useState("after_close");
   const [closesAt, setClosesAt] = useState("");
+  const [draftId, setDraftId] = useState(() => crypto.randomUUID());
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState("");
 
   const pollsQ = useQuery({
     queryKey: ["admin-polls"],
@@ -70,6 +75,9 @@ export function PollsAdminTab() {
       const { data: poll, error } = await supabase
         .from("polls")
         .insert({
+          id: draftId,
+          image_url: imageUrl,
+          image_alt: imageUrl ? imageAlt.trim() || null : null,
           question: q,
           description: description.trim() || null,
           anonymous,
@@ -94,6 +102,7 @@ export function PollsAdminTab() {
       setDescription("");
       setOptionsText("");
       setClosesAt("");
+      setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
       qc.invalidateQueries({ queryKey: ["admin-polls"] });
       qc.invalidateQueries({ queryKey: ["polls"] });
     },
@@ -132,6 +141,15 @@ export function PollsAdminTab() {
               className="mt-1"
             />
           </div>
+          <PostImagePicker
+            rowId={draftId}
+            value={imageUrl}
+            alt={imageAlt}
+            onAltChange={setImageAlt}
+            onChange={(next) => setImageUrl(next)}
+            fallbackAlt={question.trim() || "the poll question"}
+            idPrefix="new-poll"
+          />
           <div>
             <Label htmlFor="poll-options">Answer options — one per line</Label>
             <Textarea
@@ -292,6 +310,8 @@ function AdminPollCard({ poll }: { poll: Poll }) {
     mutationFn: async () => {
       const { error } = await supabase.from("polls").delete().eq("id", poll.id);
       if (error) throw error;
+      // Round 59: row first, then the object, so a failed delete never loses a file.
+      await deletePostImageObject(poll.image_url);
     },
     onSuccess: () => {
       toast.success("Poll deleted");
