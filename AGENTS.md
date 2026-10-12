@@ -55,3 +55,16 @@ Skipping either folder leaves the schema incomplete.
 
 ## Parent login email
 - Change a parent's email only through `changeParentEmail` (auth record first via Admin API, then `profiles.email`, then audit row); never edit `profiles.email` alone — the display copy would hide a login that didn't move.
+
+### `post-images` Storage bucket (Round 59)
+
+Created with the bucket tool (not a migration). On a fresh database create it manually:
+
+- **Bucket id / name:** `post-images`
+- **Public:** `false` (private — images are served via short-lived signed URLs)
+- **File size limit:** 5 MB at bucket level, and 5 MB client-side
+- **Allowed MIME types:** NOT set on the bucket (the agent tooling cannot set it); enforced client-side (`image/jpeg`, `image/png`, `image/webp`), and every upload is re-encoded to JPEG
+
+Policies live in `drizzle/migrations/0007_r59_post_images.sql`: SELECT for any `authenticated` user; INSERT/UPDATE/DELETE for the `admin` role only. Any signed-in user can sign any object, so a scheduled announcement's image is hidden only by its unguessable UUID-prefixed name.
+
+Note: the `album-covers` entry above says file size and MIME types are enforced client-side only. The bucket itself now reads back `file_size_limit` 5242880 and `allowed_mime_types` jpeg/png/webp, so that note is out of date (left unchanged pending review).
