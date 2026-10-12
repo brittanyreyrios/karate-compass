@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,4 +146,23 @@ export function PostImagePicker({
       </div>
     </div>
   );
+}
+
+/**
+ * Round 65 — backstop for create forms. The admin tabs unmount an inactive tab
+ * (no forceMount), so leaving the tab or page really does lose the draft; only
+ * then is its unsaved picture deleted. Callers clear `value` after a successful
+ * save, so a saved picture is never touched. Tab close is best effort only.
+ */
+export function useDraftImageCleanup(value: string | null) {
+  const ref = useRef<string | null>(value);
+  ref.current = value;
+  useEffect(() => {
+    const onHide = () => { if (ref.current) void deletePostImageObject(ref.current); };
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      if (ref.current) void deletePostImageObject(ref.current);
+    };
+  }, []);
 }
