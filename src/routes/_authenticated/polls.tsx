@@ -1,3 +1,4 @@
+import { PostImage } from "@/components/post-image";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -224,6 +225,9 @@ function PollCard({ poll }: { poll: Poll }) {
         <div className="min-w-0">
           <h2 className="font-display text-lg font-bold uppercase tracking-wide sm:text-xl">{poll.question}</h2>
           {poll.description && <p className="mt-1 text-sm text-muted-foreground">{poll.description}</p>}
+          {poll.image_url && (
+            <PostImage value={poll.image_url} alt={poll.image_alt} fallbackAlt={poll.question} className="mt-3" />
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="border-border text-muted-foreground">
