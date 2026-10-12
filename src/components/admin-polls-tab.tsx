@@ -361,6 +361,9 @@ function AdminPollCard({ poll }: { poll: Poll }) {
             {closed && <Badge variant="outline" className="border-border text-muted-foreground">Closed</Badge>}
             {!poll.published && <Badge variant="outline">Unpublished</Badge>}
           </div>
+          <div className="mt-3">
+            <PollImageEditor poll={poll} />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {!closed && (
