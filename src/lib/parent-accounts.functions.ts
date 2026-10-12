@@ -333,11 +333,13 @@ export const changeParentEmail = createServerFn({ method: "POST" })
       );
     }
 
-    const oldEmail = authEmail || profileEmail;
+    // When repairing (auth already new), the real old address is the profile's.
+    const authStepRuns = authEmail !== newEmail;
+    const oldEmail = authStepRuns ? authEmail || profileEmail : profileEmail;
 
     // Step 1 — the login. Skipped only when auth already holds the new address
     // (repairing an out-of-step change).
-    if (authEmail !== newEmail) {
+    if (authStepRuns) {
       const { data: upd, error: authErr } = await supabaseAdmin.auth.admin.updateUserById(data.profileId, {
         email: newEmail,
         email_confirm: true,
@@ -371,7 +373,8 @@ export const changeParentEmail = createServerFn({ method: "POST" })
 
     // Step 3 — audit (change stands even if this fails; reported).
     let auditError: string | null = null;
-    if (oldEmail !== newEmail) {
+    // A repair run does not re-audit: the original change already wrote its row.
+    if (authStepRuns) {
       const { error: aErr } = await supabaseAdmin.from("email_change_events").insert({
         target_user_id: data.profileId,
         old_email: oldEmail,
