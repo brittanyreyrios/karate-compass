@@ -458,6 +458,29 @@ function AdminPollCard({ poll }: { poll: Poll }) {
         )}
       </div>
 
+      {poll.respond_per === "student" && disagreeIds.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border bg-background p-3 text-sm" data-testid="guardians-disagree">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p>
+              <span className="font-semibold">Guardians disagree:</span>{" "}
+              {disagreeIds.length} {disagreeIds.length === 1 ? "child" : "children"} — each still counted once per answer chosen.
+            </p>
+            {!poll.anonymous && (
+              <Button size="sm" variant="outline" onClick={() => setShowDisagree((v) => !v)}>
+                {showDisagree ? "Hide" : "Show"}
+              </Button>
+            )}
+          </div>
+          {showDisagree && !poll.anonymous && (
+            <ul className="mt-2 space-y-1 text-muted-foreground">
+              {(disagreeNamesQ.data ?? []).map((s) => (
+                <li key={s.id}>{s.first_name} {s.last_name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {!poll.anonymous && (
         <div className="mt-5 rounded-xl border border-border bg-background p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
