@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      absence_events: {
+        Row: {
+          class_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          occurred_on: string
+          student_id: string
+        }
+        Insert: {
+          class_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_on?: string
+          student_id: string
+        }
+        Update: {
+          class_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_on?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absence_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           address: string | null
@@ -1329,6 +1364,7 @@ export type Database = {
         Args: { _delta: number; _student_id: string }
         Returns: Json
       }
+      check_in_student: { Args: { _student_id: string }; Returns: Json }
       check_invite_code: { Args: { _code: string }; Returns: boolean }
       class_student_counts: {
         Args: never
@@ -1479,11 +1515,13 @@ export type Database = {
         Returns: boolean
       }
       is_guardian_of: { Args: { _student_id: string }; Returns: boolean }
+      mark_absent: { Args: { _student_id: string }; Returns: Json }
       next_curriculum_sort_order: {
         Args: { _belt_rank_id: string; _curriculum_tier: string }
         Returns: number
       }
       points_period_start: { Args: { _at?: string }; Returns: string }
+      remove_absence: { Args: { _absence_id: string }; Returns: Json }
       resolve_belt_rank_id: { Args: { _belt: string }; Returns: string }
       revert_point_event: { Args: { _event_id: string }; Returns: Json }
       set_class_test_date: {

@@ -42,6 +42,7 @@ import { Link } from "@tanstack/react-router";
 
 import { plural, count } from "@/lib/plural";
 import { supabase } from "@/integrations/supabase/client";
+import { gymYear } from "@/lib/absences";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { GoogleReviewCard } from "@/components/google-review-card";
 import { QueryErrorState } from "@/components/query-error";
@@ -222,7 +223,7 @@ function Dashboard() {
 
   // Yearly attendance log — counts only classes logged in the current calendar
   // year, so the number naturally resets every January 1st.
-  const currentYear = new Date().getFullYear();
+  const currentYear = gymYear();
   const yearlyAttendanceQ = useQuery({
     queryKey: ["attendance-year", student?.id, currentYear],
     enabled: !!student?.id,
@@ -558,9 +559,9 @@ function Dashboard() {
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
-          label="Total Attendance (Yearly Log)"
-          value={`${yearlyAttendanceQ.data ?? 0}`}
-          sub={`classes logged in ${currentYear}`}
+          label="Total Attendance"
+          value={`This year: ${yearlyAttendanceQ.data ?? 0}`}
+          sub={`All-time: ${student.attendance_count} (since Aug 2026)`}
         />
       </section>
 

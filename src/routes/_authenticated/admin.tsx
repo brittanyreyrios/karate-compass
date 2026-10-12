@@ -111,6 +111,8 @@ import {
 import { GuardiansEditor, useGuardianLinks } from "@/components/admin-guardians";
 import { awardPoints, revertPointEvent } from "@/lib/points";
 import { changeAttendance } from "@/lib/attendance";
+import { markAbsent as markAbsentRpc, removeAbsence, checkInStudent } from "@/lib/absences";
+import { AbsenceHistory } from "@/components/admin-absences";
 import { daysUntilDateOnly, formatDateOnly, normalizeDateOnly } from "@/lib/date-only";
 import {
   chicagoEndOfDay,
@@ -708,19 +710,9 @@ function AttendanceTab() {
 
   const checkIn = useMutation({
     mutationFn: async (student: Student) => {
-      // changeAttendance() is the single funnel that bumps the counter and writes
-      // the dated attendance_events row the parent dashboard counts.
-      await changeAttendance({
-        studentId: student.id,
-        currentAttendance: student.attendance_count,
-        delta: 1,
-      });
-      // Absence streak is not attendance accounting, so it stays out of the funnel.
-      const { error } = await supabase
-        .from("students")
-        .update({ consecutive_absences: 0 })
-        .eq("id", student.id);
-      if (error) throw error;
+      // check_in_student(): +1 via change_attendance and streak reset to 0 in one
+      // locked transaction. absence_events is never touched by a check-in.
+      await checkInStudent(student.id);
       return student.id;
     },
     onSuccess: (id) => {
@@ -769,17 +761,27 @@ function AttendanceTab() {
   });
 
   const markAbsent = useMutation({
-    mutationFn: async (student: Student) => {
-      const { error } = await supabase
-        .from("students")
-        .update({ consecutive_absences: student.consecutive_absences + 1 })
-        .eq("id", student.id);
-      if (error) throw error;
-      return student.id;
-    },
-    onSuccess: (id) => {
-      lockButton(setAbsentLock, id);
+    mutationFn: async (student: Student) => markAbsentRpc(student.id),
+    onSuccess: (mark) => {
+      lockButton(setAbsentLock, mark.studentId);
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["absence-events", mark.studentId] });
+      toast.success(`Absent · streak ${mark.streak}`, {
+        duration: 3000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await removeAbsence(mark.absenceId);
+              qc.invalidateQueries({ queryKey: ["admin-students"] });
+              qc.invalidateQueries({ queryKey: ["absence-events", mark.studentId] });
+              toast.success("Absence reverted");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          },
+        },
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1411,6 +1413,7 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         </div>
         <GuardiansEditor student={student} profiles={profilesForGuardians} />
         <EnrollmentEditor studentId={student.id} />
+        <AbsenceHistory student={student} />
       </div>
 
       <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
@@ -1593,18 +1596,20 @@ function DeleteStudentDialog({ student }: { student: Student }) {
     enabled: open,
     queryFn: async () => {
       const head = { count: "exact" as const, head: true };
-      const [att, pts, votes, enr] = await Promise.all([
+      const [att, pts, votes, enr, abs] = await Promise.all([
         supabase.from("attendance_events").select("id", head).eq("student_id", student.id),
         supabase.from("point_events").select("id", head).eq("student_id", student.id),
         supabase.from("poll_votes").select("id", head).eq("student_id", student.id),
         supabase.from("student_classes").select("id", head).eq("student_id", student.id),
+        supabase.from("absence_events").select("id", head).eq("student_id", student.id),
       ]);
-      for (const r of [att, pts, votes, enr]) if (r.error) throw r.error;
+      for (const r of [att, pts, votes, enr, abs]) if (r.error) throw r.error;
       return {
         attendance: att.count ?? 0,
         points: pts.count ?? 0,
         votes: votes.count ?? 0,
         enrolments: enr.count ?? 0,
+        absences: abs.count ?? 0,
       };
     },
   });
@@ -1626,6 +1631,9 @@ function DeleteStudentDialog({ student }: { student: Student }) {
   const c = countsQ.data;
   const sentence = c
     ? `This permanently deletes ${fullName}, ${count(c.attendance, "attendance record")}, ${count(
+        c.absences,
+        "absence record",
+      )}, ${count(
         c.points,
         "point entry",
         "point entries",
