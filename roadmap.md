@@ -30,5 +30,5 @@
 
 - [x] Round 57 — Dojo Points two-month Chicago periods (points_period_start), occurred_on Chicago default + date fix, copy
 - [x] Round 66 — pre-link second guardian by email (pending_guardian_links + handle_new_user block + admin UI)
-- [ ] Round 62 — absence log (absence_events, mark_absent/remove_absence/check_in_student, Chicago dates, all-time tally)
+- [x] Round 62 — absence log (absence_events, mark_absent/remove_absence/check_in_student, Chicago dates, all-time tally)
   - add: DeleteStudentDialog counts absence_events + sentence; screenshot
