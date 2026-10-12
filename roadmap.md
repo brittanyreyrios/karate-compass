@@ -41,3 +41,4 @@
   - add: post-images allowed_mime_types jpeg/png/webp, read back all three
   - add: gallery proof album active=false, deleted after
   - add: test announcement no event_date, non-tournament category; any linked event publish_at 2099, delete
+- [ ] R65 — two-guardian poll counting (DISTINCT student on per-student polls, staff "guardians disagree"), restore uses family archived date, create-form "Discard draft" + leave-form image cleanup only when draft is truly lost
