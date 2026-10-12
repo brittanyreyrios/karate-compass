@@ -1,44 +1,51 @@
-# Round 62 — Absence log, editable absences, all-time class tally
+# Round 60 — View and change a parent's email
 
-## Checked before planning (real output, 12 Oct 2026)
-- attendance_events mismatched rows (occurred_on vs created_at in Chicago): **68** (brief expected ~36 on 3 Oct — more evening check-ins since). Column default: `CURRENT_DATE`.
-- point_events mismatched rows: **0**; default `((now() AT TIME ZONE 'America/Chicago'::text))::date` (R57 pattern, followed here).
-- change_attendance proacl: `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}`.
-- change_attendance is also called by the student edit dialog (manual attendance correction, admin.tsx ~1766), not just check-in.
+Starting commit: `1a8826745eca030abb36c51e047ba8b398e38372`
 
-## Migration (one file, drizzle/migrations/0005_r62_absence_events.sql)
-1. `public.absence_events`: id uuid PK, student_id uuid NOT NULL → students ON DELETE CASCADE, occurred_on date NOT NULL default `((now() AT TIME ZONE 'America/Chicago'))::date`, class_name text NULL, created_by uuid (plain uuid, no auth.users FK), created_at timestamptz NOT NULL default now(). Index (student_id, occurred_on).
-   - **class_name choice:** a text snapshot of the student's primary class (students.class_name) at the moment of marking. attendance_events has no class column and mark_absent takes only the student id, so a snapshot is the honest, simple option; it is display-only.
-   - GRANT SELECT/INSERT/UPDATE/DELETE to authenticated, ALL to service_role; RLS on; one policy: admins ALL via `has_role(auth.uid(),'admin')`. No parent policy.
-2. `ALTER TABLE attendance_events ALTER COLUMN occurred_on SET DEFAULT ((now() AT TIME ZONE 'America/Chicago'))::date`.
-3. `CREATE OR REPLACE change_attendance` — body byte-identical except `CURRENT_DATE` → `(now() AT TIME ZONE 'America/Chicago')::date`. Delta / partial-decrease / row-count logic untouched.
-4. `mark_absent(_student_id)` — SECURITY DEFINER, search_path public, admin check, `SELECT … FOR UPDATE` on the student, insert one row (Chicago today, class snapshot, auth.uid()), increment streak; returns jsonb {student_id, absence_id, streak}.
-5. `remove_absence(_absence_id)` — same shape; locks the student, deletes the row, adjusts the streak.
-   - **Streak rule:** decrement by 1 (never below 0) **only if the absence was recorded after the student's latest check-in** (absence created_at > newest attendance_events created_at). An absence from before the last check-in is no longer part of the current streak, so removing it leaves the streak alone. Undo of a just-marked absence therefore restores exactly the previous value.
-6. `check_in_student(_student_id)` — **separate locked function, not inside change_attendance**, because change_attendance also serves manual corrections in the edit dialog, which must not wipe the streak. It locks the student, calls change_attendance(_student_id, 1) in the same transaction, sets consecutive_absences = 0, never touches absence_events.
-7. One-time correction: the exact UPDATE from the brief on attendance_events (created_at not null only). point_events untouched.
-8. Last DDL: REVOKE EXECUTE FROM PUBLIC, anon and GRANT to authenticated on the three new functions and change_attendance; then proacl verification query.
+## Answers to the two pre-build questions
 
-**Editing an absence's date:** left out. A moved date can cross a check-in and change which absences belong to the streak; remove-and-re-mark covers it.
+**Can `sendLovableEmail` send a non-auth message?** Yes. It is a plain exported function, not tied to the auth webhook. Source (`node_modules/@lovable.dev/email-js/dist/index.js`):
 
-## Admin UI (admin.tsx; new src/lib/absences.ts)
-- Absent button → `mark_absent`; toast "Absent · streak N" with a 3-second Undo calling `remove_absence`, same pattern as the Dojo Points toast.
-- Present button → `check_in_student` (no more client update of the streak).
-- Student record (edit dialog): "Absences this year: N" at the top, then history rows (date, class, who marked it by email/family name of the admin), Remove per row → confirm "Remove the absence for {first} {last} on {date}?".
-- FollowUpBadge / riskLevel / riskCardClasses untouched.
+```js
+async function sendLovableEmail(payload, options) {
+  const apiKey = options.apiKey;
+  if (!apiKey) throw new Error("Missing Lovable API key");
+  ...
+  const url = sendUrl || `${resolveApiBaseUrl(options.apiBaseUrl)}${DEFAULT_SEND_PATH}`; // "/v1/messaging/email/send"
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+```
 
-## Yearly reset by filtering
-"This year" = occurred_on between Jan 1 and Dec 31 of the current Chicago year. Nothing deleted, no scheduled job.
+Its payload type (`EmailSendRequest`) takes `to, from, sender_domain, subject, html, text, purpose, label, idempotency_key` — nothing restricts it to auth action types. `createAuthEmailHandler` is simply one caller, using `purpose: "transactional"`. The notification will use the same sender domain the auth webhook already uses (`notify.tigersdenmartialarts.com`), `purpose: "transactional"`, `label: "parent_email_changed"`. No new package, key, provider or edge function. One honest caveat: the platform may reject non-auth sends for its own reasons — I will only know at the first real call. If it does, the change still stands and staff see "notification not sent: <reason>"; I report it rather than work around it.
 
-## Parent dashboard (index.tsx)
-- Year from GYM_TIMEZONE (new tiny helper `gymYear()` exported from schedule-time.ts using the existing constant) instead of `new Date().getFullYear()`.
-- Attendance card: "This year: 12 · All-time: 47 (since Aug 2026)"; all-time = students.attendance_count. Layout checked at 390/768/1024/1025/1536 with scrollWidth.
+**Does the Admin API email update send a GoTrue email itself?** Expected: no. `updateUserById(id, { email, email_confirm: true })` sets the address as confirmed directly and skips the email_change flow (that template is sent only by the user-side `updateUser`). I will verify empirically: check the email log for both the old and new address after the test change, and report exactly what appears.
 
-## Test plan (temporary "ZZTEMP R62 Test" child under zz.test.negative; fixture child not used)
-Mark ×2, Undo ×1, remove from history, check in — rows and streak after every step; two simultaneous mark_absent calls (+2 rows, +2 streak); non-admin refusal for mark_absent/remove_absence and zero rows from absence_events as zz.test.negative; last-year absence excluded from the count; follow-up badge before/after screenshot. Staff checks as the staff test account. Cleanup: temp child (cascades its rows), counts back, ZZTEST54 untouched.
+## What gets built
 
-## Not touched
-point_events, award_points, leaderboard, Dojo Points display, R58 guardian objects, R54 belt-test path, R54b auth path, legal pages.
+1. **Migration** (one file, `drizzle/migrations/0006_r60_email_change_events.sql`) — audit table modelled on `role_change_events`:
+   - `email_change_events(id uuid pk, target_user_id uuid not null, old_email text not null, new_email text not null, changed_by uuid, changed_at timestamptz default now())`
+   - Grants: SELECT to authenticated, ALL to service_role. RLS on; one policy "Admins can read email change history" using `has_role(auth.uid(),'admin')`. No insert policy — only the server function (service role, after `assertAdmin`) writes rows.
+2. **Server function** `changeParentEmail` added to `src/lib/parent-accounts.functions.ts`, same shape as the existing archive/delete functions:
+   - `requireSupabaseAuth` → `assertAdmin` → only then `await import(client.server)`.
+   - Validate: `isEmailWithTld` (reused, no new validator); trimmed/lowercased new address differs from current; no other profile or auth user has it — refusal names the owning family and email.
+   - Step 1: `auth.admin.updateUserById(id, { email, email_confirm: true })`. On error: change nothing, return the reason.
+   - Step 2: update `profiles.email`. On error: return a loud "OUT OF STEP — login is X, panel still shows Y" error, never swallowed.
+   - Step 3: insert audit row (failure reported, change stands).
+   - Step 4: look up `pending_student_imports` and `pending_guardian_links` for the new address and return them as warnings — nothing applied.
+   - Step 5: send the notification to the new address; failure reported, no rollback.
+   - Never touches password, never triggers a reset.
+3. **Function** `listEmailChangeEvents(profileId)` — admin-only read of the history.
+4. **UI** in Parents & Premium (`admin.tsx`): a "Change email" action on each parent row opening a dialog — current address, new address field, confirmation, then a result panel showing warnings (pending rows, notification failure, out-of-step) and a short change history for that account. On success, invalidate the admin profiles query so the Manage Students parent line and the Parents list show the new address at once.
+5. **AGENTS.md**: one rule — login-email changes go through the auth-first server function; never edit `profiles.email` alone.
 
-## Report
-Migration text and file list, pg_proc definitions and proacl, correction counts before/after, point_events 0, git diff --stat with package.json / bun.lock stated, all test output.
+Untouched: `admin_reassign_student`, the parked-student email editor, `handle_new_user`, the sign-in/54b path, signup, `.env`.
+
+## Testing (fixtures only — no real family, angoralashane@gmail.com untouched)
+
+- zz.test.negative@example.com → leaguecity.tigersden+zzr60@gmail.com: show auth.users.email and profiles.email before/after; capture the real Admin API response; sign in through the normal form with the new address; then change back and show both again.
+- Duplicate refusal targeting zz.test.secondary@example.com (unchanged afterwards) — exact staff message.
+- Invalid address refusal (e.g. `name@gmail`) via `isEmailWithTld`.
+- Non-admin refusal: call the function signed in as the negative fixture.
+- Audit rows read back from the database.
+- Notification: check the email log for delivery to the +zzr60 address; Britt can confirm arrival in the inbox.
+- Bounce marker: confirm it matches on current address only, so the old address stops matching.
+- Report git diff --stat including package.json and bun.lock (expected: no dependency changes).
