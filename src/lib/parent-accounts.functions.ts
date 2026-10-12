@@ -255,3 +255,186 @@ export const deleteParentAccount = createServerFn({ method: "POST" })
       deleted: { authUser: true, profile: true, userRoles: true },
     };
   });
+
+/**
+ * Round 60 — change a parent's LOGIN email.
+ *
+ * Two emails exist: auth.users.email (the credential) and profiles.email (a
+ * display copy). Changing only the copy hides the problem, so the auth record
+ * goes first; the profile follows only once auth has succeeded. Nothing is
+ * transactional across GoTrue and Postgres, so an auth-OK / profile-failed
+ * result is reported loudly as OUT OF STEP and can be repaired by re-running
+ * the same change (the duplicate check excludes the target account itself).
+ */
+export type ChangeEmailResult = {
+  profileId: string;
+  oldEmail: string;
+  newEmail: string;
+  outOfStep: string | null;
+  auditError: string | null;
+  notification: { sent: boolean; detail: string };
+  pendingImports: { first_name: string; last_name: string }[];
+  pendingGuardianLinks: { student_name: string }[];
+};
+
+export const changeParentEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { profileId: string; newEmail: string }) => {
+    if (!input?.profileId) throw new Error("profileId is required");
+    return { profileId: input.profileId, newEmail: String(input.newEmail ?? "") };
+  })
+  .handler(async ({ data, context }): Promise<ChangeEmailResult> => {
+    await assertAdmin(context);
+    const { isEmailWithTld, EMAIL_TLD_MESSAGE } = await import("@/lib/email-check");
+    const newEmail = data.newEmail.trim().toLowerCase();
+    if (!isEmailWithTld(newEmail)) throw new Error(EMAIL_TLD_MESSAGE);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile, error: readErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, family_name")
+      .eq("id", data.profileId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!profile) throw new Error("Account not found");
+
+    const { data: staffRow, error: roleErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", data.profileId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (roleErr) throw new Error(roleErr.message);
+    if (staffRow) throw new Error("Staff accounts can't be changed here.");
+
+    const { data: authUser, error: authReadErr } = await supabaseAdmin.auth.admin.getUserById(data.profileId);
+    if (authReadErr || !authUser?.user) throw new Error(`Could not read the login record: ${authReadErr?.message ?? "not found"}`);
+    const authEmail = (authUser.user.email ?? "").toLowerCase();
+    const profileEmail = (profile.email ?? "").toLowerCase();
+
+    if (authEmail === newEmail && profileEmail === newEmail) {
+      throw new Error("That is already this account's email address — nothing to change.");
+    }
+
+    // Duplicate: any OTHER profile with this address (target excluded so an
+    // out-of-step change can be re-run to completion).
+    const { data: dupProfiles, error: dupErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, family_name")
+      .ilike("email", newEmail)
+      .neq("id", data.profileId);
+    if (dupErr) throw new Error(dupErr.message);
+    const dup = (dupProfiles ?? []).find((p) => (p.email ?? "").trim().toLowerCase() === newEmail);
+    if (dup) {
+      throw new Error(
+        `${newEmail} already belongs to another account — the ${dup.family_name || "unnamed"} family (${dup.email}). ` +
+          `This is a duplicate, not a fault: two accounts cannot share a login email.`,
+      );
+    }
+
+    const oldEmail = authEmail || profileEmail;
+
+    // Step 1 — the login. Skipped only when auth already holds the new address
+    // (repairing an out-of-step change).
+    if (authEmail !== newEmail) {
+      const { data: upd, error: authErr } = await supabaseAdmin.auth.admin.updateUserById(data.profileId, {
+        email: newEmail,
+        email_confirm: true,
+      });
+      console.log("[r60] updateUserById", JSON.stringify({
+        error: authErr ? { message: authErr.message, status: authErr.status, code: (authErr as { code?: string }).code } : null,
+        user: upd?.user ? { id: upd.user.id, email: upd.user.email, email_confirmed_at: upd.user.email_confirmed_at, new_email: (upd.user as { new_email?: string }).new_email ?? null } : null,
+      }));
+      if (authErr) {
+        const dupAuth = /already|registered|exists/i.test(authErr.message);
+        throw new Error(
+          dupAuth
+            ? `Nothing was changed: ${newEmail} is already used as a login by another account.`
+            : `Nothing was changed: the login update failed (${authErr.message}).`,
+        );
+      }
+    }
+
+    // Step 2 — the display copy.
+    let outOfStep: string | null = null;
+    const { error: profErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ email: newEmail })
+      .eq("id", data.profileId);
+    if (profErr) {
+      outOfStep =
+        `OUT OF STEP: the login is now ${newEmail}, but the admin panel still shows ${profile.email} (${profErr.message}). ` +
+        `Run the same change again to finish it.`;
+      console.error("[r60]", outOfStep);
+    }
+
+    // Step 3 — audit (change stands even if this fails; reported).
+    let auditError: string | null = null;
+    if (oldEmail !== newEmail) {
+      const { error: aErr } = await supabaseAdmin.from("email_change_events").insert({
+        target_user_id: data.profileId,
+        old_email: oldEmail,
+        new_email: newEmail,
+        changed_by: context.userId,
+      });
+      if (aErr) auditError = aErr.message;
+    }
+
+    // Step 4 — collisions surfaced, never applied.
+    const [{ data: imports }, { data: links }] = await Promise.all([
+      supabaseAdmin.from("pending_student_imports").select("first_name, last_name, parent_email").ilike("parent_email", newEmail),
+      supabaseAdmin.from("pending_guardian_links").select("email, students(first_name, last_name)").eq("email", newEmail),
+    ]);
+
+    // Step 5 — tell the parent. Failure is reported, never rolled back.
+    let notification = { sent: false, detail: "" };
+    try {
+      const { sendLovableEmail } = await import("@lovable.dev/email-js");
+      const apiKey = process.env["LOVABLE_API_KEY"];
+      if (!apiKey) throw new Error("email key not configured");
+      const text =
+        `Hello${profile.family_name ? ` ${profile.family_name} family` : ""},\n\n` +
+        `Your Tiger's Den parent portal login email was updated by Tiger's Den staff. ` +
+        `From now on, sign in with ${newEmail}. Your password has not changed.\n\n` +
+        `If you didn't expect this change, please contact the Tiger's Den front desk.\n\n` +
+        `https://portal.tigersdenmartialarts.com`;
+      const html = `<div style="font-family:Arial,sans-serif;color:#111;font-size:15px;line-height:1.5">` +
+        text.split("\n\n").map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`).join("") + `</div>`;
+      const res = await sendLovableEmail(
+        {
+          to: newEmail,
+          from: "Tiger's Den Martial Arts & Fitness <noreply@notify.tigersdenmartialarts.com>",
+          sender_domain: "notify.tigersdenmartialarts.com",
+          subject: "Your Tiger's Den portal login email was updated",
+          html,
+          text,
+          purpose: "transactional",
+          label: "parent_email_changed",
+          idempotency_key: `r60-${data.profileId}-${newEmail}-${Date.now()}`,
+        },
+        { apiKey, sendUrl: process.env["LOVABLE_SEND_URL"] },
+      );
+      console.log("[r60] notification", JSON.stringify(res));
+      notification = { sent: !!res?.success, detail: res?.message_id ?? res?.status ?? "" };
+    } catch (e) {
+      notification = { sent: false, detail: e instanceof Error ? e.message : String(e) };
+      console.error("[r60] notification failed", notification.detail);
+    }
+
+    return {
+      profileId: data.profileId,
+      oldEmail,
+      newEmail,
+      outOfStep,
+      auditError,
+      notification,
+      pendingImports: (imports ?? [])
+        .filter((r) => r.parent_email.trim().toLowerCase() === newEmail)
+        .map((r) => ({ first_name: r.first_name, last_name: r.last_name })),
+      pendingGuardianLinks: (links ?? []).map((l) => {
+        const s = l.students as { first_name: string; last_name: string } | null;
+        return { student_name: s ? `${s.first_name} ${s.last_name}` : "a student" };
+      }),
+    };
+  });
