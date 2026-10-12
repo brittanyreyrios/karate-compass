@@ -94,6 +94,8 @@ function AuthPage() {
   // cleared the moment the email field is edited.
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [resendCooldownUntil, setResendCooldownUntil] = useState(0);
+  // Round 64 — successful resends this session; the help line shows from the second.
+  const [resendCount, setResendCount] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const resendSecondsLeft = Math.max(0, Math.ceil((resendCooldownUntil - now) / 1000));
 
@@ -216,6 +218,18 @@ function AuthPage() {
     setLoading(false);
 
     if (error) {
+      const recognised = /invite code/i.test(error.message) || /already registered/i.test(error.message);
+      // Round 64 — a code used up between the pre-check and submit makes the
+      // signup trigger refuse with a generic 500. Re-check the code to name it.
+      if (!recognised) {
+        const { data: stillValid, error: checkErr } = await supabase.rpc("check_invite_code", { _code: clean });
+        if (!checkErr && stillValid === false) {
+          setInviteState("invalid");
+          return toast.error(
+            "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one.",
+          );
+        }
+      }
       return toast.error(
         /invite code/i.test(error.message)
           ? "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one."
@@ -250,8 +264,19 @@ function AuthPage() {
     // means a parent should not normally reach it.
     if (error) return toast.error(authErrorMessage(error, GENERIC_RESEND));
     setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
-    toast.success(`Confirmation email sent to ${target}.`);
+    setResendCount((n) => n + 1);
+    // Round 64 — the auth service accepting the request says nothing about
+    // delivery, so the copy never promises it arrived.
+    toast.success(`We've asked for a new confirmation email to be sent to ${target}.`);
   };
+
+  const stillNothing = (target: string) => (
+    <p className="mt-3 text-xs text-muted-foreground" role="status">
+      Still nothing? Check spam and Promotions, and make sure{" "}
+      <span className="font-semibold text-foreground">{target}</span> is spelled correctly. If it
+      still doesn't arrive, contact the Tiger's Den front desk — we can check your address.
+    </p>
+  );
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-4">
@@ -314,6 +339,7 @@ function AuthPage() {
                 Back to sign in
               </Button>
             </div>
+            {resendCount >= 2 && stillNothing(awaitingConfirm)}
           </div>
         ) : (
           <>
@@ -392,6 +418,7 @@ function AuthPage() {
                           You can resend in {resendSecondsLeft}s
                         </p>
                       )}
+                      {resendCount >= 2 && stillNothing(email.trim())}
                     </div>
                   )}
                   {resetSentTo && (

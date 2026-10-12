@@ -29,6 +29,7 @@ import {
   Archive,
   ArchiveRestore,
   UserRoundX,
+  MailWarning,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -76,6 +77,41 @@ import {
   setParentAccountArchived,
   deleteParentAccount,
 } from "@/lib/parent-accounts.functions";
+import {
+  getParentEmailDeliveryFlags,
+  type EmailDeliveryFlag,
+} from "@/lib/email-delivery.functions";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { GYM_TIMEZONE } from "@/lib/schedule-time";
+
+const EMAIL_DELIVERY_TOOLTIP =
+  "Our email provider couldn't deliver to this address. Ask the family for the correct email. Only bounces from the last 14 days are shown — no marker does not prove an email arrived.";
+
+function EmailDeliveryBadge({ flag }: { flag: EmailDeliveryFlag }) {
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: GYM_TIMEZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(flag.at));
+  const label = flag.kind === "bounced" ? `Email bounced ${date}` : `Marked as spam ${date}`;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Badge variant="outline" className="border-destructive/60 text-destructive">
+              <MailWarning className="mr-1 h-3 w-3" aria-hidden="true" /> {label}
+            </Badge>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{EMAIL_DELIVERY_TOOLTIP}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+
 
 
 import { ProgramsCard } from "@/components/admin-programs";
@@ -3606,6 +3642,23 @@ function ParentsTab({
 
   const profilesQ = useAdminProfiles();
 
+  // Round 64 — fetched only while this tab is mounted; failures resolve to no markers.
+  const getDeliveryFlagsFn = useServerFn(getParentEmailDeliveryFlags);
+  const deliveryFlagsQ = useQuery({
+    queryKey: ["admin-email-delivery-flags"],
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    queryFn: async () => {
+      try {
+        return (await getDeliveryFlagsFn()).flags;
+      } catch (err) {
+        console.error("[email-delivery] marker lookup failed", err);
+        return [] as EmailDeliveryFlag[];
+      }
+    },
+  });
+  const deliveryFlags = new Map((deliveryFlagsQ.data ?? []).map((f) => [f.profileId, f]));
+
   /**
    * Student counts per family, counting EVERY row regardless of `active`. The
    * "no students" badge below is display only, but the count also tells an admin
@@ -3796,6 +3849,7 @@ function ParentsTab({
                       <UserRoundX className="mr-1 h-3 w-3" aria-hidden="true" /> No students
                     </Badge>
                   )}
+                  {deliveryFlags.get(p.id) && <EmailDeliveryBadge flag={deliveryFlags.get(p.id)!} />}
                   {p.archived_at && (
                     <Badge variant="outline" className="border-amber-400/60 text-amber-200">
                       <Archive className="mr-1 h-3 w-3" aria-hidden="true" /> Archived

@@ -32,3 +32,4 @@
 - [x] Round 66 — pre-link second guardian by email (pending_guardian_links + handle_new_user block + admin UI)
 - [x] Round 62 — absence log (absence_events, mark_absent/remove_absence/check_in_student, Chicago dates, all-time tally)
   - add: DeleteStudentDialog counts absence_events + sentence; screenshot
+- [x] R64 — signup email honesty: resend copy, staff bounce/spam marker (last 14 days), used-up invite code message
