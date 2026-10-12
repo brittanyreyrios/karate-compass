@@ -1,59 +1,66 @@
-# Round 59 — Images on announcements and polls
+# Round 68 — Gym-time calendar, dashboard thumbnails, image framing, announcement-delete events, event times
 
-Starting commit: `c408c3cad463c01b7603123dcd5b43ffaf0c43dd`
+Starting commit: `81562c998447b2fa474f8ecc107d8dacd6e567e0`. App code only, no migration, no data changes.
 
-## Shared helpers: a sibling module, not a refactor
+## Part A — every event day/time in gym time
 
-I'll add a new `src/lib/post-images.ts` that copies the conventions of `album-covers.ts`:
-- **Stored value:** either an object key or an absolute URL.
-- **Names:** UUID-prefixed object names (`<row-uuid>-<timestamp>.jpg`).
-- **Size:** 1200px longest edge, JPEG 0.85, 5 MB cap, image-only check.
-- **Signing:** batched signed URLs (`signPostImages`, `usePostImageUrls`), plus a resolver (`postImageSrc`) and `deletePostImageObject`.
+One new helper set in `src/lib/schedule-time.ts`, built on the existing `GYM_TIMEZONE` and `instantToChicago` (no new constant, no library):
+- `chicagoDateKey(iso)` → yyyy-mm-dd in Chicago (`instantToChicago(iso).date`)
+- `chicagoMinutes(iso)` → minutes since Chicago midnight, for sorting
+- `formatChicagoTime(iso)` → "5:00 PM" via `Intl.DateTimeFormat({ timeZone: GYM_TIMEZONE })`
 
-It points at the `post-images` bucket. `album-covers.ts` is not edited at all, not even its imports. Why: parameterizing would change every gallery call site, and a quiet break there is the worse outcome. The cost is about 60 lines of near-duplicate code. The pure helpers (`downscaleImage`, `validateCoverFile`, `isExternalCover`) are bucket-independent, so I'll import those from `album-covers.ts` instead of copying them. That reads the file but doesn't change its behavior.
+**Time-zone suffix: none** on parent screens (one Houston gym; "5:00 PM CDT" on every chip is noise). The admin-only Scheduled badge keeps its existing "CDT" suffix.
 
-**Media Gallery proof:** the staff fixture uploads a cover to a temporary "ZZ TEST R59 album", it displays, then I delete it and show the object gone from `album-covers`.
+### toDateKey / date-derivation call sites
 
-## Storage
+Changed:
+- `calendar-data.ts:352` event `dateKey` → `chicagoDateKey(e.starts_at)` (the Fall Festival bug)
+- `calendar-data.ts:241,362-363` `formatTime` → `formatChicagoTime`
+- `calendar-data.ts:364` `sortMinutes` (getHours/getMinutes) → `chicagoMinutes`
+- `calendar.tsx:97-98` query bounds `${key}T00:00:00Z` → `chicagoStartOfDay(fromKey)` / `chicagoEndOfDay(toKey)` (end widened to 23:59:59.999 inside the helper call site, not by changing the helper)
+- `announcements.ts:60` `localDateKey(starts_at/ends_at)` for event-sourced tournaments → `chicagoDateKey`
+- `index.tsx:707,714` dashboard "Next Up" event date and time → gym time
+- `admin-events-tab.tsx:46` `toLocalInput` and `:115-116` save, and `:388` list label (Part E)
+- `admin.tsx:2372` "attach existing event" picker label → gym date
 
-- Create `post-images` with the bucket tool: private, 5MB limit. The tool can't set allowed types, so the JPEG/PNG/WebP rule is enforced in the app (the album-covers note in AGENTS.md says the same). Uploads are always re-encoded to JPEG anyway. I'll read the settings back from `storage.buckets`.
-- Policies on `storage.objects` (migration), mirroring album-covers:
-  - SELECT `TO authenticated USING (bucket_id = 'post-images')`
-  - INSERT / UPDATE / DELETE `TO authenticated` with `has_role(auth.uid(),'admin')`
-- **Plain statement:** any signed-in user can sign any object in this bucket. The only thing hiding a scheduled announcement's image is its unguessable UUID-prefixed name. RLS hides the row, not the file.
+Deliberately left, with reason:
+- `month-grid.tsx:60`, `calendar.tsx:196`, `index.tsx:306` `toDateKey(new Date())` — "today" is the viewer's own day (highlight, and next-belt-test "today or later" from Round 54, which compares date-only columns).
+- `month-grid.tsx:61,82`, `calendar.tsx:69-70,210`, `calendar-data.ts:433,438` — these operate on grid cells / `dateFromKey` dates that are already pure calendar days built from yyyy-mm-dd keys; no instant is involved, so device zone cannot shift them.
+- `announcements.ts:53` "today" for the still-current tournament filter — viewer-relative, a one-day edge at most, and changing it alters which tournaments list. Flagged, not changed.
+- All `date-only.ts` helpers and `next_test_date` / `event_date` (date columns) — Round 36/54 date-only path, untouched.
+- `created_at` / `changed_at` "Posted…/updated…" labels — audit timestamps, not event days.
 
-## Schema (same migration, `drizzle/migrations/`)
+### Other parent places that turn starts_at into a day/time
+- Calendar list + month grid: **fixed** (above).
+- Dashboard "Next Up" event: **fixed**.
+- Tournament cards from events (no announcement): **fixed** via `announcements.ts`.
+- Tournament cards from announcements and announcement event links: **not affected** — they use the date-only `event_date`.
 
-Four nullable columns, no RLS change to existing tables:
-- `announcements.image_url text`, `announcements.image_alt text`
-- `polls.image_url text`, `polls.image_alt text`
+### Proof
+Staff fixture, browser time zone forced to America/Denver, Los_Angeles, New_York: Calendar screenshots showing Fall Festival Fri 30 Oct 5:00–9:00 PM and SWAT prep 4:00 PM on 30 Oct (real rows, read-only). All-day proof: a test all-day event on 30 Oct with `publish_at` 2099 (hidden from every parent by existing RLS; staff can see it), shown on 30 Oct in all three zones, then deleted.
 
-They follow the `cover_image_url` key-or-URL convention.
+## Part B — dashboard School News thumbnail
+- One extra read of the shown news IDs (`id, image_url, image_alt`, same RLS) like the Announcements page, then **one** `usePostImageUrls(allKeys)` call for the whole list.
+- 72px square, `object-cover`, rounded, `loading="lazy"`, to the right of the title/body, `shrink-0` so text wraps; alt = `image_alt` or title. No image = card unchanged.
+- Dashboard tournament cards stay text-only.
+- Proof: 390 and 1536 screenshots, card `scrollWidth <= clientWidth`, network log showing a single sign request.
 
-## Admin UI
+## Part C — no backdrop around post images
+`PostImage`: drop the bordered muted box; the `<img>` itself gets `mx-auto block h-auto w-auto max-w-full max-h-80 rounded-xl`. Portrait stays capped at 320px with no bars; landscape fills the card width. Shared by announcement, poll and full tournament card.
+Proof: Fall Festival flyer at 390 and 1536; a landscape image on a 2099 test post injected into the browser only, at both widths.
 
-- Post Announcement form, Manage Announcements edit, and the poll editor get the same control as the gallery cover: upload, preview, replace, remove. There is also an optional "Image description (alt text)" field.
-- Replacing or removing an image deletes the old object.
-- Deleting an announcement or poll deletes its object after the row delete succeeds, the same order the gallery uses.
-- Nothing is required.
+## Part D — deleting an announcement with calendar events
+- FK today (read from pg_constraint): `events_announcement_id_fkey … ON DELETE SET NULL`. Not changed.
+- The delete dialog lists each linked event with its gym-time date/time ("Fall Festival — Fri 30 Oct, 5:00 PM"), replacing today's "the event itself stays" sentence, with a choice: **Delete the event too** (default) / Keep it on the calendar.
+- Order: delete announcement row(s) → delete the pre-read event IDs (if chosen) → delete images. A failed announcement delete removes nothing.
+- Orphan count, read-only: 8 events have `announcement_id IS NULL`; **0** have the shape Post Announcement creates (all-day starting exactly at Chicago midnight), so none look like deleted-announcement leftovers. I'll show the query and rows.
 
-## Parent rendering
-
-- **Announcement feed card, detail view, and polls page.** The image sits at the top of the card at full card width. Height is capped with `max-h-80` (320px) and `object-contain` on a muted backdrop, so a tall portrait photo is letterboxed instead of pushing the card down. Alt is `image_alt`, or the title/question when blank. No image means no element at all, so cards without an image are unchanged.
-- **Tournament-derived cards (dashboard Upcoming Tournaments, `TournamentCard`): no image.** The image shows on the announcement itself in Announcements. That protects the timeline layout from Rounds 38/40/42/50. The placement helpers and Winner's Circle are not touched; I'll show a `git diff` of those files as empty.
-- **Dashboard School News previews: no image** (text previews only).
-
-## Safe parent-side testing (no real family can see test posts)
-
-- **Test announcement "ZZ TEST R59 …"** gets `publish_at` = 2099-01-01. The existing announcements RLS already hides scheduled rows from every parent, so no family can see it at any point.
-- **Test poll** stays `published = false`, so no family can see it or vote.
-- **Showing it to zz.test.negative:** in the headless browser only, signed in as zz.test.negative, I intercept that one browser's announcements and polls responses and add the test row (same columns the database returns). The page then renders it with the real parent components, and the image is signed with zz.test.negative's own session through the real bucket policy.
-  - Honest limitation: the row reaches that one test browser by injection, not by the parent's own query. The image signing and display are real.
-- **Scheduled-image proof:** the same account without interception does not get the row. I'll show the parent query result and an empty page.
-- **Signed-out refusal:** a signed-in user creates a signed URL, then a signed-out request to the object without signing is shown refused.
-- **Responsive:** five widths (390, 768, 1024, 1025, 1536) with `body.scrollWidth` vs viewport, including a tall portrait test image. Before/after screenshots of one existing announcement and one existing poll with no image.
-- **Cleanup:** I delete both test rows through the admin UI, then show `storage.objects` has none left for this round.
+## Part E — entering times
+1. Events editor: load with `instantToChicago`, save with `chicagoToInstant` (split the datetime-local value into date + time). All-day keeps its date and saves `chicagoStartOfDay`. No new conversion code.
+2. Post Announcement: optional Start time / End time beside the event date. Blank = all-day exactly as today. Filled = `all_day false`, `chicagoToInstant(eventDate, time)` (end on end date if set, else same day); end must be after start, else a plain error.
+3. Test on a 2099 test post only, verify the saved instants in SQL, delete afterwards.
 
 ## Not touched
+Database data (except temporary 2099 test rows, deleted), publish_at/published logic, the four `.eq("published", true)` filters, R57 points period, R62 attendance dating, leaderboard, FK.
 
-`album-covers.ts`, Media Gallery, `gallery_albums`, poll options/votes/rules, the four `.eq("published", true)` filters, belt-test, auth, guardian and points-period paths.
+Report will include `git diff --stat` with package.json and bun.lock (expected: no dependency changes).
