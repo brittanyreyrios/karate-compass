@@ -3891,6 +3891,9 @@ function ParentsTab({
                   isAdmin={staff}
                   adminCount={adminIds?.size ?? 0}
                 />
+                {!staff && (
+                  <ChangeParentEmailButton profileId={p.id} email={p.email} familyName={p.family_name} />
+                )}
                 {!p.archived_at ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
