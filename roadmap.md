@@ -33,6 +33,6 @@
 - [x] Round 62 — absence log (absence_events, mark_absent/remove_absence/check_in_student, Chicago dates, all-time tally)
   - add: DeleteStudentDialog counts absence_events + sentence; screenshot
 - [x] R64 — signup email honesty: resend copy, staff bounce/spam marker (last 14 days), used-up invite code message
-- [ ] R60 — admin change parent login email (auth first, then profile; audit; notify; pending-row warnings)
+- [x] R60 — admin change parent login email (auth first, then profile; audit; notify; pending-row warnings)
   - add: duplicate check excludes target itself (repair out-of-step); test simulated out-of-step
   - add: refuse admin-role targets ("Staff accounts can't be changed here."); test on zzstaff

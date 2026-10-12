@@ -52,3 +52,6 @@ Skipping either folder leaves the schema incomplete.
 - The two earlier fixtures (`zz.test.negative`, `zz.test.secondary`) were confirmed programmatically at creation by a method no longer available.
 - Any new fixture is confirmed by a project owner in Cloud → Users. Never write to the auth schema directly, and never turn off email confirmation for real signups.
 - Fixtures need an inbox-capable address or owner confirmation; `example.com` addresses can never receive mail.
+
+## Parent login email
+- Change a parent's email only through `changeParentEmail` (auth record first via Admin API, then `profiles.email`, then audit row); never edit `profiles.email` alone — the display copy would hide a login that didn't move.
