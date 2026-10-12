@@ -237,7 +237,10 @@ export function PollsAdminTab() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={create.isPending} onClick={discard}>
+              Discard draft
+            </Button>
             <Button className="bg-gradient-red" disabled={create.isPending} onClick={() => create.mutate()}>
               <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
               {create.isPending ? "Publishing…" : "Publish poll"}
