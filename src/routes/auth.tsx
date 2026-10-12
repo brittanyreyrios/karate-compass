@@ -250,8 +250,19 @@ function AuthPage() {
     // means a parent should not normally reach it.
     if (error) return toast.error(authErrorMessage(error, GENERIC_RESEND));
     setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
-    toast.success(`Confirmation email sent to ${target}.`);
+    setResendCount((n) => n + 1);
+    // Round 64 — the auth service accepting the request says nothing about
+    // delivery, so the copy never promises it arrived.
+    toast.success(`We've asked for a new confirmation email to be sent to ${target}.`);
   };
+
+  const stillNothing = (target: string) => (
+    <p className="mt-3 text-xs text-muted-foreground" role="status">
+      Still nothing? Check spam and Promotions, and make sure{" "}
+      <span className="font-semibold text-foreground">{target}</span> is spelled correctly. If it
+      still doesn't arrive, contact the Tiger's Den front desk — we can check your address.
+    </p>
+  );
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-4">
