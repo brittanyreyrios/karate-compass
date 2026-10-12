@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -74,6 +74,7 @@ import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
 import { ChangeParentEmailButton } from "@/components/admin-change-email";
+import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
 import {
   setParentAccountArchived,
   deleteParentAccount,
@@ -1416,9 +1417,65 @@ function ManageStudentsTab() {
   );
 }
 
+/**
+ * Round 67 — current-period Dojo Points for the whole roster in ONE query. Every
+ * StudentRow calls this hook with the same key, so React Query runs it once.
+ * The boundary comes only from points_period_start(); the sum rule
+ * (occurred_on >= period start) is the one get_leaderboard uses.
+ */
+function useRosterPeriodPoints() {
+  const periodQ = usePointsPeriodStart();
+  const start = periodQ.data;
+  const q = useQuery({
+    queryKey: ["admin-period-points", start],
+    enabled: !!start,
+    queryFn: async () => {
+      const totals = new Map<string, number>();
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from("point_events")
+          .select("student_id, delta")
+          .gte("occurred_on", start!)
+          .order("id")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        for (const r of data ?? []) totals.set(r.student_id, (totals.get(r.student_id) ?? 0) + r.delta);
+        if ((data ?? []).length < PAGE) break;
+      }
+      return totals;
+    },
+  });
+  return { start, totals: q.data, ready: !!start && !!q.data };
+}
+
+const ROSTER_POINTS_LOCK_MS = 1500;
+
 function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void }) {
   const qc = useQueryClient();
   const { data: profilesForGuardians } = useAdminProfiles();
+  const period = useRosterPeriodPoints();
+  const periodRange = period.start ? pointsPeriodLabels(period.start).range : null;
+  const periodPts = period.totals?.get(student.id) ?? 0;
+
+  // Per-student lock, set at TAP time. The ref catches a second tap before React
+  // re-renders; the state drives the disabled look. Each row owns its own lock.
+  const lockUntil = useRef(0);
+  const [locked, setLocked] = useState(false);
+  const tryLock = () => {
+    const now = Date.now();
+    if (now < lockUntil.current) return false;
+    lockUntil.current = now + ROSTER_POINTS_LOCK_MS;
+    setLocked(true);
+    setTimeout(() => setLocked(false), ROSTER_POINTS_LOCK_MS + 20);
+    return true;
+  };
+
+  const invalidatePoints = () => {
+    qc.invalidateQueries({ queryKey: ["admin-students"] });
+    qc.invalidateQueries({ queryKey: ["admin-period-points"] });
+  };
+
   const adjustPoints = useMutation({
     mutationFn: async (delta: number) =>
       awardPoints({
@@ -1427,9 +1484,38 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         delta,
         reason: "Manual adjustment (roster)",
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-students"] }),
+    onSuccess: (award) => {
+      invalidatePoints();
+      if (award.delta === 0) return;
+      const sign = award.delta > 0 ? `+${award.delta}` : `−${Math.abs(award.delta)}`;
+      const periodText = periodRange && period.ready ? ` (${periodRange}: ${periodPts + award.delta})` : "";
+      toast.success(`${sign} · ${student.first_name} now ${award.newTotal}${periodText}`, {
+        duration: 3000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await revertPointEvent({
+                studentId: award.studentId,
+                currentPoints: award.newTotal,
+                delta: award.delta,
+                eventId: award.eventId,
+              });
+              invalidatePoints();
+              toast.success("Points reverted");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          },
+        },
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+  const tap = (delta: number) => {
+    if (!tryLock()) return;
+    adjustPoints.mutate(delta);
+  };
 
   return (
     <div className={`rounded-xl border p-3 transition-all sm:flex sm:flex-wrap sm:items-center sm:gap-3 ${riskCardClasses(student.consecutive_absences) || "border-border bg-background"}`}>
@@ -1454,14 +1540,19 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
       </div>
 
       <div className="mt-3 flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-card p-1 sm:mt-0 sm:w-auto sm:justify-start">
-        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(-1)} disabled={adjustPoints.isPending || student.points === 0}>
+        <Button size="icon" variant="ghost" aria-label="Remove one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => tap(-1)} disabled={adjustPoints.isPending || locked || student.points === 0}>
           <Minus className="h-4 w-4" />
         </Button>
         <div className="min-w-[60px] px-1 text-center">
           <div className="font-display text-lg font-bold leading-none text-primary">{student.points}</div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Dojo pts</div>
+          {periodRange && period.ready && (
+            <div className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground" data-testid="period-points">
+              {periodRange}: {periodPts}
+            </div>
+          )}
         </div>
-        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => adjustPoints.mutate(1)} disabled={adjustPoints.isPending}>
+        <Button size="icon" variant="ghost" aria-label="Add one Dojo Point" className="h-11 w-11 shrink-0" onClick={() => tap(1)} disabled={adjustPoints.isPending || locked}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
