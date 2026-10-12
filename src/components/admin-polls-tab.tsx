@@ -449,3 +449,38 @@ function AdminPollCard({ poll }: { poll: Poll }) {
     </article>
   );
 }
+
+/** Round 59 — one image per poll (never per option). Writes straight to the row. */
+function PollImageEditor({ poll }: { poll: Poll }) {
+  const qc = useQueryClient();
+  const [alt, setAlt] = useState(poll.image_alt ?? "");
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-polls"] });
+    qc.invalidateQueries({ queryKey: ["polls"] });
+  };
+  return (
+    <div onBlur={(e) => {
+      if (!(e.target instanceof HTMLInputElement) || e.target.id !== `poll-${poll.id}-alt`) return;
+      const v = alt.trim() || null;
+      if (v === (poll.image_alt ?? null)) return;
+      void supabase.from("polls").update({ image_alt: v }).eq("id", poll.id).then(({ error }) => {
+        if (error) toast.error(error.message);
+        else { toast.success("Image description saved."); refresh(); }
+      });
+    }}>
+      <PostImagePicker
+        rowId={poll.id}
+        value={poll.image_url}
+        alt={alt}
+        onAltChange={setAlt}
+        fallbackAlt={poll.question}
+        idPrefix={`poll-${poll.id}`}
+        onChange={async (next) => {
+          const { error } = await supabase.from("polls").update({ image_url: next }).eq("id", poll.id);
+          if (error) throw error;
+          refresh();
+        }}
+      />
+    </div>
+  );
+}
