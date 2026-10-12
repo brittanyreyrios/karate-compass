@@ -42,11 +42,15 @@ export const setParentAccountArchived = createServerFn({ method: "POST" })
 
     const { data: profile, error: readErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, email, family_name")
+      .select("id, email, family_name, archived_at")
       .eq("id", data.profileId)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!profile) throw new Error("Account not found");
+    // Round 65: read the family's archived date BEFORE clearing it. The archive
+    // step stamps the family first and its children a moment later, so a child
+    // this archive deactivated always has a marker at or after this date.
+    const familyArchivedAt = profile.archived_at as string | null;
 
     // Archiving is state only: it never touches auth settings, so the parent can
     // still sign in. It just hides the family from the admin's default view and
@@ -60,19 +64,33 @@ export const setParentAccountArchived = createServerFn({ method: "POST" })
     // Round 63: only children this family archive actually deactivated are ever
     // reactivated by a family restore (deactivated_by_family_archive_at marks them).
     if (!data.archived) {
-      // parent_id check: a child moved to another family meanwhile is never touched.
-      const { data: touched, error: restoreErr } = await supabaseAdmin
+      let changed = 0;
+      if (familyArchivedAt) {
+        // parent_id check: a child moved to another family meanwhile is never touched.
+        const { data: touched, error: restoreErr } = await supabaseAdmin
+          .from("students")
+          .update({ active: true, deactivated_by_family_archive_at: null })
+          .eq("parent_id", data.profileId)
+          .gte("deactivated_by_family_archive_at", familyArchivedAt)
+          .select("id");
+        if (restoreErr) throw new Error(restoreErr.message);
+        changed = (touched ?? []).length;
+      }
+      // Round 65: an older (stale) marker came from a different family's archive
+      // — e.g. the child was moved here afterwards. Clear it, never reactivate.
+      let staleQ = supabaseAdmin
         .from("students")
-        .update({ active: true, deactivated_by_family_archive_at: null })
+        .update({ deactivated_by_family_archive_at: null })
         .eq("parent_id", data.profileId)
-        .not("deactivated_by_family_archive_at", "is", null)
-        .select("id");
-      if (restoreErr) throw new Error(restoreErr.message);
+        .not("deactivated_by_family_archive_at", "is", null);
+      if (familyArchivedAt) staleQ = staleQ.lt("deactivated_by_family_archive_at", familyArchivedAt);
+      const { error: staleErr } = await staleQ;
+      if (staleErr) throw new Error(staleErr.message);
       return {
         profileId: data.profileId,
         email: profile.email,
         archived: false,
-        studentsChanged: (touched ?? []).length,
+        studentsChanged: changed,
         keptActive: [] as string[],
       };
     }
