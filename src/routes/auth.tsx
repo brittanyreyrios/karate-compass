@@ -339,6 +339,7 @@ function AuthPage() {
                 Back to sign in
               </Button>
             </div>
+            {resendCount >= 2 && stillNothing(awaitingConfirm)}
           </div>
         ) : (
           <>
@@ -417,6 +418,7 @@ function AuthPage() {
                           You can resend in {resendSecondsLeft}s
                         </p>
                       )}
+                      {resendCount >= 2 && stillNothing(email.trim())}
                     </div>
                   )}
                   {resetSentTo && (
