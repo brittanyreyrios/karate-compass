@@ -37,3 +37,7 @@
   - add: duplicate check excludes target itself (repair out-of-step); test simulated out-of-step
   - add: refuse admin-role targets ("Staff accounts can't be changed here."); test on zzstaff
 - [x] R67 — Manage Students stepper: toast+Undo, 1.5s per-student lock, period total
+- [ ] R59 — images on announcements & polls (post-images bucket, sibling module, admin pickers, parent rendering)
+  - add: post-images allowed_mime_types jpeg/png/webp, read back all three
+  - add: gallery proof album active=false, deleted after
+  - add: test announcement no event_date, non-tournament category; any linked event publish_at 2099, delete
