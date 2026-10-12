@@ -10,6 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { CHIP_BASE, EVENT_TYPES, EVENT_TYPE_META, cleanDisciplines, type DojoEvent, type EventType } from "@/lib/calendar-data";
 import { DisciplinePicker, DisciplineTags } from "@/components/discipline-tags";
+import {
+  chicagoEndOfDay,
+  chicagoStartOfDay,
+  chicagoToInstant,
+  formatChicagoDay,
+  formatChicagoTime,
+  instantToChicago,
+} from "@/lib/schedule-time";
 
 type FormState = {
   title: string;
@@ -39,11 +47,21 @@ const EMPTY: FormState = {
   disciplines: [],
 };
 
+/**
+ * Round 68: the datetime-local inputs hold HOUSTON wall-clock time, whatever
+ * zone the staff member's device is in. Read with instantToChicago, write with
+ * chicagoToInstant — the same helpers Post Announcement uses.
+ */
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => `${n}`.padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const { date, time } = instantToChicago(iso);
+  return `${date}T${time}`;
+}
+
+function fromGymInput(value: string, allDay: boolean, edge: "start" | "end"): string {
+  const [date, time = "00:00"] = value.split("T");
+  if (allDay) return edge === "start" ? chicagoStartOfDay(date) : chicagoEndOfDay(date);
+  return chicagoToInstant(date, time.slice(0, 5));
 }
 
 function announcementPayload(form: FormState) {
@@ -112,8 +130,8 @@ export function EventsAdminTab() {
         title: form.title.trim(),
         description: form.description.trim() || null,
         event_type: form.event_type,
-        starts_at: new Date(form.starts_at).toISOString(),
-        ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+        starts_at: fromGymInput(form.starts_at, form.all_day, "start"),
+        ends_at: form.ends_at ? fromGymInput(form.ends_at, form.all_day, "end") : null,
         all_day: form.all_day,
         location: form.location.trim() || null,
         audience_label: form.audience_label.trim() || null,
@@ -264,7 +282,7 @@ export function EventsAdminTab() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="event-starts">Starts</Label>
+              <Label htmlFor="event-starts">Starts (Houston time)</Label>
               <Input
                 id="event-starts"
                 type="datetime-local"
@@ -274,7 +292,7 @@ export function EventsAdminTab() {
               />
             </div>
             <div>
-              <Label htmlFor="event-ends">Ends (optional)</Label>
+              <Label htmlFor="event-ends">Ends (Houston time, optional)</Label>
               <Input
                 id="event-ends"
                 type="datetime-local"
@@ -385,7 +403,7 @@ export function EventsAdminTab() {
                 </div>
                 <div className="mt-2 font-display text-base font-bold uppercase tracking-wide">{event.title}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {new Date(event.starts_at).toLocaleString()}
+                  {formatChicagoDay(event.starts_at)}{event.all_day ? " · All day" : ` · ${formatChicagoTime(event.starts_at)}`}
                   {event.location ? ` · ${event.location}` : ""}
                   {event.audience_label ? ` · ${event.audience_label}` : ""}
                 </div>

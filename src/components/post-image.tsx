@@ -14,8 +14,8 @@ import {
 /**
  * Parent-facing image for an announcement / poll / tournament card. Renders
  * nothing at all when there is no image, so imageless cards are unchanged.
- * Height is capped (max-h-80 = 320px) with object-contain on a muted backdrop,
- * so a tall portrait photo is letterboxed instead of pushing the card down.
+ * Height is capped (max-h-80 = 320px) at the image's own shape, no backdrop,
+ * so a tall portrait photo never pushes the card down (Round 68).
  */
 export function PostImage({
   value,
@@ -33,12 +33,14 @@ export function PostImage({
   if (!value || !src) return null;
   const altText = (alt ?? "").trim() || fallbackAlt;
   return (
-    <div className={`overflow-hidden rounded-xl border border-border bg-secondary ${className}`}>
+    <div className={className}>
+      {/* Round 68: no backdrop — the image keeps its own shape, centred, capped
+          at 320px tall; a wide image fills the card width. */}
       <img
         src={src}
         alt={altText}
         loading="lazy"
-        className="mx-auto block max-h-80 w-full object-contain"
+        className="mx-auto block h-auto max-h-80 w-auto max-w-full rounded-xl"
         data-testid="post-image"
       />
     </div>

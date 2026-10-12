@@ -31,7 +31,14 @@ import {
 } from "@/lib/calendar-data";
 import { formatDateOnly } from "@/lib/date-only";
 import { ScheduledBadge } from "@/components/scheduled-badge";
-import { isScheduled } from "@/lib/schedule-time";
+import { isScheduled, chicagoStartOfDay } from "@/lib/schedule-time";
+
+/** yyyy-mm-dd + 1 day, pure date arithmetic (no zone involved). */
+function nextDayKey(key: string): string {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
 
@@ -94,8 +101,9 @@ export function useCalendarData(month: Date) {
           "id, title, description, event_type, starts_at, ends_at, all_day, location, audience_label, published, announcement_id, disciplines, publish_at",
         )
         .eq("published", true)
-        .gte("starts_at", `${fromKey}T00:00:00Z`)
-        .lte("starts_at", `${toKey}T23:59:59Z`)
+        // Round 68: Chicago midnight at both ends of the visible range.
+        .gte("starts_at", chicagoStartOfDay(fromKey))
+        .lt("starts_at", chicagoStartOfDay(nextDayKey(toKey)))
         .order("starts_at");
       if (error) throw error;
       return (data ?? []) as DojoEvent[];

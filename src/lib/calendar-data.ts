@@ -1,3 +1,4 @@
+import { chicagoDateKey, chicagoMinutes, formatChicagoTime } from "@/lib/schedule-time";
 /**
  * Calendar helpers.
  *
@@ -237,8 +238,9 @@ export function hasKnownDisciplineTags(items: CalendarItem[]): boolean {
 }
 
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+// Round 68: event times are gym time (Houston), never the viewer's device zone.
+function formatTime(iso: string): string {
+  return formatChicagoTime(iso);
 }
 
 export function buildCalendarItems(options: {
@@ -348,9 +350,10 @@ export function buildCalendarItems(options: {
   for (const e of events) {
     if (e.announcement_id && tournamentIds.has(e.announcement_id)) continue;
 
-    const starts = new Date(e.starts_at);
-    const dateKey = toDateKey(starts);
-    const ends = e.ends_at ? new Date(e.ends_at) : null;
+    // Round 68: the day is the Chicago calendar date of starts_at.
+    const dateKey = chicagoDateKey(e.starts_at);
+    const starts = e.starts_at;
+    const ends = e.ends_at;
     items.push({
       key: `event-${e.id}`,
       dateKey,
@@ -361,7 +364,7 @@ export function buildCalendarItems(options: {
         : ends
           ? `${formatTime(starts)} – ${formatTime(ends)}`
           : formatTime(starts),
-      sortMinutes: e.all_day ? -1 : starts.getHours() * 60 + starts.getMinutes(),
+      sortMinutes: e.all_day ? -1 : chicagoMinutes(starts),
       location: e.location,
       audienceLabel: e.audience_label,
       description: e.description,

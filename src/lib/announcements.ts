@@ -1,3 +1,4 @@
+import { chicagoDateKey, chicagoTodayKey } from "@/lib/schedule-time";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -56,11 +57,9 @@ function todayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Local yyyy-mm-dd of a timestamptz — the calendar day the parent sees. */
+/** Round 68: Houston yyyy-mm-dd of a timestamptz, whatever the viewer's zone. */
 function localDateKey(ts: string | null): string | null {
-  if (!ts) return null;
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return ts ? chicagoDateKey(ts) : null;
 }
 
 /** event_date ascending, NULLS LAST — matches the server ordering of each branch. */

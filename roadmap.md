@@ -42,3 +42,7 @@
   - add: gallery proof album active=false, deleted after
   - add: test announcement no event_date, non-tournament category; any linked event publish_at 2099, delete
 - [x] R65 — two-guardian poll counting (DISTINCT student on per-student polls, staff "guardians disagree"), restore uses family archived date, create-form "Discard draft" + leave-form image cleanup only when draft is truly lost
+- [ ] R68 — gym-time calendar (Part A), dashboard news thumbnail (B), no image backdrop (C), announcement delete removes linked events (D), gym-time event entry + Post Announcement times (E)
+  - add: "(Houston time)" labels on every gym-time input
+  - add: announcements.ts today → Chicago day; report before/after tournament list
+  - add: Part D event-delete failure names the event left on the calendar
