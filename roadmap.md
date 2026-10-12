@@ -36,3 +36,4 @@
 - [x] R60 — admin change parent login email (auth first, then profile; audit; notify; pending-row warnings)
   - add: duplicate check excludes target itself (repair out-of-step); test simulated out-of-step
   - add: refuse admin-role targets ("Staff accounts can't be changed here."); test on zzstaff
+- [ ] R67 — Manage Students stepper: toast+Undo, 1.5s per-student lock, period total
