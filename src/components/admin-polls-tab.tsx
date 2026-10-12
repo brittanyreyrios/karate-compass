@@ -1,4 +1,4 @@
-import { PostImagePicker } from "@/components/post-image";
+import { PostImagePicker, useDraftImageCleanup } from "@/components/post-image";
 import { deletePostImageObject } from "@/lib/post-images";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +48,23 @@ export function PollsAdminTab() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageAlt, setImageAlt] = useState("");
+  // Round 65: the Polls tab unmounts when staff leave it, so the draft is lost —
+  // only then is its unsaved picture deleted.
+  useDraftImageCleanup(imageUrl);
+  const resetForm = () => {
+    setQuestion(""); setDescription(""); setOptionsText(""); setClosesAt("");
+    setAnonymous(true); setRespondPer("family"); setMultiSelect(false); setResultsVisible("after_close");
+    setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
+  };
+  const discard = () => {
+    const hasContent =
+      !!(question.trim() || description.trim() || optionsText.trim() || closesAt || imageUrl || imageAlt.trim()) ||
+      !anonymous || respondPer !== "family" || multiSelect || resultsVisible !== "after_close";
+    if (hasContent && !confirm("Discard this draft? Everything you've typed and any uploaded picture will be removed.")) return;
+    const img = imageUrl;
+    resetForm();
+    if (img) void deletePostImageObject(img);
+  };
 
   const pollsQ = useQuery({
     queryKey: ["admin-polls"],

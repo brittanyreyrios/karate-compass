@@ -75,7 +75,8 @@ import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
 import { ChangeParentEmailButton } from "@/components/admin-change-email";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
-import { PostImagePicker } from "@/components/post-image";
+import { PostImagePicker, useDraftImageCleanup } from "@/components/post-image";
+import { deletePostImageObject } from "@/lib/post-images";
 import {
   setParentAccountArchived,
   deleteParentAccount,
