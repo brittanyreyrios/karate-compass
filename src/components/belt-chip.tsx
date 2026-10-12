@@ -93,9 +93,13 @@ export function BeltSwatch({
   degree,
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const uid = useId().replace(/[:]/g, "");
+  const hasDegree = degree != null && degree >= 1 && degree <= 6;
+  const compactDegree = size === "sm" || size === "ladder";
   const patternWord =
-    degree != null && degree > 0
-      ? `black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
+    hasDegree
+      ? compactDegree
+        ? `black belt with gold degree number ${degree}`
+        : `black belt end with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
       : (PATTERN_WORD[pattern] ?? "belt");
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
@@ -132,7 +136,24 @@ export function BeltSwatch({
         into it. Near-opaque and 1.3 wide in a 100-unit box, which is a much
         firmer edge than the old hairline.
       */}
-      <g
+      {hasDegree && !compactDegree ? (
+        <g transform="rotate(-10 50 31)">
+          {/* A hanging belt end: stripes cross its width just inside the tip. */}
+          <path
+            d="M34 4 L66 4 L66 57 L34 57 Z"
+            fill={colorPrimary}
+            stroke="var(--foreground)"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+          <path d="M37 7 V54 M63 7 V54" fill="none" stroke="var(--foreground)" opacity="0.2" strokeWidth="0.7" />
+          <g fill={colorAccent ?? "var(--belt-degree-gold)"}>
+            {Array.from({ length: degree ?? 0 }, (_, i) => (
+              <rect key={i} x="35" y={52 - i * 3.8} width="30" height="2.2" />
+            ))}
+          </g>
+        </g>
+      ) : <g
         stroke="rgba(255,255,255,0.92)"
         strokeWidth="1.3"
         strokeLinejoin="round"
@@ -155,17 +176,15 @@ export function BeltSwatch({
         */}
         <rect x="40" y="8" width="20" height="21" rx="5.5" fill={bandFill} />
         {striped && <rect x="41" y="17" width="18" height="3" fill={accent} stroke="none" />}
-      </g>
+      </g>}
       {/*
-        Round 69 — degree bars: N short gold bars across the right band end,
+        Round 69 — compact chips use a readable gold number on the band,
         driven by belt_ranks.degree (never parsed from the name).
       */}
-      {degree != null && degree > 0 && (
-        <g fill={colorAccent ?? "#d4af37"}>
-          {Array.from({ length: degree }, (_, i) => (
-            <rect key={i} x={93 - i * 5.4} y={7.5 - i * 0.55} width="3.4" height={9.5 + i * 0.25} rx="0.6" />
-          ))}
-        </g>
+      {hasDegree && compactDegree && (
+        <text x="80" y="22" textAnchor="middle" fill={colorAccent ?? "var(--belt-degree-gold)"} fontFamily="Arial, sans-serif" fontSize="27" fontWeight="700">
+          {degree}
+        </text>
       )}
     </svg>
   );

@@ -49,6 +49,7 @@
 
 ## Round 69 — black belt degrees
 - [ ] Chip preview approved (incl. 6th at sm)
+  - Option 3 selected: gold number at sm, transverse gold bars at the hanging tip at md; plain Black unmarked. Re-render all seven sizes and a small leaderboard-row preview; no insertion before approval.
 - [ ] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
 - [ ] Black Belt Journey bar; personal test date card + admin field
 - [ ] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
