@@ -1,4 +1,4 @@
-import { PostImagePicker } from "@/components/post-image";
+import { PostImagePicker, useDraftImageCleanup } from "@/components/post-image";
 import { deletePostImageObject } from "@/lib/post-images";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +48,23 @@ export function PollsAdminTab() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageAlt, setImageAlt] = useState("");
+  // Round 65: the Polls tab unmounts when staff leave it, so the draft is lost —
+  // only then is its unsaved picture deleted.
+  useDraftImageCleanup(imageUrl);
+  const resetForm = () => {
+    setQuestion(""); setDescription(""); setOptionsText(""); setClosesAt("");
+    setAnonymous(true); setRespondPer("family"); setMultiSelect(false); setResultsVisible("after_close");
+    setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
+  };
+  const discard = () => {
+    const hasContent =
+      !!(question.trim() || description.trim() || optionsText.trim() || closesAt || imageUrl || imageAlt.trim()) ||
+      !anonymous || respondPer !== "family" || multiSelect || resultsVisible !== "after_close";
+    if (hasContent && !confirm("Discard this draft? Everything you've typed and any uploaded picture will be removed.")) return;
+    const img = imageUrl;
+    resetForm();
+    if (img) void deletePostImageObject(img);
+  };
 
   const pollsQ = useQuery({
     queryKey: ["admin-polls"],
@@ -220,7 +237,10 @@ export function PollsAdminTab() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={create.isPending} onClick={discard}>
+              Discard draft
+            </Button>
             <Button className="bg-gradient-red" disabled={create.isPending} onClick={() => create.mutate()}>
               <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
               {create.isPending ? "Publishing…" : "Publish poll"}
@@ -338,6 +358,52 @@ function AdminPollCard({ poll }: { poll: Poll }) {
   };
 
   const total = (resultsQ.data ?? []).reduce((sum, r) => sum + r.vote_count, 0);
+  const [showDisagree, setShowDisagree] = useState(false);
+
+  /**
+   * Round 65 — per-student polls: a child with two guardians who answered
+   * differently. Loads only IDs (profile, child, option), never names; names are
+   * fetched separately and only on non-anonymous polls.
+   */
+  const disagreeQ = useQuery({
+    queryKey: ["admin-poll-disagree", poll.id],
+    enabled: poll.respond_per === "student",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("poll_votes")
+        .select("profile_id, student_id, option_id")
+        .eq("poll_id", poll.id);
+      if (error) throw error;
+      const byChild = new Map<string, Map<string, Set<string>>>();
+      for (const v of data ?? []) {
+        if (!v.student_id) continue;
+        const perProfile = byChild.get(v.student_id) ?? new Map<string, Set<string>>();
+        const set = perProfile.get(v.profile_id) ?? new Set<string>();
+        set.add(v.option_id);
+        perProfile.set(v.profile_id, set);
+        byChild.set(v.student_id, perProfile);
+      }
+      const ids: string[] = [];
+      for (const [childId, perProfile] of byChild) {
+        const keys = [...perProfile.values()].map((s) => [...s].sort().join(","));
+        if (new Set(keys).size > 1) ids.push(childId);
+      }
+      return ids;
+    },
+  });
+  const disagreeIds = disagreeQ.data ?? [];
+  const disagreeNamesQ = useQuery({
+    queryKey: ["admin-poll-disagree-names", poll.id, disagreeIds],
+    enabled: showDisagree && !poll.anonymous && disagreeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, first_name, last_name")
+        .in("id", disagreeIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   return (
     <article className="rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -411,6 +477,29 @@ function AdminPollCard({ poll }: { poll: Poll }) {
           </p>
         )}
       </div>
+
+      {poll.respond_per === "student" && disagreeIds.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border bg-background p-3 text-sm" data-testid="guardians-disagree">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p>
+              <span className="font-semibold">Guardians disagree:</span>{" "}
+              {disagreeIds.length} {disagreeIds.length === 1 ? "child" : "children"} — each still counted once per answer chosen.
+            </p>
+            {!poll.anonymous && (
+              <Button size="sm" variant="outline" onClick={() => setShowDisagree((v) => !v)}>
+                {showDisagree ? "Hide" : "Show"}
+              </Button>
+            )}
+          </div>
+          {showDisagree && !poll.anonymous && (
+            <ul className="mt-2 space-y-1 text-muted-foreground">
+              {(disagreeNamesQ.data ?? []).map((s) => (
+                <li key={s.id}>{s.first_name} {s.last_name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {!poll.anonymous && (
         <div className="mt-5 rounded-xl border border-border bg-background p-3">

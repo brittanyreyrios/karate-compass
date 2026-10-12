@@ -75,7 +75,8 @@ import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
 import { ChangeParentEmailButton } from "@/components/admin-change-email";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
-import { PostImagePicker } from "@/components/post-image";
+import { PostImagePicker, useDraftImageCleanup } from "@/components/post-image";
+import { deletePostImageObject } from "@/lib/post-images";
 import {
   setParentAccountArchived,
   deleteParentAccount,
@@ -2079,6 +2080,16 @@ function AnnouncementForm() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageAlt, setImageAlt] = useState("");
+  // Round 65: leaving this tab/page unmounts the form, so the draft is lost —
+  // only then is its unsaved picture deleted.
+  useDraftImageCleanup(imageUrl);
+  const resetForm = () => {
+    setTitle(""); setBody(""); setTag(""); setLocation("");
+    setEventDate(""); setEventEndDate(""); setPinned(false);
+    setScheduled(false); setSchedDate("");
+    setLinkMode("none"); setExistingEventId(""); setHideEventUntilPublish(true);
+    setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
+  };
 
   /**
    * Scheduling. publish_at is a real timestamptz and the time the admin types is
@@ -2188,11 +2199,7 @@ function AnnouncementForm() {
     },
     onSuccess: () => {
       toast.success(scheduled ? "Announcement scheduled" : "Announcement posted");
-      setTitle(""); setBody(""); setTag(""); setLocation("");
-      setEventDate(""); setEventEndDate(""); setPinned(false);
-      setScheduled(false); setSchedDate("");
-      setLinkMode("none"); setExistingEventId(""); setHideEventUntilPublish(true);
-      setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
+      resetForm();
       qc.invalidateQueries({ queryKey: ["announcements"] });
       qc.invalidateQueries({ queryKey: ["admin-announcements"] });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
@@ -2387,7 +2394,25 @@ function AnnouncementForm() {
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={post.isPending}
+          onClick={() => {
+            const hasContent =
+              !!(title.trim() || body.trim() || tag.trim() || location.trim() || eventDate || eventEndDate ||
+                imageUrl || imageAlt.trim() || schedDate) || pinned || scheduled || linkMode !== "none" ||
+              category !== "school_news";
+            if (hasContent && !confirm("Discard this draft? Everything you've typed and any uploaded picture will be removed.")) return;
+            const img = imageUrl;
+            resetForm();
+            setCategory("school_news"); setDisciplines(["Jiu Jitsu"]);
+            if (img) void deletePostImageObject(img);
+          }}
+        >
+          Discard draft
+        </Button>
         <Button type="submit" disabled={post.isPending} className="bg-gradient-red">
           {post.isPending ? "Saving…" : scheduled ? "Schedule" : "Publish"}
         </Button>
