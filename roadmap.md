@@ -46,3 +46,9 @@
   - add: "(Houston time)" labels on every gym-time input
   - add: announcements.ts today → Chicago day; report before/after tournament list
   - add: Part D event-delete failure names the event left on the calendar
+
+## Round 69 — black belt degrees
+- [ ] Chip preview approved (incl. 6th at sm)
+- [ ] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
+- [ ] Black Belt Journey bar; personal test date card + admin field
+- [ ] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup

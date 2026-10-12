@@ -25,6 +25,8 @@ export type BeltChipProps = {
   showLabel?: boolean;
   size?: "ladder" | "sm" | "md";
   className?: string;
+  /** Round 69: black belt degree (1–6) from belt_ranks.degree; null for every other rank. */
+  degree?: number | null;
 };
 
 
@@ -88,9 +90,13 @@ export function BeltSwatch({
   colorAccent,
   systemName,
   size = "md",
+  degree,
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const uid = useId().replace(/[:]/g, "");
-  const patternWord = PATTERN_WORD[pattern] ?? "belt";
+  const patternWord =
+    degree != null && degree > 0
+      ? `black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
+      : (PATTERN_WORD[pattern] ?? "belt");
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
   const camoId = `camo-${uid}`;
@@ -150,6 +156,17 @@ export function BeltSwatch({
         <rect x="40" y="8" width="20" height="21" rx="5.5" fill={bandFill} />
         {striped && <rect x="41" y="17" width="18" height="3" fill={accent} stroke="none" />}
       </g>
+      {/*
+        Round 69 — degree bars: N short gold bars across the right band end,
+        driven by belt_ranks.degree (never parsed from the name).
+      */}
+      {degree != null && degree > 0 && (
+        <g fill={colorAccent ?? "#d4af37"}>
+          {Array.from({ length: degree }, (_, i) => (
+            <rect key={i} x={93 - i * 5.4} y={7.5 - i * 0.55} width="3.4" height={9.5 + i * 0.25} rx="0.6" />
+          ))}
+        </g>
+      )}
     </svg>
   );
 }
