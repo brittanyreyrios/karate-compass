@@ -86,7 +86,7 @@ import {
   type EmailDeliveryFlag,
 } from "@/lib/email-delivery.functions";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { GYM_TIMEZONE } from "@/lib/schedule-time";
+import { GYM_TIMEZONE, formatChicagoDay } from "@/lib/schedule-time";
 
 const EMAIL_DELIVERY_TOOLTIP =
   "Our email provider couldn't deliver to this address. Ask the family for the correct email. Only bounces from the last 14 days are shown — no marker does not prove an email arrived.";
@@ -2074,6 +2074,9 @@ function AnnouncementForm() {
   const [location, setLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
+  // Round 68: optional times for the calendar entry, typed in Houston time.
+  const [eventStartTime, setEventStartTime] = useState("");
+  const [eventEndTime, setEventEndTime] = useState("");
   const [pinned, setPinned] = useState(false);
   // Round 59: the row id is minted up front so the uploaded object key carries
   // it (unguessable, same convention as album covers). A fresh one per post.
@@ -2085,7 +2088,7 @@ function AnnouncementForm() {
   useDraftImageCleanup(imageUrl);
   const resetForm = () => {
     setTitle(""); setBody(""); setTag(""); setLocation("");
-    setEventDate(""); setEventEndDate(""); setPinned(false);
+    setEventDate(""); setEventEndDate(""); setEventStartTime(""); setEventEndTime(""); setPinned(false);
     setScheduled(false); setSchedDate("");
     setLinkMode("none"); setExistingEventId(""); setHideEventUntilPublish(true);
     setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
@@ -2127,8 +2130,29 @@ function AnnouncementForm() {
 
   const canCreateEvent = !!eventDate;
 
+  /**
+   * Round 68: blank start time = all-day exactly as before. A start time makes a
+   * timed entry in Houston time; the end is on the end date if set, else the
+   * same day, and must come after the start. Checked before anything is saved.
+   */
+  const timedEvent = (): { all_day: boolean; starts_at: string; ends_at: string | null } => {
+    if (!eventStartTime) {
+      if (eventEndTime) throw new Error("Add a start time, or clear the end time for an all-day event.");
+      return {
+        all_day: true,
+        starts_at: chicagoStartOfDay(eventDate),
+        ends_at: eventEndDate ? chicagoEndOfDay(eventEndDate) : null,
+      };
+    }
+    const starts = chicagoToInstant(eventDate, eventStartTime);
+    const ends = eventEndTime ? chicagoToInstant(eventEndDate || eventDate, eventEndTime) : null;
+    if (ends && Date.parse(ends) <= Date.parse(starts)) throw new Error("The end time must be after the start time.");
+    return { all_day: false, starts_at: starts, ends_at: ends };
+  };
+
   const post = useMutation({
     mutationFn: async () => {
+      const eventTimes = linkMode === "new" && eventDate ? timedEvent() : null;
       const { data: u } = await supabase.auth.getUser();
       const publishAt = scheduled && schedDate ? chicagoToInstant(schedDate, schedTime) : null;
       if (scheduled && !schedDate) throw new Error("Pick the date this post should go live.");
@@ -2173,11 +2197,9 @@ function AnnouncementForm() {
             description: body.trim() || null,
             // Explicit mapping, never the category string passed through.
             event_type: eventTypeForCategory(category),
-            // A date column carries no time, so the entry is all-day starting at
-            // Chicago midnight. Nothing is invented.
-            all_day: true,
-            starts_at: chicagoStartOfDay(eventDate),
-            ends_at: eventEndDate ? chicagoEndOfDay(eventEndDate) : null,
+            // No time typed = all-day from Chicago midnight (nothing invented);
+            // times typed = a timed entry in Houston time (Round 68).
+            ...(eventTimes ?? timedEvent()),
             location: category === "tournament" ? location.trim() || null : null,
             published: true,
             disciplines:
@@ -2271,6 +2293,14 @@ function AnnouncementForm() {
           <Label htmlFor="new-ann-event-end">Event end date (multi-day only)</Label>
           <Input id="new-ann-event-end" type="date" value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="mt-1" />
         </div>
+        <div>
+          <Label htmlFor="new-ann-start-time">Start time (Houston time, optional)</Label>
+          <Input id="new-ann-start-time" type="time" value={eventStartTime} onChange={(e) => setEventStartTime(e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor="new-ann-end-time">End time (Houston time, optional)</Label>
+          <Input id="new-ann-end-time" type="time" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} className="mt-1" />
+        </div>
 
         <div className="sm:col-span-2">
           <Label>Details</Label>
@@ -2352,9 +2382,9 @@ function AnnouncementForm() {
           )}
           {linkMode === "new" && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Creates an all-day entry on {eventDate}
-              {eventEndDate ? ` through ${eventEndDate}` : ""}. Set a precise start time later on
-              the Events tab.
+              {eventStartTime
+                ? `Creates a calendar entry on ${eventDate} at ${eventStartTime}${eventEndTime ? `–${eventEndTime}` : ""} Houston time.`
+                : `Creates an all-day entry on ${eventDate}${eventEndDate ? ` through ${eventEndDate}` : ""}. Add a start time above for a timed entry.`}
             </p>
           )}
           {linkMode === "existing" && (
@@ -2369,7 +2399,7 @@ function AnnouncementForm() {
                 <SelectContent>
                   {(attachableQ.data ?? []).map((ev) => (
                     <SelectItem key={ev.id} value={ev.id}>
-                      {ev.title} — {new Date(ev.starts_at).toLocaleDateString()}
+                      {ev.title} — {formatChicagoDay(ev.starts_at)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -2402,7 +2432,7 @@ function AnnouncementForm() {
           onClick={() => {
             const hasContent =
               !!(title.trim() || body.trim() || tag.trim() || location.trim() || eventDate || eventEndDate ||
-                imageUrl || imageAlt.trim() || schedDate) || pinned || scheduled || linkMode !== "none" ||
+                imageUrl || imageAlt.trim() || schedDate || eventStartTime || eventEndTime) || pinned || scheduled || linkMode !== "none" ||
               category !== "school_news";
             if (hasContent && !confirm("Discard this draft? Everything you've typed and any uploaded picture will be removed.")) return;
             const img = imageUrl;

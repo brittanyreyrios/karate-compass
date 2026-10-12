@@ -97,3 +97,41 @@ export function chicagoEndOfDay(date: string): string {
 export function eventTypeForCategory(category: "school_news" | "tournament"): string {
   return category === "tournament" ? "tournament" : "other";
 }
+
+/**
+ * Round 68 — one rule everywhere: event days and times follow Houston, never the
+ * viewer's device. These derive from instantToChicago / GYM_TIMEZONE only.
+ */
+export function chicagoDateKey(iso: string): string {
+  return instantToChicago(iso).date;
+}
+
+/** Minutes since Chicago midnight — for ordering timed events within a day. */
+export function chicagoMinutes(iso: string): number {
+  const [h, m] = instantToChicago(iso).time.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/** "5:00 PM" in gym time. No zone suffix: the portal serves one Houston gym. */
+export function formatChicagoTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: GYM_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+/** Today's date in Houston (yyyy-mm-dd). */
+export function chicagoTodayKey(): string {
+  return chicagoDateKey(new Date().toISOString());
+}
+
+/** "Fri, Oct 30" — the Houston day of an instant. */
+export function formatChicagoDay(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: GYM_TIMEZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(iso));
+}

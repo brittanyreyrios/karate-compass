@@ -1,3 +1,4 @@
+import { formatChicagoDay, formatChicagoTime } from "@/lib/schedule-time";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Megaphone, Pencil, Pin, PinOff, Save, Send, Trash2, Trophy, X } from "lucide-react";
@@ -65,7 +66,20 @@ type AnnouncementRow = {
  * delete cannot break anything — but the staff member deserves to be told that
  * the Events tab or a class's testing date will show as "no longer posted".
  */
-type Reference = { kind: "event" | "test"; label: string };
+type Reference = {
+  kind: "event" | "test";
+  label: string;
+  /** Round 68 — events only, for naming them in the delete dialog. */
+  id?: string;
+  startsAt?: string;
+  allDay?: boolean;
+};
+
+/** "Fall Festival — Fri, Oct 30, 5:00 PM" in Houston time. */
+function eventLine(r: Reference): string {
+  if (!r.startsAt) return r.label;
+  return `${r.label} — ${formatChicagoDay(r.startsAt)}${r.allDay ? " (all day)" : `, ${formatChicagoTime(r.startsAt)}`}`;
+}
 
 /** AB2: the admin archive is paginated too — it grows forever. */
 const ADMIN_PAGE_SIZE = 25;
@@ -97,7 +111,7 @@ function useReferences(ids: string[]) {
     enabled: ids.length > 0,
     queryFn: async () => {
       const [events, tests] = await Promise.all([
-        supabase.from("events").select("id, title, announcement_id").in("announcement_id", ids),
+        supabase.from("events").select("id, title, announcement_id, starts_at, all_day").in("announcement_id", ids),
         supabase
           .from("class_schedules")
           .select("id, class_name, test_announcement_id")
@@ -110,7 +124,7 @@ function useReferences(ids: string[]) {
         else map.set(id, [ref]);
       };
       for (const e of events.data ?? []) {
-        if (e.announcement_id) push(e.announcement_id, { kind: "event", label: e.title });
+        if (e.announcement_id) push(e.announcement_id, { kind: "event", label: e.title, id: e.id, startsAt: e.starts_at, allDay: e.all_day });
       }
       for (const s of tests.data ?? []) {
         if (s.test_announcement_id) {
@@ -129,12 +143,8 @@ function warningsFor(rows: AnnouncementRow[], refs: Map<string, Reference[]> | u
       "One or more of these is a tournament — deleting it also removes it from the calendar and from the dashboard tournament timeline.",
     );
   }
-  const eventRefs = rows.flatMap((r) => (refs?.get(r.id) ?? []).filter((x) => x.kind === "event"));
-  if (eventRefs.length > 0) {
-    out.push(
-      `Linked to ${count(eventRefs.length, "calendar event")} (${eventRefs.map((r) => r.label).join(", ")}). The event itself stays on the calendar, but the Events tab will show it as no longer posted to announcements.`,
-    );
-  }
+  // Round 68: linked calendar events are listed with a delete/keep choice in
+  // the dialog itself, not as a warning sentence.
   const testRefs = rows.flatMap((r) => (refs?.get(r.id) ?? []).filter((x) => x.kind === "test"));
   if (testRefs.length > 0) {
     out.push(
@@ -150,6 +160,7 @@ export function AnnouncementsManageTab() {
   const [before, setBefore] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<AnnouncementRow[] | null>(null);
+  const [deleteEvents, setDeleteEvents] = useState(true);
 
   const [limit, setLimit] = useState(ADMIN_PAGE_SIZE);
   const listQ = useAnnouncements(category, before, limit);
@@ -169,19 +180,36 @@ export function AnnouncementsManageTab() {
   };
 
   const remove = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, events }: { ids: string[]; events: Reference[] }) => {
       // Round 59: read the image keys first, delete the rows, then the objects —
       // the same order the gallery uses, so a failed row delete never loses a file.
       const { data: imgs } = await supabase.from("announcements").select("image_url").in("id", ids);
       const { error } = await supabase.from("announcements").delete().in("id", ids);
       if (error) throw error;
+      // Round 68: then the linked events staff chose to delete (their IDs were
+      // read before the delete; the FK has already set announcement_id to null).
+      // Each failure is reported by name — never silently left on the calendar.
+      const left: string[] = [];
+      for (const ev of events) {
+        if (!ev.id) continue;
+        const { data: gone, error: evErr } = await supabase.from("events").delete().eq("id", ev.id).select("id");
+        if (evErr || (gone ?? []).length === 0) left.push(eventLine(ev));
+      }
       for (const r of imgs ?? []) await deletePostImageObject(r.image_url);
-      return ids.length;
+      return { n: ids.length, removedEvents: events.length - left.length, left };
     },
-    onSuccess: (n) => {
-      toast.success(`Deleted ${count(n, "announcement")}`);
+    onSuccess: ({ n, removedEvents, left }) => {
+      toast.success(
+        `Deleted ${count(n, "announcement")}${removedEvents > 0 ? ` and ${count(removedEvents, "calendar event")}` : ""}`,
+      );
+      if (left.length > 0) {
+        toast.error(
+          `The announcement was deleted, but this calendar event could not be removed and is still on the calendar: ${left.join("; ")}. Delete it from the Events tab.`,
+          { duration: 20000 },
+        );
+      }
       setSelected(new Set());
-      setConfirming(null);
+      setConfirming(null); setDeleteEvents(true);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -197,6 +225,9 @@ export function AnnouncementsManageTab() {
   };
 
   const warnings = confirming ? warningsFor(confirming, refsQ.data) : [];
+  const confirmEventRefs = confirming
+    ? confirming.flatMap((r) => (refsQ.data?.get(r.id) ?? []).filter((x) => x.kind === "event"))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -295,7 +326,7 @@ export function AnnouncementsManageTab() {
         </div>
       </div>
 
-      <AlertDialog open={confirming !== null} onOpenChange={(o) => !o && setConfirming(null)}>
+      <AlertDialog open={confirming !== null} onOpenChange={(o) => { if (!o) { setConfirming(null); setDeleteEvents(true); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -313,6 +344,26 @@ export function AnnouncementsManageTab() {
                     ))}
                   </ul>
                 )}
+                {confirmEventRefs.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-border p-3 text-sm" data-testid="linked-events">
+                    <p className="font-semibold text-foreground">
+                      This announcement has {count(confirmEventRefs.length, "calendar event")}:
+                    </p>
+                    <ul className="list-disc pl-5">
+                      {confirmEventRefs.map((r) => (
+                        <li key={r.id}>{eventLine(r)}</li>
+                      ))}
+                    </ul>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="linked-events" checked={deleteEvents} onChange={() => setDeleteEvents(true)} />
+                      Delete the {confirmEventRefs.length === 1 ? "event" : "events"} too
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="linked-events" checked={!deleteEvents} onChange={() => setDeleteEvents(false)} />
+                      Keep {confirmEventRefs.length === 1 ? "it" : "them"} on the calendar
+                    </label>
+                  </div>
+                )}
                 {warnings.map((w) => (
                   <p key={w} className="text-sm font-semibold text-primary">
                     {w}
@@ -324,7 +375,10 @@ export function AnnouncementsManageTab() {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirming && remove.mutate(confirming.map((r) => r.id))}
+              onClick={() =>
+                confirming &&
+                remove.mutate({ ids: confirming.map((r) => r.id), events: deleteEvents ? confirmEventRefs : [] })
+              }
               disabled={remove.isPending}
             >
               {remove.isPending ? "Deleting…" : "Delete permanently"}

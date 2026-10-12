@@ -1,3 +1,4 @@
+import { postImageSrc, usePostImageUrls } from "@/lib/post-images";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,7 +49,7 @@ import { GoogleReviewCard } from "@/components/google-review-card";
 import { QueryErrorState } from "@/components/query-error";
 import { TournamentResultsSection } from "@/components/tournament-results-section";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
-import { isScheduled } from "@/lib/schedule-time";
+import { isScheduled, formatChicagoDay, formatChicagoTime } from "@/lib/schedule-time";
 import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
 
 
@@ -213,6 +214,26 @@ function Dashboard() {
   const student = students.find((s) => s.id === activeId) ?? students[0];
 
   const news = (announcementsQ.data ?? []).slice(0, 4);
+  /**
+   * Round 68: small School News thumbnails. get_school_news is unchanged, so the
+   * image columns come from one extra read of the shown rows (same RLS), and all
+   * thumbnails are signed in ONE batched request below.
+   */
+  const newsIds = news.map((n) => n.id);
+  const newsImagesQ = useQuery({
+    queryKey: ["announcements", "dashboard-images", newsIds],
+    enabled: newsIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("id, image_url, image_alt")
+        .in("id", newsIds)
+        .not("image_url", "is", null);
+      if (error) throw error;
+      return new Map((data ?? []).map((r) => [r.id, r]));
+    },
+  });
+  const newsThumbsQ = usePostImageUrls([...(newsImagesQ.data?.values() ?? [])].map((r) => r.image_url));
   const tournaments = tournamentsQ.data ?? [];
   /**
    * Round 45: admin-only marker. Presentational — the news list above is not
@@ -603,8 +624,27 @@ function Dashboard() {
                       <ScheduledBadge publishAt={scheduledAnnouncements.get(n.id)!} />
                     </div>
                   )}
-                  <h3 className="mt-3 font-semibold text-foreground group-hover:text-primary">{n.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
+                  {(() => {
+                    const img = newsImagesQ.data?.get(n.id);
+                    const src = img ? postImageSrc(img.image_url, newsThumbsQ.data) : null;
+                    return (
+                      <div className="mt-3 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-foreground group-hover:text-primary">{n.title}</h3>
+                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
+                        </div>
+                        {src && (
+                          <img
+                            src={src}
+                            alt={(img?.image_alt ?? "").trim() || n.title}
+                            loading="lazy"
+                            className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
+                            data-testid="news-thumb"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
                   <NewsPostedLine createdAt={n.created_at} />
                 </li>
               ))}
@@ -704,14 +744,9 @@ function NextUpStrip() {
             )}
             <h3 className="mt-3 font-semibold text-foreground">{event.title}</h3>
             <div className="mt-1 text-xs text-muted-foreground">
-              {new Date(event.starts_at).toLocaleDateString(undefined, {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
-              {event.all_day
-                ? " · All day"
-                : ` · ${new Date(event.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+              {/* Round 68: day and time in gym (Houston) time */}
+              {formatChicagoDay(event.starts_at)}
+              {event.all_day ? " · All day" : ` · ${formatChicagoTime(event.starts_at)}`}
             </div>
             {event.location && <div className="mt-1 text-xs text-muted-foreground">{event.location}</div>}
           </li>
