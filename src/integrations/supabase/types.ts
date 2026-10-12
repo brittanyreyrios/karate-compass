@@ -445,6 +445,33 @@ export type Database = {
         }
         Relationships: []
       }
+      email_change_events: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_email: string
+          old_email: string
+          target_user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_email: string
+          old_email: string
+          target_user_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_email?: string
+          old_email?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           all_day: boolean

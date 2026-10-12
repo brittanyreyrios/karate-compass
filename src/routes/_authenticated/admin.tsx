@@ -73,6 +73,7 @@ import { EnrollmentEditor } from "@/components/admin-enrollment";
 import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
+import { ChangeParentEmailButton } from "@/components/admin-change-email";
 import {
   setParentAccountArchived,
   deleteParentAccount,
@@ -3891,6 +3892,9 @@ function ParentsTab({
                   isAdmin={staff}
                   adminCount={adminIds?.size ?? 0}
                 />
+                {!staff && (
+                  <ChangeParentEmailButton profileId={p.id} email={p.email} familyName={p.family_name} />
+                )}
                 {!p.archived_at ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

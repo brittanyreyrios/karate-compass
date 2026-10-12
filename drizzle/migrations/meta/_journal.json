@@ -43,6 +43,13 @@
       "when": 1791822313376,
       "tag": "0005_r62_absence_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791825322954,
+      "tag": "0006_r60_email_change_events",
+      "breakpoints": true
     }
   ]
 }
