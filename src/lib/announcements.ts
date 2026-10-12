@@ -42,10 +42,13 @@ export type Tournament = {
    * select-list column — nothing below filters on it; RLS remains the only gate.
    */
   publish_at: string | null;
+  /** Round 59 — events-branch rows have no image (null). */
+  image_url: string | null;
+  image_alt: string | null;
 };
 
 const TOURNAMENT_COLUMNS =
-  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at, publish_at";
+  "id, category, title, body, tag, discipline, disciplines, location, event_date, event_end_date, venue, address, divisions, registration_deadline, spectator_info, event_url, created_at, publish_at, image_url, image_alt";
 
 /** Local calendar day, not UTC — a date-only column must not shift timezone. */
 function todayKey() {
@@ -162,6 +165,8 @@ export function useTournaments(limit?: number) {
         event_url: null,
         created_at: e.starts_at,
         publish_at: e.publish_at,
+        image_url: null,
+        image_alt: null,
       }));
 
       const merged = [...fromAnnouncements, ...fromEvents].sort(byEventDate);

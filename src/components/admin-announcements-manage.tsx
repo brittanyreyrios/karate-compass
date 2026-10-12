@@ -29,6 +29,8 @@ import {
 import { count } from "@/lib/plural";
 import { formatDateOnly } from "@/lib/date-only";
 import { ScheduledBadge } from "@/components/scheduled-badge";
+import { PostImagePicker } from "@/components/post-image";
+import { deletePostImageObject } from "@/lib/post-images";
 import {
   chicagoToInstant,
   instantToChicago,
@@ -54,6 +56,8 @@ type AnnouncementRow = {
   pinned: boolean;
   publish_at: string | null;
   created_at: string;
+  image_url: string | null;
+  image_alt: string | null;
 };
 
 /**
@@ -73,7 +77,7 @@ function useAnnouncements(category: string, before: string, limit: number) {
     queryFn: async () => {
       let q = supabase
         .from("announcements")
-        .select("id, category, title, body, event_date, pinned, publish_at, created_at")
+        .select("id, category, title, body, event_date, pinned, publish_at, created_at, image_url, image_alt")
         .order("created_at", { ascending: false });
       if (category !== "all") q = q.eq("category", category);
       if (before) q = q.lt("created_at", `${before}T00:00:00`);
@@ -166,8 +170,12 @@ export function AnnouncementsManageTab() {
 
   const remove = useMutation({
     mutationFn: async (ids: string[]) => {
+      // Round 59: read the image keys first, delete the rows, then the objects —
+      // the same order the gallery uses, so a failed row delete never loses a file.
+      const { data: imgs } = await supabase.from("announcements").select("image_url").in("id", ids);
       const { error } = await supabase.from("announcements").delete().in("id", ids);
       if (error) throw error;
+      for (const r of imgs ?? []) await deletePostImageObject(r.image_url);
       return ids.length;
     },
     onSuccess: (n) => {
@@ -347,6 +355,7 @@ function ManageRow({
   const [title, setTitle] = useState(row.title);
   const [body, setBody] = useState(row.body);
   const [editPinned, setEditPinned] = useState(row.pinned);
+  const [imageAlt, setImageAlt] = useState(row.image_alt ?? "");
   /**
    * publish_at is a timestamptz, so it is edited as a gym-time (America/Chicago)
    * date + time and converted explicitly — never through the date-only helpers.
@@ -383,7 +392,7 @@ function ManageRow({
       const publishAt = editScheduled ? chicagoToInstant(editDate, editTime) : null;
       const { error } = await supabase
         .from("announcements")
-        .update({ title: title.trim(), body: body.trim(), pinned: editPinned, publish_at: publishAt })
+        .update({ title: title.trim(), body: body.trim(), pinned: editPinned, publish_at: publishAt, image_alt: imageAlt.trim() || null })
         .eq("id", row.id);
       if (error) throw error;
       await moveHiddenLinkedEvents(publishAt);
@@ -577,6 +586,19 @@ function ManageRow({
                   </div>
                 </div>
               )}
+              <PostImagePicker
+                rowId={row.id}
+                value={row.image_url}
+                alt={imageAlt}
+                onAltChange={setImageAlt}
+                fallbackAlt={title.trim() || row.title}
+                idPrefix={`ann-${row.id}`}
+                onChange={async (next) => {
+                  const { error } = await supabase.from("announcements").update({ image_url: next }).eq("id", row.id);
+                  if (error) throw error;
+                  onSaved();
+                }}
+              />
               <div className="flex flex-col gap-2 sm:flex-row">
 
                 <Button

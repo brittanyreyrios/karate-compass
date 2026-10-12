@@ -63,6 +63,8 @@ export type Database = {
           event_end_date: string | null
           event_url: string | null
           id: string
+          image_alt: string | null
+          image_url: string | null
           location: string | null
           pinned: boolean
           publish_at: string | null
@@ -85,6 +87,8 @@ export type Database = {
           event_end_date?: string | null
           event_url?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           location?: string | null
           pinned?: boolean
           publish_at?: string | null
@@ -107,6 +111,8 @@ export type Database = {
           event_end_date?: string | null
           event_url?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           location?: string | null
           pinned?: boolean
           publish_at?: string | null
@@ -888,6 +894,8 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          image_alt: string | null
+          image_url: string | null
           multi_select: boolean
           published: boolean
           question: string
@@ -902,6 +910,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           multi_select?: boolean
           published?: boolean
           question: string
@@ -916,6 +926,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           multi_select?: boolean
           published?: boolean
           question?: string

@@ -75,6 +75,7 @@ import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
 import { ChangeParentEmailButton } from "@/components/admin-change-email";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
+import { PostImagePicker } from "@/components/post-image";
 import {
   setParentAccountArchived,
   deleteParentAccount,
@@ -2073,6 +2074,11 @@ function AnnouncementForm() {
   const [eventDate, setEventDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [pinned, setPinned] = useState(false);
+  // Round 59: the row id is minted up front so the uploaded object key carries
+  // it (unguessable, same convention as album covers). A fresh one per post.
+  const [draftId, setDraftId] = useState(() => crypto.randomUUID());
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState("");
 
   /**
    * Scheduling. publish_at is a real timestamptz and the time the admin types is
@@ -2117,6 +2123,9 @@ function AnnouncementForm() {
       if (scheduled && !schedDate) throw new Error("Pick the date this post should go live.");
 
       const payload = {
+        id: draftId,
+        image_url: imageUrl,
+        image_alt: imageUrl ? imageAlt.trim() || null : null,
         category,
         title: title.trim(),
         body: body.trim(),
@@ -2183,6 +2192,7 @@ function AnnouncementForm() {
       setEventDate(""); setEventEndDate(""); setPinned(false);
       setScheduled(false); setSchedDate("");
       setLinkMode("none"); setExistingEventId(""); setHideEventUntilPublish(true);
+      setImageUrl(null); setImageAlt(""); setDraftId(crypto.randomUUID());
       qc.invalidateQueries({ queryKey: ["announcements"] });
       qc.invalidateQueries({ queryKey: ["admin-announcements"] });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
@@ -2226,6 +2236,18 @@ function AnnouncementForm() {
         <div className="sm:col-span-2">
           <Label>Title</Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} required className="mt-1" />
+        </div>
+
+        <div className="sm:col-span-2">
+          <PostImagePicker
+            rowId={draftId}
+            value={imageUrl}
+            alt={imageAlt}
+            onAltChange={setImageAlt}
+            onChange={(next) => setImageUrl(next)}
+            fallbackAlt={title.trim() || "the announcement title"}
+            idPrefix="new-ann"
+          />
         </div>
 
         {category === "tournament" && (

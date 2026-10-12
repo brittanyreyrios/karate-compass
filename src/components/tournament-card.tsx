@@ -8,6 +8,7 @@ import type { Tournament } from "@/lib/announcements";
 import { ScheduledBadge } from "@/components/scheduled-badge";
 import { isScheduled } from "@/lib/schedule-time";
 import { useShowScheduledMarker } from "@/lib/scheduled-announcements";
+import { PostImage } from "@/components/post-image";
 
 /**
  * The ONE tournament card. Rendered by both the dashboard (condensed) and the
@@ -61,6 +62,11 @@ export function TournamentCard({
           </div>
         )}
         <h3 className="mt-3 font-display text-lg font-bold uppercase leading-tight">{t.title}</h3>
+        {/* Round 59: the flyer shows on the full card only; the condensed
+            dashboard card stays text-only. Renders nothing without an image. */}
+        {variant === "full" && t.image_url && (
+          <PostImage value={t.image_url} alt={t.image_alt} fallbackAlt={t.title} className="mt-3" />
+        )}
         {variant === "full" && (
           <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>
         )}

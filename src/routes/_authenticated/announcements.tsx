@@ -12,6 +12,7 @@ import { TournamentCard } from "@/components/tournament-card";
 import { NewsCardTopRow, NewsPostedLine } from "@/components/news-card-dates";
 import { ScheduledBadge } from "@/components/scheduled-badge";
 import { useScheduledAnnouncements } from "@/lib/scheduled-announcements";
+import { PostImage } from "@/components/post-image";
 
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -99,6 +100,25 @@ function Announcements() {
 
   const news = data ?? [];
   /**
+   * Round 59: get_school_news is unchanged, so images come from one extra read
+   * of the same rows, through the same RLS (a parent still gets only published
+   * rows). Keyed under ["announcements"] so realtime invalidation refreshes it.
+   */
+  const newsIds = news.map((n) => n.id);
+  const imagesQ = useQuery({
+    queryKey: ["announcements", "images", newsIds],
+    enabled: newsIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("id, image_url, image_alt")
+        .in("id", newsIds)
+        .not("image_url", "is", null);
+      if (error) throw error;
+      return new Map((data ?? []).map((r) => [r.id, r]));
+    },
+  });
+  /**
    * AN: tournaments come from their own server-ordered query. They are NOT
    * filtered out of a shared feed and sorted here — see src/lib/announcements.ts
    * for why a client-side sort of a paginated feed is silently wrong.
@@ -148,6 +168,14 @@ function Announcements() {
                   </div>
                 )}
                 <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-wide group-hover:text-primary">{n.title}</h3>
+                {imagesQ.data?.get(n.id) && (
+                  <PostImage
+                    value={imagesQ.data.get(n.id)!.image_url}
+                    alt={imagesQ.data.get(n.id)!.image_alt}
+                    fallbackAlt={n.title}
+                    className="mt-3"
+                  />
+                )}
                 <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
                 <NewsPostedLine createdAt={n.created_at} />
               </article>

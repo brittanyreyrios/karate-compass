@@ -11,6 +11,8 @@ export type Poll = {
   results_visible: string;
   published: boolean;
   created_at: string;
+  image_url: string | null;
+  image_alt: string | null;
 };
 
 export type PollOption = {
@@ -35,7 +37,7 @@ export type PollResult = {
 };
 
 export const POLL_SELECT =
-  "id, question, description, anonymous, respond_per, multi_select, closes_at, results_visible, published, created_at";
+  "id, question, description, anonymous, respond_per, multi_select, closes_at, results_visible, published, created_at, image_url, image_alt";
 
 export function isPollClosed(poll: Poll): boolean {
   return !!poll.closes_at && new Date(poll.closes_at).getTime() <= Date.now();
