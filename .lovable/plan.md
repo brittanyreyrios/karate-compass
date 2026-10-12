@@ -8,9 +8,10 @@ Six rows in the Solid system, sort_order 9–14, names/short names exactly as th
 
 Chip proposal — no new pattern value, no constraint change:
 - `pattern = 'stripe'`, `color_primary = '#0a0a0a'`, `color_accent = '#d4af37'` (gold).
-- Today a stripe renders as one long line down the belt. For black-primary stripe ranks, BeltSwatch instead draws N short vertical gold bars across the right band end (1 to 6), where N = the leading digit of `short_name` ("1st Degree" -> 1). The pattern word in the accessible label becomes "black belt with N gold degree bars".
+- Add nullable `belt_ranks.degree smallint CHECK (degree BETWEEN 1 AND 6)`; six new rows have degree 1–6, existing Black stays NULL. Never parse short_name. Degree-aware features use degree IS NOT NULL plus the Solid-system Black row.
+- Option 3: BeltSwatch uses a gold number on the band at sm (and compact ladder), and N thin gold bars across a hanging belt end at md and larger, perpendicular to its length with small even gaps just inside the tip, matching the reference photo.
 - Plain Black keeps its solid chip (no bars), so Black and 1st Degree stay distinguishable.
-- Before the migration runs I will render all seven chips (Black, 1st–6th) at sm and md sizes on the dark card and show the screenshot; rows are only inserted after you approve the look.
+- Before the migration runs render all seven chips (Black, 1st–6th) at sm and md plus a small chip in a leaderboard-row preview on the dark background; rows are only inserted after visual approval.
 
 Rank-label tint (beltLabelColor): accent differs from primary, so labels take a readable gold tint — reported with the read-back.
 
@@ -19,6 +20,7 @@ Per-component check, to report with real output after the migration:
 - get_curriculum_for_student / _for_all_children: "sort_order <= my rank" — a degree holder (9–14) still includes all of 1–8; there is no curriculum on 9–14, so nothing new appears. Verified by query on a test child, functions unchanged.
 - get_leaderboard rank_name: returns the full name ("6th Degree Black Belt"); ranking/division logic untouched.
 - Admin belt dropdown (BeltPicker): lists the six new rows in order after Black.
+- Report the admin curriculum editor rank groups for all six new ranks: empty is fine, errors or broken ordering are not.
 - Belt chips everywhere: via BeltSwatch, so bars show on every screen.
 
 ## B. Progress bar after Black (dashboard only, app code)
