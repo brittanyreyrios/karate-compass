@@ -1,23 +1,59 @@
-# Round 67 — Manage Students points stepper: feedback, Undo, period total
+# Round 59 — Images on announcements and polls
 
-Starting commit: `ba88272b47f5168a097f600289424cf07ac89f4a`. UI only — no migration, no database function changes, Master Attendance untouched.
+Starting commit: `c408c3cad463c01b7603123dcd5b43ffaf0c43dd`
 
-## What changes (StudentRow in admin.tsx only)
+## Shared helpers: a sibling module, not a refactor
 
-**A. Toast + 3-second Undo.** After each successful tap: `+1 · {first name} now {all-time} ({range}: {period})` (or `−1 · …`), with an Undo action. Undo calls the existing `revertPointEvent` from `src/lib/points.ts` with that award's `eventId` — the same revert path Master Attendance uses; no second revert path. The period number in the toast is the cached period total plus this award's applied delta (`award.delta` from `award_points`, which is already the clamped amount).
+I'll add a new `src/lib/post-images.ts` that copies the conventions of `album-covers.ts`:
+- **Stored value:** either an object key or an absolute URL.
+- **Names:** UUID-prefixed object names (`<row-uuid>-<timestamp>.jpg`).
+- **Size:** 1200px longest edge, JPEG 0.85, 5 MB cap, image-only check.
+- **Signing:** batched signed URLs (`signPostImages`, `usePostImageUrls`), plus a resolver (`postImageSrc`) and `deletePostImageObject`.
 
-Honest note on "reuse the existing toast code": the Master Attendance toast is written inline inside its `addPoints` mutation, not as a shared helper. Extracting it would mean editing the Master Attendance buttons, which the brief forbids, so StudentRow gets its own toast call with the same shape (`toast.success`, `duration: 3000`, `action: { label: "Undo" }`) over the same shared `awardPoints` / `revertPointEvent` functions.
+It points at the `post-images` bucket. `album-covers.ts` is not edited at all, not even its imports. Why: parameterizing would change every gallery call site, and a quiet break there is the worse outcome. The cost is about 60 lines of near-duplicate code. The pure helpers (`downscaleImage`, `validateCoverFile`, `isExternalCover`) are bucket-independent, so I'll import those from `album-covers.ts` instead of copying them. That reads the file but doesn't change its behavior.
 
-**B. Per-student lock (~1.5 s).** `lockButton` lives inside the Master Attendance component and isn't exported, so I'll use the same approach locally: a per-row lock-until timestamp. It is held in a ref as well as state so a second tap is ignored even before React re-renders (the 26 Sep taps were 1.04 s apart; a tap inside the same frame must also be caught). It is set at tap time, not on success, and the button shows disabled while it runs. Each row has its own lock, so other students stay usable.
+**Media Gallery proof:** the staff fixture uploads a cover to a temporary "ZZ TEST R59 album", it displays, then I delete it and show the object gone from `album-covers`.
 
-**C. Period total.** Stepper reads e.g. `1 Dojo pts · Sep–Oct: 0`. The period start comes only from `usePointsPeriodStart()` and the label from `pointsPeriodLabels()`; no boundary is computed in TypeScript. Period points come from one query for the whole roster: `point_events` where `occurred_on >= periodStart`, summed per student (the same rule `get_leaderboard` uses), with key `["admin-period-points", periodStart]`. It is invalidated together with `admin-students` after every award and Undo. If the period start hasn't loaded, the period part is hidden rather than guessed.
+## Storage
 
-**D.** − stays disabled when all-time points are 0.
+- Create `post-images` with the bucket tool: private, 5MB limit. The tool can't set allowed types, so the JPEG/PNG/WebP rule is enforced in the app (the album-covers note in AGENTS.md says the same). Uploads are always re-encoded to JPEG anyway. I'll read the settings back from `storage.buckets`.
+- Policies on `storage.objects` (migration), mirroring album-covers:
+  - SELECT `TO authenticated USING (bucket_id = 'post-images')`
+  - INSERT / UPDATE / DELETE `TO authenticated` with `has_role(auth.uid(),'admin')`
+- **Plain statement:** any signed-in user can sign any object in this bucket. The only thing hiding a scheduled announcement's image is its unguessable UUID-prefixed name. RLS hides the row, not the file.
 
-## Testing
+## Schema (same migration, `drizzle/migrations/`)
 
-- Temporary labelled child "ZZTEMP R67-DeleteMe" on the zz.test.negative fixture (not the ZZTEST fixture child), using the staff fixture to sign in.
-- +1, Undo, −1… then two taps under one second → exactly one event; `point_events` rows and `students.points` shown after each step.
-- Screenshots of the toast and the stepper at 390 and 1536, with stepper `scrollWidth <= clientWidth`.
-- Read-only SQL: one real student's period sum vs `get_leaderboard` `period_points`.
-- Cleanup: temporary child deleted; fixture child still 0 points; `git diff --stat` including package.json and bun.lock.
+Four nullable columns, no RLS change to existing tables:
+- `announcements.image_url text`, `announcements.image_alt text`
+- `polls.image_url text`, `polls.image_alt text`
+
+They follow the `cover_image_url` key-or-URL convention.
+
+## Admin UI
+
+- Post Announcement form, Manage Announcements edit, and the poll editor get the same control as the gallery cover: upload, preview, replace, remove. There is also an optional "Image description (alt text)" field.
+- Replacing or removing an image deletes the old object.
+- Deleting an announcement or poll deletes its object after the row delete succeeds, the same order the gallery uses.
+- Nothing is required.
+
+## Parent rendering
+
+- **Announcement feed card, detail view, and polls page.** The image sits at the top of the card at full card width. Height is capped with `max-h-80` (320px) and `object-contain` on a muted backdrop, so a tall portrait photo is letterboxed instead of pushing the card down. Alt is `image_alt`, or the title/question when blank. No image means no element at all, so cards without an image are unchanged.
+- **Tournament-derived cards (dashboard Upcoming Tournaments, `TournamentCard`): no image.** The image shows on the announcement itself in Announcements. That protects the timeline layout from Rounds 38/40/42/50. The placement helpers and Winner's Circle are not touched; I'll show a `git diff` of those files as empty.
+- **Dashboard School News previews: no image** (text previews only).
+
+## Safe parent-side testing (no real family can see test posts)
+
+- **Test announcement "ZZ TEST R59 …"** gets `publish_at` = 2099-01-01. The existing announcements RLS already hides scheduled rows from every parent, so no family can see it at any point.
+- **Test poll** stays `published = false`, so no family can see it or vote.
+- **Showing it to zz.test.negative:** in the headless browser only, signed in as zz.test.negative, I intercept that one browser's announcements and polls responses and add the test row (same columns the database returns). The page then renders it with the real parent components, and the image is signed with zz.test.negative's own session through the real bucket policy.
+  - Honest limitation: the row reaches that one test browser by injection, not by the parent's own query. The image signing and display are real.
+- **Scheduled-image proof:** the same account without interception does not get the row. I'll show the parent query result and an empty page.
+- **Signed-out refusal:** a signed-in user creates a signed URL, then a signed-out request to the object without signing is shown refused.
+- **Responsive:** five widths (390, 768, 1024, 1025, 1536) with `body.scrollWidth` vs viewport, including a tall portrait test image. Before/after screenshots of one existing announcement and one existing poll with no image.
+- **Cleanup:** I delete both test rows through the admin UI, then show `storage.objects` has none left for this round.
+
+## Not touched
+
+`album-covers.ts`, Media Gallery, `gallery_albums`, poll options/votes/rules, the four `.eq("published", true)` filters, belt-test, auth, guardian and points-period paths.
