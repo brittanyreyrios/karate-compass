@@ -42,6 +42,7 @@ export type BeltRank = {
   curriculum_tier: CurriculumTier;
   sort_order: number;
   active: boolean;
+  degree: number | null;
 };
 
 export const TIER_LABELS: Record<CurriculumTier, string> = {
@@ -85,7 +86,7 @@ export function useBeltRanks() {
       const { data, error } = await supabase
         .from("belt_ranks")
         .select(
-          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active, belt_systems(sort_order)",
+          "id, system_id, name, short_name, pattern, color_primary, color_accent, curriculum_tier, sort_order, active, degree, belt_systems(sort_order)",
         );
       if (error) throw error;
       const rows = (data ?? []) as (BeltRank & {
@@ -125,7 +126,14 @@ export type BeltProgress = {
   pct: number;
   ladder: BeltRank[];
   currentIndex: number;
+  journey: boolean;
+  master: boolean;
 };
+
+/** Only the Solid Black path has individual degree tests and the separate journey. */
+export function isBlackBeltRank(rank: BeltRank | undefined, system: BeltSystem | undefined) {
+  return system?.slug === "solid" && !!rank && (rank.name === "Black" || rank.degree != null);
+}
 
 const PROGRESS_LABELS: Record<string, string> = {
   solid: "Road to Black Belt",
@@ -146,19 +154,27 @@ export function computeBeltProgress(
    */
   if (system.uses_belts === false) return null;
 
-  const ladder = ranksOfSystem(ranks, system.id);
+  const ordered = ranksOfSystem(ranks, system.id);
+  const rank = ordered.find((r) => r.id === rankId);
+  const journey = isBlackBeltRank(rank, system);
+  const master = journey && rank?.degree === 6;
+  const ladder = journey
+    ? ordered.filter((r) => r.name === "Black" || (r.degree != null && r.degree <= 5))
+    : ordered.filter((r) => r.degree == null);
   if (ladder.length === 0) return null;
-  const currentIndex = ladder.findIndex((r) => r.id === rankId);
+  const currentIndex = master ? ladder.length - 1 : ladder.findIndex((r) => r.id === rankId);
   if (currentIndex < 0) return null;
   const total = ladder.length;
   const step = currentIndex + 1;
   return {
-    label: PROGRESS_LABELS[system.slug] ?? `${system.name} Progress`,
+    label: journey ? "Black Belt Journey" : PROGRESS_LABELS[system.slug] ?? `${system.name} Progress`,
     step,
     total,
     pct: Math.round((currentIndex / (total - 1 || 1)) * 100),
     ladder,
     currentIndex,
+    journey,
+    master,
   };
 }
 

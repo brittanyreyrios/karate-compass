@@ -25,9 +25,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
-import { BeltChip, BeltSwatch } from "@/components/belt-chip";
+import { BeltProgressPanel } from "@/components/belt-progress-panel";
 import { LevelChip } from "@/components/level-chip";
-import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { computeBeltProgress, isBlackBeltRank, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, toDateKey, type DojoEvent } from "@/lib/calendar-data";
@@ -58,6 +58,10 @@ export const Route = createFileRoute("/_authenticated/")({
     meta: [
       { title: "Dashboard — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "Family dashboard: belt progression, next test countdown, attendance and school updates." },
+      { property: "og:title", content: "Family Dashboard — Tiger's Den" },
+      { property: "og:description", content: "Your student's belt journey, individual test date, attendance and school updates." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Dashboard,
@@ -69,6 +73,7 @@ type Student = {
   last_name: string;
   current_belt: string;
   belt_rank_id: string | null;
+  personal_test_date: string | null;
   attendance_count: number;
   /*
     students.start_date is deliberately NOT read here. Round 56: every value is
@@ -283,6 +288,9 @@ function Dashboard() {
 
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
+  const rank = (ranksQ.data ?? []).find((r) => r.id === student?.belt_rank_id);
+  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
+  const blackPath = isBlackBeltRank(rank, system);
 
   // Delayed + minimum-duration so the skeleton never appears for one frame.
   const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
@@ -321,6 +329,8 @@ function Dashboard() {
    */
   const nextTest = useMemo(() => {
     if (!student) return null;
+    if (blackPath) return student.personal_test_date ? { date: student.personal_test_date, className: null } : null;
+    if (system?.uses_belts === false) return null;
     const classIds = new Set(
       (enrollmentsQ.data ?? []).filter((e) => e.student_id === student.id).map((e) => e.class_id),
     );
@@ -330,7 +340,7 @@ function Dashboard() {
       .sort((a, b) => a.next_test_date.localeCompare(b.next_test_date));
     const soonest = upcoming[0];
     return soonest ? { date: soonest.next_test_date, className: soonest.class_name } : null;
-  }, [student, enrollmentsQ.data, classTestDatesQ.data]);
+  }, [student, blackPath, system?.uses_belts, enrollmentsQ.data, classTestDatesQ.data]);
 
   const daysToTest = useMemo(
     () => (nextTest ? daysUntilDateOnly(nextTest.date) : null),
@@ -377,8 +387,6 @@ function Dashboard() {
   }
 
 
-  const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
-  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
   const progress = computeBeltProgress(system, ranksQ.data, student.belt_rank_id);
   /**
    * AK3: a program without belts (tai chi) has no ladder, so the progress panel
@@ -389,7 +397,7 @@ function Dashboard() {
 
 
 
-  const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
+  const classesToTest = !blackPath && daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

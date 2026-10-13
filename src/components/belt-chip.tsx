@@ -27,7 +27,7 @@ export type BeltChipProps = {
   className?: string;
   /** Round 69: black belt degree (1–6) from belt_ranks.degree; null for every other rank. */
   degree?: number | null;
-  /** Preview alternatives; C is the readability proposal pending approval. */
+  /** Final approved geometry is style C; alternatives are retained for historical previews. */
   degreeBarStyle?: "A" | "B" | "C";
 };
 
