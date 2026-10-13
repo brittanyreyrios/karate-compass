@@ -44,7 +44,7 @@ export function BeltProgressPanel({
             const text = journey ? (belt.degree == null ? "Black" : `${belt.degree === 1 ? "1st" : belt.degree === 2 ? "2nd" : belt.degree === 3 ? "3rd" : `${belt.degree}th`} Degree`) : belt.short_name ?? belt.name;
             return (
               <div key={belt.id} className="flex min-w-0 flex-col items-center gap-2">
-                <span className={`inline-block ${current ? journey ? "" : "scale-125" : reached ? "" : "opacity-40"}`}>
+                <span className={`inline-block ${journey ? "" : current ? "scale-125" : reached ? "" : "opacity-40"}`}>
                   <BeltSwatch name={belt.name} pattern={belt.pattern} colorPrimary={belt.color_primary} colorAccent={belt.color_accent} degree={belt.degree} systemName={systemName} size={journey ? "lg" : "sm"} />
                 </span>
                 <span className={`text-center text-xs font-semibold uppercase tracking-wider ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>{text}</span>

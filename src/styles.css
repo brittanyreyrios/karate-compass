@@ -78,7 +78,8 @@
 
 :root {
   --radius: 0.75rem;
-  --belt-degree-gold: #d4af37;
+  --belt-degree-gold: #f5c518;
+  --belt-degree-fill: #000000;
 
   /* Dark athletic palette — deep black, crisp white, vibrant red */
   --background: oklch(0.14 0.005 260);

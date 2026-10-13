@@ -27,6 +27,8 @@ export type BeltChipProps = {
   className?: string;
   /** Round 69: black belt degree (1–6) from belt_ranks.degree; null for every other rank. */
   degree?: number | null;
+  /** Preview alternatives; C is the readability proposal pending approval. */
+  degreeBarStyle?: "A" | "B" | "C";
 };
 
 
@@ -92,13 +94,14 @@ export function BeltSwatch({
   systemName,
   size = "md",
   degree,
+  degreeBarStyle = "C",
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const uid = useId().replace(/[:]/g, "");
   const hasDegree = degree != null && degree >= 1 && degree <= 6;
   const compact = size === "ladder" || size === "sm";
   const patternWord =
     hasDegree
-      ? compact ? "tied black belt with a gold tail-tip accent" : `tied black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"} on each tail`
+      ? compact ? "tied black belt with a gold tip accent on the viewer's-right tail" : `tied black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"} on the viewer's-right tail`
       : (PATTERN_WORD[pattern] ?? "belt");
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
@@ -107,9 +110,10 @@ export function BeltSwatch({
   // The stripe runs along the belt's length for both stripe and camo ranks —
   // that is how the belt actually looks on the mat.
   const striped = !hasDegree && (pattern === "stripe" || pattern === "camo");
-  const bandFill = pattern === "camo" ? `url(#${camoId})` : colorPrimary;
-  const leftTail = hasDegree && !compact ? "M46 24 L55 27 L43 59 L30 55 Z" : TAIL_L;
-  const rightTail = hasDegree && !compact ? "M46 27 L55 24 L69 53 L56 58 Z" : TAIL_R;
+  const bandFill = hasDegree ? "var(--belt-degree-fill)" : pattern === "camo" ? `url(#${camoId})` : colorPrimary;
+  const barStyle = { A: { width: 12, thickness: 3.5, gap: 1 }, B: { width: 15, thickness: 3.2, gap: 2 }, C: { width: 16, thickness: 3.8, gap: 1.3 } }[degreeBarStyle];
+  const tailWidth = compact ? 12 : barStyle.width;
+  const degreeTail = `M${-tailWidth / 2} 0 L${tailWidth / 2} 0 L${tailWidth / 2} 35 L${-tailWidth / 2} 35 Z`;
 
   return (
     <svg
@@ -138,8 +142,7 @@ export function BeltSwatch({
         firmer edge than the old hairline.
       */}
       {hasDegree && <defs>
-        <clipPath id={`tail-l-${uid}`}><path d={leftTail} /></clipPath>
-        <clipPath id={`tail-r-${uid}`}><path d={rightTail} /></clipPath>
+        <clipPath id={`tail-r-${uid}`}><path d={degreeTail} /></clipPath>
       </defs>}
       <g
         stroke="var(--foreground)"
@@ -148,20 +151,20 @@ export function BeltSwatch({
         strokeLinecap="round"
       >
         {/* Tails first, then the band, then the knot on top of both. */}
-        <path d={leftTail} fill={bandFill} />
+        <path d={TAIL_L} fill={bandFill} />
         {striped && <path d={TAIL_L_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
-        <path d={rightTail} fill={bandFill} />
+        {!hasDegree && <path d={TAIL_R} fill={bandFill} />}
         {striped && <path d={TAIL_R_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
-        {hasDegree && <g stroke={colorAccent ?? "var(--belt-degree-gold)"} strokeWidth={compact ? "1.8" : "2"} strokeLinecap="butt">
-          {Array.from({ length: compact ? 1 : degree ?? 0 }, (_, i) => {
-            const y = (compact ? 49 : 54) - i * 4;
-            const ly = y - 0.3 * 50;
-            const ry = (compact ? y - 2 : y - 1) + 0.4 * 50;
-            return <g key={i}>
-              <path data-degree-mark="left" clipPath={`url(#tail-l-${uid})`} d={`M20 ${ly + 0.3 * 20} L70 ${ly + 0.3 * 70}`} />
-              <path data-degree-mark="right" clipPath={`url(#tail-r-${uid})`} d={`M30 ${ry - 0.4 * 30} L80 ${ry - 0.4 * 80}`} />
-            </g>;
-          })}
+        {hasDegree && <g transform="translate(51 25) rotate(-20)">
+          <path d={degreeTail} fill={bandFill} />
+          <g clipPath={`url(#tail-r-${uid})`} fill="var(--belt-degree-gold)" stroke="none" opacity="1">
+            {Array.from({ length: compact ? 1 : degree ?? 0 }, (_, i) => {
+              const thickness = compact ? 3.2 : barStyle.thickness;
+              const y = 33.5 - thickness - i * (thickness + barStyle.gap);
+              return <rect key={i} data-degree-mark="right" x={-tailWidth / 2} y={y} width={tailWidth} height={thickness} />;
+            })}
+          </g>
+          <path d={degreeTail} fill="none" />
         </g>}
 
         <path d={BAND_L} fill={bandFill} />

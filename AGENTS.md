@@ -54,7 +54,7 @@ Skipping either folder leaves the schema incomplete.
 - Fixtures need an inbox-capable address or owner confirmation; `example.com` addresses can never receive mail.
 
 ## Parent login email
-- BeltSwatch uses the shared tied-belt geometry and explicit degree prop: compact sizes use one tip accent, larger sizes countable transverse tip bars; never infer degree from names, so labels can change without changing markers.
+- BeltSwatch uses shared tied-belt geometry and an explicit degree prop; degree marks are clipped to the viewer's-right tail only, with compact accent versus larger countable bars and a preview-style prop, so rank labels remain independent of geometry.
 - BeltProgressPanel is presentational and accepts its ladder from the caller; approval previews render this same component with browser-only data without database writes.
 - Change a parent's email only through `changeParentEmail` (auth record first via Admin API, then `profiles.email`, then audit row); never edit `profiles.email` alone — the display copy would hide a login that didn't move.
 
