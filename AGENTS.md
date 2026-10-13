@@ -55,6 +55,7 @@ Skipping either folder leaves the schema incomplete.
 
 ## Parent login email
 - BeltSwatch renders transverse tip bars from the explicit degree prop at every size; never infer degree from rank names, so labels can change without changing markers.
+- BeltProgressPanel is presentational and accepts its ladder from the caller; approval previews render this same component with browser-only data without database writes.
 - Change a parent's email only through `changeParentEmail` (auth record first via Admin API, then `profiles.email`, then audit row); never edit `profiles.email` alone — the display copy would hide a login that didn't move.
 
 ### `post-images` Storage bucket (Round 59)
