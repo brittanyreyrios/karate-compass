@@ -48,8 +48,7 @@
   - add: Part D event-delete failure names the event left on the calendar
 
 ## Round 69 — black belt degrees
-- [ ] Chip preview approved (incl. 6th at sm)
-  - Current preview revision: accepted C bars unchanged; lengthen both tails on larger Black/degree badges, right slightly longer, six bars covering under 40% of right tail. Compact unchanged. Re-render all seven ranks/all sizes and 2nd/5th/6th Journey at 390 and 1536; show screenshots, then stop for approval; no database writes. Journey wraps 3×2; colour labels wrap 4×2. Real Black-path dashboard must show ONLY Journey.
+- [x] Final longer-tail chip preview approved; preserve geometry and style C exactly.
 - [ ] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
 - [ ] Black Belt Journey bar; personal test date card + admin field
 - [ ] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
