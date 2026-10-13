@@ -23,7 +23,7 @@ export type BeltChipProps = {
   systemName?: string | null;
   /** Render the rank name next to the icon. */
   showLabel?: boolean;
-  size?: "ladder" | "sm" | "md";
+  size?: "ladder" | "sm" | "md" | "lg";
   className?: string;
   /** Round 69: black belt degree (1–6) from belt_ranks.degree; null for every other rank. */
   degree?: number | null;
@@ -52,6 +52,7 @@ const SIZES = {
   ladder: "h-[21px] w-[34px] sm:h-[30px] sm:w-12",
   sm: "h-[30px] w-12",
   md: "h-[45px] w-[72px]",
+  lg: "h-[60px] w-24",
 } as const;
 
 
@@ -94,12 +95,9 @@ export function BeltSwatch({
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const uid = useId().replace(/[:]/g, "");
   const hasDegree = degree != null && degree >= 1 && degree <= 6;
-  const compactDegree = size === "sm" || size === "ladder";
   const patternWord =
     hasDegree
-      ? compactDegree
-        ? `black belt with gold degree number ${degree}`
-        : `black belt end with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
+      ? `black belt end with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
       : (PATTERN_WORD[pattern] ?? "belt");
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
@@ -136,7 +134,7 @@ export function BeltSwatch({
         into it. Near-opaque and 1.3 wide in a 100-unit box, which is a much
         firmer edge than the old hairline.
       */}
-      {hasDegree && !compactDegree ? (
+      {hasDegree ? (
         <g transform="rotate(-10 50 31)">
           {/* A hanging belt end: stripes cross its width just inside the tip. */}
           <path
@@ -177,15 +175,6 @@ export function BeltSwatch({
         <rect x="40" y="8" width="20" height="21" rx="5.5" fill={bandFill} />
         {striped && <rect x="41" y="17" width="18" height="3" fill={accent} stroke="none" />}
       </g>}
-      {/*
-        Round 69 — compact chips use a readable gold number on the band,
-        driven by belt_ranks.degree (never parsed from the name).
-      */}
-      {hasDegree && compactDegree && (
-        <text x="80" y="22" textAnchor="middle" fill={colorAccent ?? "var(--belt-degree-gold)"} fontFamily="Arial, sans-serif" fontSize="27" fontWeight="700">
-          {degree}
-        </text>
-      )}
     </svg>
   );
 }
