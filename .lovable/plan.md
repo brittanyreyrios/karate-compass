@@ -9,7 +9,7 @@ Six rows in the Solid system, sort_order 9–14, names/short names exactly as th
 Chip proposal — no new pattern value, no constraint change:
 - `pattern = 'stripe'`, `color_primary = '#0a0a0a'`, `color_accent = '#d4af37'` (gold).
 - Add nullable `belt_ranks.degree smallint CHECK (degree BETWEEN 1 AND 6)`; six new rows have degree 1–6, existing Black stays NULL. Never parse short_name. Degree-aware features use degree IS NOT NULL plus the Solid-system Black row.
-- Revised preview direction (approval pending): solid black shared tied-belt silhouette; viewer's-right tail slightly longer and exclusively marked, left plain. Bright opaque #F5C518 full-width thick bars with black gaps. md/lg count N bars; sm/ladder show one right-tip accent with adjacent names. Render A/B/C options at md/lg for 1st/3rd/6th, then strongest option all ranks/sizes and 2nd/6th Journey at 390. No numbers, dimensions unchanged; stop before database changes.
+- Revised preview direction (approval pending): keep accepted C bar thickness, colour and gaps. Lengthen both tails on larger Black/degree badges, viewer's-right slightly longer and exclusively marked, left plain. Increase md/lg height without shrinking knot/bars; six bars occupy under 40% of right tail. Compact unchanged. Render all ranks/sizes and 2nd/5th/6th Journey at 390 and 1536. No numbers; stop before database changes.
 - Plain Black keeps its solid chip (no bars), so Black and 1st Degree stay distinguishable.
 - Before the migration runs render all seven chips (Black, 1st–6th) at sm and md plus a small chip in a leaderboard-row preview on the dark background; rows are only inserted after visual approval.
 

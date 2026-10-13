@@ -99,6 +99,8 @@ export function BeltSwatch({
   const uid = useId().replace(/[:]/g, "");
   const hasDegree = degree != null && degree >= 1 && degree <= 6;
   const compact = size === "ladder" || size === "sm";
+  // Plain Solid Black shares the larger degree silhouette; compact badges stay unchanged.
+  const extended = !compact && (hasDegree || (name === "Black" && pattern === "solid"));
   const patternWord =
     hasDegree
       ? compact ? "tied black belt with a gold tip accent on the viewer's-right tail" : `tied black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"} on the viewer's-right tail`
@@ -113,14 +115,17 @@ export function BeltSwatch({
   const bandFill = hasDegree ? "var(--belt-degree-fill)" : pattern === "camo" ? `url(#${camoId})` : colorPrimary;
   const barStyle = { A: { width: 12, thickness: 3.5, gap: 1 }, B: { width: 15, thickness: 3.2, gap: 2 }, C: { width: 16, thickness: 3.8, gap: 1.3 } }[degreeBarStyle];
   const tailWidth = compact ? 12 : barStyle.width;
-  const degreeTail = `M${-tailWidth / 2} 0 L${tailWidth / 2} 0 L${tailWidth / 2} 35 L${-tailWidth / 2} 35 Z`;
+  const tailLength = extended ? 78 : 35;
+  const degreeTail = `M${-tailWidth / 2} 0 L${tailWidth / 2} 0 L${tailWidth / 2} ${tailLength} L${-tailWidth / 2} ${tailLength} Z`;
+  const leftTail = extended ? "M46 24 C43 45 37 72 30 94 L42 98 C48 73 51 45 52 25 Z" : TAIL_L;
+  const sizeClass = extended ? size === "lg" ? "h-[105.6px] w-24" : "h-[79.2px] w-[72px]" : SIZES[size];
 
   return (
     <svg
       role="img"
       aria-label={label}
-      viewBox="0 0 100 62"
-      className={`inline-block shrink-0 ${SIZES[size]}`}
+      viewBox={extended ? "0 0 100 110" : "0 0 100 62"}
+      className={`inline-block shrink-0 ${sizeClass}`}
       preserveAspectRatio="xMidYMid meet"
     >
       <title>{label}</title>
@@ -141,7 +146,7 @@ export function BeltSwatch({
         into it. Near-opaque and 1.3 wide in a 100-unit box, which is a much
         firmer edge than the old hairline.
       */}
-      {hasDegree && <defs>
+      {(hasDegree || extended) && <defs>
         <clipPath id={`tail-r-${uid}`}><path d={degreeTail} /></clipPath>
       </defs>}
       <g
@@ -151,16 +156,16 @@ export function BeltSwatch({
         strokeLinecap="round"
       >
         {/* Tails first, then the band, then the knot on top of both. */}
-        <path d={TAIL_L} fill={bandFill} />
+        <path d={leftTail} fill={bandFill} />
         {striped && <path d={TAIL_L_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
-        {!hasDegree && <path d={TAIL_R} fill={bandFill} />}
+        {!hasDegree && !extended && <path d={TAIL_R} fill={bandFill} />}
         {striped && <path d={TAIL_R_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
-        {hasDegree && <g transform="translate(51 25) rotate(-20)">
+        {(hasDegree || extended) && <g transform={extended ? "translate(51 25) rotate(-12)" : "translate(51 25) rotate(-20)"}>
           <path d={degreeTail} fill={bandFill} />
           <g clipPath={`url(#tail-r-${uid})`} fill="var(--belt-degree-gold)" stroke="none" opacity="1">
-            {Array.from({ length: compact ? 1 : degree ?? 0 }, (_, i) => {
+            {Array.from({ length: hasDegree ? compact ? 1 : degree ?? 0 : 0 }, (_, i) => {
               const thickness = compact ? 3.2 : barStyle.thickness;
-              const y = 33.5 - thickness - i * (thickness + barStyle.gap);
+              const y = tailLength - 1.5 - thickness - i * (thickness + barStyle.gap);
               return <rect key={i} data-degree-mark="right" x={-tailWidth / 2} y={y} width={tailWidth} height={thickness} />;
             })}
           </g>

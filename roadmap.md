@@ -49,7 +49,7 @@
 
 ## Round 69 — black belt degrees
 - [ ] Chip preview approved (incl. 6th at sm)
-  - Current preview revision: solid black tied belt, longer viewer's-right tail ONLY marked in bright opaque gold; A/B/C bar options at md/lg for 1st/3rd/6th; strongest option all seven ranks/all sizes and 2nd/6th Journey at 390. Compact single right-tip accent; left plain. Show screenshots, then stop for approval; no database writes. Journey wraps 3×2; colour labels wrap 4×2. Real Black-path dashboard must show ONLY Journey.
+  - Current preview revision: accepted C bars unchanged; lengthen both tails on larger Black/degree badges, right slightly longer, six bars covering under 40% of right tail. Compact unchanged. Re-render all seven ranks/all sizes and 2nd/5th/6th Journey at 390 and 1536; show screenshots, then stop for approval; no database writes. Journey wraps 3×2; colour labels wrap 4×2. Real Black-path dashboard must show ONLY Journey.
 - [ ] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
 - [ ] Black Belt Journey bar; personal test date card + admin field
 - [ ] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
