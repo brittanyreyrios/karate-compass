@@ -82,6 +82,7 @@ export function BeltPicker({
                       pattern={r.pattern}
                       colorPrimary={r.color_primary}
                       colorAccent={r.color_accent}
+                      degree={r.degree}
                       size="sm"
                     />
                   ) : (

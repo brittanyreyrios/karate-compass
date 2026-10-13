@@ -11,6 +11,9 @@
 
 ## Manual restore steps
 
+- Never write database connection strings, service-role keys, or direct Postgres credentials to committed files, including .env, .env.example and drizzle.config.ts; tooling reads credentials from its supplied environment only.
+- Keep drizzle-kit, drizzle-orm and postgres in devDependencies; nothing under src/ imports drizzle-orm or postgres, because application queries use the existing client.
+
 ### `album-covers` Storage bucket
 
 This project's tooling rejects `INSERT` statements into `storage.buckets`, so the
@@ -55,7 +58,8 @@ Skipping either folder leaves the schema incomplete.
 
 ## Parent login email
 - BeltSwatch uses an explicit degree prop and shared extended geometry for larger Black/degree badges; its taller viewBox preserves knot/bar scale, and marks are clipped to the viewer's-right tail only, so compact geometry and rank labels remain independent.
-- BeltProgressPanel is presentational and accepts its ladder from the caller; approval previews render this same component with browser-only data without database writes.
+- BeltProgressPanel is presentational and accepts its ladder from computeBeltProgress; Solid Black/degree ranks replace the colour ladder, preserving non-degree progress denominators.
+- Black/degree test dates come only from students.personal_test_date; beltless systems render no next-test card, while colour belts retain the enrolled-class date path.
 - Change a parent's email only through `changeParentEmail` (auth record first via Admin API, then `profiles.email`, then audit row); never edit `profiles.email` alone — the display copy would hide a login that didn't move.
 
 ### `post-images` Storage bucket (Round 59)

@@ -47,6 +47,7 @@ export function RankIndicator({
     <BeltChip {...rest} showLabel />
   ) : (
     <BeltSwatch
+      degree={rest.degree}
       name={rest.name}
       pattern={rest.pattern}
       colorPrimary={rest.colorPrimary}

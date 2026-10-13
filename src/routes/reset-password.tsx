@@ -20,6 +20,10 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
+      { property: "og:title", content: "Reset your password — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Choose a new password for your Tiger's Den Martial Arts & Fitness Parent Portal account." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Reset your password — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",

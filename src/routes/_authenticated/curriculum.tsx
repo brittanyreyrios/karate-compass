@@ -21,6 +21,10 @@ import { LibrarySearch, matchesTerm } from "@/components/library-search";
 export const Route = createFileRoute("/_authenticated/curriculum")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Belt Curriculum — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "The technique requirements for each student's exact rank at Tiger's Den Martial Arts & Fitness." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Belt Curriculum — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",
@@ -242,6 +246,7 @@ function Curriculum() {
                         pattern={rank.pattern}
                         colorPrimary={rank.color_primary}
                         colorAccent={rank.color_accent}
+                        degree={rank.degree}
                         systemName={system?.name ?? null}
                       />
                     ) : (

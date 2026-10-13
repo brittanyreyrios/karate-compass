@@ -168,6 +168,10 @@ import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/component
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Admin — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Staff admin console: master attendance sheet, student management and announcement controls." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Admin — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "Staff admin console: master attendance sheet, student management and announcement controls." },
     ],
@@ -193,6 +197,7 @@ type Student = {
   points: number;
   consecutive_absences: number;
   belt_rank_id: string | null;
+  personal_test_date: string | null;
 };
 
 /**
@@ -246,11 +251,12 @@ function AdminBeltBadge({
         pattern={rank.pattern}
         colorPrimary={rank.color_primary}
         colorAccent={rank.color_accent}
+        degree={rank.degree}
         systemName={system?.name ?? null}
         size="sm"
       />
       <Badge variant="outline" className="whitespace-nowrap border-primary/40 text-primary" title={full}>
-        {dense ? (rank.short_name ?? rank.name) : full}
+        {dense && rank.degree !== 6 ? (rank.short_name ?? rank.name) : full}
       </Badge>
     </span>
   );
@@ -469,7 +475,7 @@ function useStudentsData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, first_name, last_name, current_belt, belt_rank_id, attendance_count, parent_id, active, class_name, points, consecutive_absences")
+        .select("id, first_name, last_name, current_belt, belt_rank_id, personal_test_date, attendance_count, parent_id, active, class_name, points, consecutive_absences")
         .order("first_name");
       if (error) throw error;
       return (data ?? []) as Student[];
@@ -1840,6 +1846,11 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const currentRank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
   const [systemId, setSystemId] = useState<string | null>(currentRank?.system_id ?? null);
   const [rankId, setRankId] = useState<string | null>(student.belt_rank_id ?? null);
+  const systemsQ = useBeltSystems();
+  const selectedRank = (ranksQ.data ?? []).find((r) => r.id === rankId);
+  const selectedSystem = (systemsQ.data ?? []).find((s) => s.id === selectedRank?.system_id);
+  const personalDateVisible = selectedSystem?.slug === "solid" && (selectedRank?.name === "Black" || selectedRank?.degree != null);
+  const [personalTestDate, setPersonalTestDate] = useState(student.personal_test_date ?? "");
   // No class field here: membership lives in student_classes and students.class_name
   // is a trigger-derived label. Writing it here would recreate the drift trap.
   const [points, setPoints] = useState(String(student.points));
@@ -1869,6 +1880,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           belt_rank_id: rankId,
+          ...(personalDateVisible ? { personal_test_date: personalTestDate || null } : {}),
           ...(rank ? { current_belt: rank.name } : {}),
         })
         .eq("id", student.id);
@@ -1927,6 +1939,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         toast.success("Saved");
       }
       qc.invalidateQueries({ queryKey: ["admin-students"] });
+      qc.invalidateQueries({ queryKey: ["students-mine"] });
       qc.invalidateQueries({ queryKey: ["leaderboard"] });
       qc.invalidateQueries({ queryKey: ["attendance-year"] });
       onDone();
@@ -1965,6 +1978,12 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
           <Label className="text-xs">Dojo points</Label>
           <Input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} className="mt-1" />
         </div>
+        {personalDateVisible && (
+          <div>
+            <Label htmlFor={`personal-test-${student.id}`} className="text-xs">Personal test date (black belts only)</Label>
+            <Input id={`personal-test-${student.id}`} type="date" value={personalTestDate} onChange={(e) => setPersonalTestDate(e.target.value)} className="mt-1" />
+          </div>
+        )}
         <div>
           <Label className="text-xs">Attendance count</Label>
           <Input type="number" min={0} value={attendance} onChange={(e) => setAttendance(e.target.value)} className="mt-1" />

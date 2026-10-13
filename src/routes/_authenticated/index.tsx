@@ -25,9 +25,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
-import { BeltChip, BeltSwatch } from "@/components/belt-chip";
+import { BeltProgressPanel } from "@/components/belt-progress-panel";
 import { LevelChip } from "@/components/level-chip";
-import { computeBeltProgress, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { computeBeltProgress, isBlackBeltRank, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, toDateKey, type DojoEvent } from "@/lib/calendar-data";
@@ -58,6 +58,10 @@ export const Route = createFileRoute("/_authenticated/")({
     meta: [
       { title: "Dashboard — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "Family dashboard: belt progression, next test countdown, attendance and school updates." },
+      { property: "og:title", content: "Family Dashboard — Tiger's Den" },
+      { property: "og:description", content: "Your student's belt journey, individual test date, attendance and school updates." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Dashboard,
@@ -69,6 +73,7 @@ type Student = {
   last_name: string;
   current_belt: string;
   belt_rank_id: string | null;
+  personal_test_date: string | null;
   attendance_count: number;
   /*
     students.start_date is deliberately NOT read here. Round 56: every value is
@@ -283,6 +288,9 @@ function Dashboard() {
 
   const systemsQ = useBeltSystems();
   const ranksQ = useBeltRanks();
+  const rank = (ranksQ.data ?? []).find((r) => r.id === student?.belt_rank_id);
+  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
+  const blackPath = isBlackBeltRank(rank, system);
 
   // Delayed + minimum-duration so the skeleton never appears for one frame.
   const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
@@ -321,6 +329,8 @@ function Dashboard() {
    */
   const nextTest = useMemo(() => {
     if (!student) return null;
+    if (blackPath) return student.personal_test_date ? { date: student.personal_test_date, className: null } : null;
+    if (system?.uses_belts === false) return null;
     const classIds = new Set(
       (enrollmentsQ.data ?? []).filter((e) => e.student_id === student.id).map((e) => e.class_id),
     );
@@ -330,7 +340,7 @@ function Dashboard() {
       .sort((a, b) => a.next_test_date.localeCompare(b.next_test_date));
     const soonest = upcoming[0];
     return soonest ? { date: soonest.next_test_date, className: soonest.class_name } : null;
-  }, [student, enrollmentsQ.data, classTestDatesQ.data]);
+  }, [student, blackPath, system?.uses_belts, enrollmentsQ.data, classTestDatesQ.data]);
 
   const daysToTest = useMemo(
     () => (nextTest ? daysUntilDateOnly(nextTest.date) : null),
@@ -377,8 +387,6 @@ function Dashboard() {
   }
 
 
-  const rank = (ranksQ.data ?? []).find((r) => r.id === student.belt_rank_id);
-  const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
   const progress = computeBeltProgress(system, ranksQ.data, student.belt_rank_id);
   /**
    * AK3: a program without belts (tai chi) has no ladder, so the progress panel
@@ -389,7 +397,7 @@ function Dashboard() {
 
 
 
-  const classesToTest = daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
+  const classesToTest = !blackPath && daysToTest ? Math.max(1, Math.round(daysToTest / 2)) : null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -431,70 +439,15 @@ function Dashboard() {
 
       {/* Batch 3: lg: gave the belt card ~490px at 1025, where the rail has just
           taken 255px back; xl: is the honest step for a 3-column split. */}
-      <section className="mt-8 grid gap-6 xl:grid-cols-3">
+      <section className={`mt-8 grid gap-6 ${usesBelts ? "xl:grid-cols-3" : ""}`}>
         {usesBelts ? (
-        <div className="xl:col-span-2 overflow-hidden rounded-2xl border border-border bg-gradient-hero p-6 shadow-elevated sm:p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                {progress?.label ?? "Belt progress"}
-              </div>
-              <div className="mt-1 font-display text-2xl font-bold uppercase">{student.first_name}'s Journey</div>
-              <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                {progress ? `Step ${progress.step} of ${progress.total}` : "Awaiting belt rank"}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-display text-4xl font-black text-gradient-red">{progress?.pct ?? 0}%</div>
-              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Complete</div>
-            </div>
+          <div className="min-w-0 xl:col-span-2">
+            {rank && progress ? (
+              <BeltProgressPanel label={progress.label} studentName={student.first_name}
+                ladder={progress.ladder} currentIndex={progress.currentIndex} pct={progress.pct}
+                rank={rank} systemName={system?.name ?? ""} journey={progress.journey} master={progress.master} />
+            ) : <p className="text-muted-foreground">Awaiting belt rank</p>}
           </div>
-          <div className="relative mt-8">
-            <div className="h-3 w-full overflow-hidden rounded-full bg-secondary/60">
-              <div className="h-full bg-gradient-red shadow-red-glow transition-all duration-700" style={{ width: `${progress?.pct ?? 0}%` }} />
-            </div>
-            {/* Batch 3: min-w-0 let each rung shrink to the swatch (41px) while its
-                belt label stayed wider, so the label spilled. The rungs keep their
-                content width now and the strip wraps instead. */}
-            <div className="mt-4 flex flex-wrap justify-center gap-x-1 gap-y-3 sm:justify-between sm:gap-x-2">
-              {(progress?.ladder ?? []).map((belt, i) => {
-                const reached = i <= (progress?.currentIndex ?? -1);
-                const current = i === progress?.currentIndex;
-                return (
-                  <div key={belt.id} className="flex shrink-0 flex-col items-center gap-2">
-                    <span
-                      className={`inline-block transition-all ${current ? "scale-125" : reached ? "" : "opacity-40"}`}
-                    >
-                      <BeltSwatch
-                        name={belt.name}
-                        pattern={belt.pattern}
-                        colorPrimary={belt.color_primary}
-                        colorAccent={belt.color_accent}
-                        systemName={system?.name ?? null}
-                        size="ladder"
-                      />
-
-                    </span>
-                    <span className={`hidden text-xs font-semibold uppercase tracking-wider sm:block ${current ? "text-primary" : reached ? "text-foreground" : "text-muted-foreground"}`}>
-                      {belt.short_name ?? belt.name}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {rank && (
-              <div className="mt-6">
-                <BeltChip
-                  name={rank.name}
-                  pattern={rank.pattern}
-                  colorPrimary={rank.color_primary}
-                  colorAccent={rank.color_accent}
-                  systemName={system?.name ?? null}
-                />
-              </div>
-            )}
-          </div>
-        </div>
         ) : (
           /* AK3: no belts in this program, so no ladder and no progress bar —
              just the level the student currently holds. */
@@ -520,7 +473,7 @@ function Dashboard() {
 
 
 
-        <div className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
+        {usesBelts && <div data-next-test className="relative overflow-hidden rounded-2xl border border-primary/40 bg-gradient-red p-6 text-primary-foreground shadow-red-glow sm:p-8">
           {/* The decorative glyph deliberately hangs outside the card, which has
               overflow-hidden, so nothing ever shows. Note for future probes: a
               transform does NOT avoid the reported scroll overflow — border boxes
@@ -531,6 +484,9 @@ function Dashboard() {
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/80">
               <Flame className="h-3 w-3" /> Next {usesBelts ? "Belt Test" : "Level Check"}
             </div>
+            {blackPath && !nextTest ? (
+              <p className="mt-6 text-base font-medium">Your instructor will let you know when you're ready for your next degree test.</p>
+            ) : <>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
               <span className="font-display text-lg uppercase tracking-wider">
@@ -538,9 +494,10 @@ function Dashboard() {
               </span>
             </div>
             <div className="mt-2 text-sm font-medium text-white/80">
-              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : "No test scheduled"}
+              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : blackPath ? "Next degree test" : "No test scheduled"}
             </div>
 
+            </>}
             {/* Same `nextTest` value as the countdown above — one source. */}
             {nextTest && (
               <div className="mt-6 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-xs uppercase tracking-widest">
@@ -549,7 +506,7 @@ function Dashboard() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </section>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -559,7 +516,7 @@ function Dashboard() {
           value={rank?.name ?? student.current_belt}
           sub={
             progress
-              ? `${system?.name ?? "Belt system"} · step ${progress.step} of ${progress.total}`
+              ? progress.journey ? `${system?.name ?? "Belt system"} · ${Math.min(rank?.degree ?? 0, 5)} of 5 steps` : `${system?.name ?? "Belt system"} · step ${progress.step} of ${progress.total}`
               : system
                 ? system.name
                 : `No ${noun.toLowerCase()} assigned yet`

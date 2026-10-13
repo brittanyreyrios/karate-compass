@@ -1505,6 +1505,7 @@ export function CurriculumAdminTab() {
                   pattern={rank.pattern}
                   colorPrimary={rank.color_primary}
                   colorAccent={rank.color_accent}
+                      degree={rank.degree}
                   systemName={system?.name ?? null}
                   size="sm"
                 />
@@ -1756,6 +1757,7 @@ export function BeltSystemsAdminTab() {
                       pattern={r.pattern}
                       colorPrimary={r.color_primary}
                       colorAccent={r.color_accent}
+                      degree={r.degree}
                       systemName={sys.name}
                       size="sm"
                     />

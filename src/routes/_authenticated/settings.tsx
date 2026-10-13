@@ -14,6 +14,10 @@ import { Badge } from "@/components/ui/badge";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Account Settings — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Manage your family name, photo and video consent, and password for the Tiger's Den Parent Portal." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Account Settings — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",

@@ -11,10 +11,15 @@ import { LeaderboardSkeleton } from "@/components/skeletons";
 import { useDelayedLoading } from "@/hooks/use-delayed-loading";
 import { QueryErrorState } from "@/components/query-error";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
+import { useBeltRanks } from "@/lib/belts";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Dojo Leaderboard — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Dojo Point rankings at Tiger's Den for the current two-month period, with a separate board for each training division." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Dojo Leaderboard — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",
@@ -43,11 +48,13 @@ type Row = {
    * student's own program rather than being inferred from a class name.
    */
   uses_belts: boolean;
+  degree?: number | null;
 };
 
 type Division = { key: string; name: string; sort_order: number };
 
 function LeaderboardPage() {
+  const ranksQ = useBeltRanks();
   const qc = useQueryClient();
   const periodStartQ = usePointsPeriodStart();
   const labels = periodStartQ.data ? pointsPeriodLabels(periodStartQ.data) : null;
@@ -119,7 +126,11 @@ function LeaderboardPage() {
     };
   }, [qc]);
 
-  const rows = q.data ?? [];
+  // Resolve the explicit degree column without changing the privacy-safe RPC,
+  // its ranking/divisions or its returned student names.
+  const rows = (q.data ?? []).map((row) => ({ ...row,
+    degree: (ranksQ.data ?? []).find((rank) => rank.name === row.rank_name)?.degree ?? null,
+  }));
   const podium = rows.slice(0, 3);
   const rest = rows.slice(3, 10);
 
@@ -274,6 +285,7 @@ function LeaderboardPage() {
                         pattern={r.pattern}
                         colorPrimary={r.color_primary}
                         colorAccent={r.color_accent}
+                        degree={r.degree}
                       />
                     ))}
                   <div className="min-w-0 flex-1">
@@ -286,7 +298,7 @@ function LeaderboardPage() {
                           variant="outline"
                           style={beltLabelStyle(r.color_primary, r.color_accent)}
                         >
-                          {r.rank_short_name}
+                          {r.degree === 6 ? r.rank_name : r.rank_short_name}
                         </Badge>
                       )}
 
@@ -374,6 +386,7 @@ function PodiumCard({
               pattern={row.pattern}
               colorPrimary={row.color_primary}
               colorAccent={row.color_accent}
+              degree={row.degree}
             />
           )}
         </div>
