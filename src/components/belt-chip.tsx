@@ -95,9 +95,10 @@ export function BeltSwatch({
 }: Omit<BeltChipProps, "showLabel" | "className">) {
   const uid = useId().replace(/[:]/g, "");
   const hasDegree = degree != null && degree >= 1 && degree <= 6;
+  const compact = size === "ladder" || size === "sm";
   const patternWord =
     hasDegree
-      ? `black belt end with ${degree} gold degree bar${degree === 1 ? "" : "s"}`
+      ? compact ? "tied black belt with a gold tail-tip accent" : `tied black belt with ${degree} gold degree bar${degree === 1 ? "" : "s"} on each tail`
       : (PATTERN_WORD[pattern] ?? "belt");
   const label = `${name}${systemName ? ` (${systemName})` : ""} — ${patternWord}`;
   const accent = colorAccent ?? colorPrimary;
@@ -105,8 +106,10 @@ export function BeltSwatch({
 
   // The stripe runs along the belt's length for both stripe and camo ranks —
   // that is how the belt actually looks on the mat.
-  const striped = pattern === "stripe" || pattern === "camo";
+  const striped = !hasDegree && (pattern === "stripe" || pattern === "camo");
   const bandFill = pattern === "camo" ? `url(#${camoId})` : colorPrimary;
+  const leftTail = hasDegree && !compact ? "M46 24 L55 27 L43 59 L30 55 Z" : TAIL_L;
+  const rightTail = hasDegree && !compact ? "M46 27 L55 24 L69 53 L56 58 Z" : TAIL_R;
 
   return (
     <svg
@@ -134,34 +137,32 @@ export function BeltSwatch({
         into it. Near-opaque and 1.3 wide in a 100-unit box, which is a much
         firmer edge than the old hairline.
       */}
-      {hasDegree ? (
-        <g transform="rotate(-10 50 31)">
-          {/* A hanging belt end: stripes cross its width just inside the tip. */}
-          <path
-            d="M34 4 L66 4 L66 57 L34 57 Z"
-            fill={colorPrimary}
-            stroke="var(--foreground)"
-            strokeWidth="1.3"
-            strokeLinejoin="round"
-          />
-          <path d="M37 7 V54 M63 7 V54" fill="none" stroke="var(--foreground)" opacity="0.2" strokeWidth="0.7" />
-          <g fill={colorAccent ?? "var(--belt-degree-gold)"}>
-            {Array.from({ length: degree ?? 0 }, (_, i) => (
-              <rect key={i} x="35" y={52 - i * 3.8} width="30" height="2.2" />
-            ))}
-          </g>
-        </g>
-      ) : <g
-        stroke="rgba(255,255,255,0.92)"
+      {hasDegree && <defs>
+        <clipPath id={`tail-l-${uid}`}><path d={leftTail} /></clipPath>
+        <clipPath id={`tail-r-${uid}`}><path d={rightTail} /></clipPath>
+      </defs>}
+      <g
+        stroke="var(--foreground)"
         strokeWidth="1.3"
         strokeLinejoin="round"
         strokeLinecap="round"
       >
         {/* Tails first, then the band, then the knot on top of both. */}
-        <path d={TAIL_L} fill={bandFill} />
+        <path d={leftTail} fill={bandFill} />
         {striped && <path d={TAIL_L_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
-        <path d={TAIL_R} fill={bandFill} />
+        <path d={rightTail} fill={bandFill} />
         {striped && <path d={TAIL_R_MID} fill="none" stroke={accent} strokeWidth="2.4" />}
+        {hasDegree && <g stroke={colorAccent ?? "var(--belt-degree-gold)"} strokeWidth={compact ? "1.8" : "2"} strokeLinecap="butt">
+          {Array.from({ length: compact ? 1 : degree ?? 0 }, (_, i) => {
+            const y = (compact ? 49 : 54) - i * 4;
+            const ly = y - 0.3 * 50;
+            const ry = (compact ? y - 2 : y - 1) + 0.4 * 50;
+            return <g key={i}>
+              <path data-degree-mark="left" clipPath={`url(#tail-l-${uid})`} d={`M20 ${ly + 0.3 * 20} L70 ${ly + 0.3 * 70}`} />
+              <path data-degree-mark="right" clipPath={`url(#tail-r-${uid})`} d={`M30 ${ry - 0.4 * 30} L80 ${ry - 0.4 * 80}`} />
+            </g>;
+          })}
+        </g>}
 
         <path d={BAND_L} fill={bandFill} />
         {striped && <path d={BAND_L_MID} fill="none" stroke={accent} strokeWidth="2.6" />}
@@ -174,7 +175,7 @@ export function BeltSwatch({
         */}
         <rect x="40" y="8" width="20" height="21" rx="5.5" fill={bandFill} />
         {striped && <rect x="41" y="17" width="18" height="3" fill={accent} stroke="none" />}
-      </g>}
+      </g>
     </svg>
   );
 }

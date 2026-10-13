@@ -9,7 +9,7 @@ Six rows in the Solid system, sort_order 9–14, names/short names exactly as th
 Chip proposal — no new pattern value, no constraint change:
 - `pattern = 'stripe'`, `color_primary = '#0a0a0a'`, `color_accent = '#d4af37'` (gold).
 - Add nullable `belt_ranks.degree smallint CHECK (degree BETWEEN 1 AND 6)`; six new rows have degree 1–6, existing Black stays NULL. Never parse short_name. Degree-aware features use degree IS NOT NULL plus the Solid-system Black row.
-- Final direction: no numbers on belts at any size; BeltSwatch draws N thin gold bars across a hanging belt end at every size, perpendicular to its length with small even gaps just inside the tip. Compact badges retain a readable adjacent rank label.
+- Revised direction: same tied-belt silhouette (waist band, knot, two hanging tails) at every size, never an upright rectangle. md/lg draw N countable thin gold transverse bars near tail tips, up to six. sm/ladder draw one thin gold tip accent only and retain adjacent rank names. No numbers drawn on belts; keep chip dimensions unchanged.
 - Plain Black keeps its solid chip (no bars), so Black and 1st Degree stay distinguishable.
 - Before the migration runs render all seven chips (Black, 1st–6th) at sm and md plus a small chip in a leaderboard-row preview on the dark background; rows are only inserted after visual approval.
 
@@ -25,7 +25,7 @@ Per-component check, to report with real output after the migration:
 
 ## B. Progress bar after Black (dashboard only, app code)
 
-- Identify Black-path by explicit degree IS NOT NULL plus Solid Black; Journey ladder = Black + 1st..5th (6th excluded). Black = 0%, 5th = 100%. Colour-belt ladder remains eight steps and is shown alongside on Black-path too.
+- Identify Black-path by explicit degree IS NOT NULL plus Solid Black; Journey ladder = Black + 1st..5th (6th excluded). Black = 0%, 5th = 100%. Black-path dashboard shows ONLY Black Belt Journey, never the colour strip beneath it. Colour-strip comparison is preview-only.
 - Journey uses larger labelled belts, two rows of three at 390; colour strip labels show at all widths, two rows of four at 390 without shrinking or horizontal scrolling.
 - At 6th: label "6th Degree Black Belt", bar at 100% (5th as the last step) and the line "Master level — beyond the student journey". 6th never appears as a step.
 - "Black" is identified as the highest Solid rank whose name is exactly "Black" (the existing row); degrees are Solid ranks above it. Other systems untouched.
