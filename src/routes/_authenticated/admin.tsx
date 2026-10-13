@@ -168,6 +168,10 @@ import { AdminRoleButton, RoleChangeHistory, useAdminUserIds } from "@/component
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Admin — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Staff admin console: master attendance sheet, student management and announcement controls." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Admin — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "Staff admin console: master attendance sheet, student management and announcement controls." },
     ],

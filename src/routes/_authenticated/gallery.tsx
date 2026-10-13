@@ -12,6 +12,10 @@ import { QueryErrorState } from "@/components/query-error";
 export const Route = createFileRoute("/_authenticated/gallery")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Media Gallery — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Tournament photos, belt ceremonies and school event albums from Tiger's Den Martial Arts & Fitness." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Media Gallery — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",

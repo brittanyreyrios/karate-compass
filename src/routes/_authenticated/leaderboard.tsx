@@ -16,6 +16,10 @@ import { useBeltRanks } from "@/lib/belts";
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Dojo Leaderboard — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "Dojo Point rankings at Tiger's Den for the current two-month period, with a separate board for each training division." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Dojo Leaderboard — Tiger's Den Martial Arts & Fitness" },
       {
         name: "description",

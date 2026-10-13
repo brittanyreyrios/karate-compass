@@ -18,6 +18,10 @@ import { PostImage } from "@/components/post-image";
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Announcements — Tiger's Den Martial Arts & Fitness" },
+      { property: "og:description", content: "School news and upcoming tournament schedule." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Announcements — Tiger's Den Martial Arts & Fitness" },
       { name: "description", content: "School news and upcoming tournament schedule." },
     ],
