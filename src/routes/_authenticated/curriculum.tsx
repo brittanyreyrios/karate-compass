@@ -247,6 +247,7 @@ function Curriculum() {
                         colorPrimary={rank.color_primary}
                         colorAccent={rank.color_accent}
                         degree={rank.degree}
+                        degree={rank.degree}
                         systemName={system?.name ?? null}
                       />
                     ) : (
