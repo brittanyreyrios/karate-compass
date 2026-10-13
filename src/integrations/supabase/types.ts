@@ -181,6 +181,7 @@ export type Database = {
           color_primary: string
           created_at: string
           curriculum_tier: string
+          degree: number | null
           id: string
           name: string
           pattern: string
@@ -195,6 +196,7 @@ export type Database = {
           color_primary: string
           created_at?: string
           curriculum_tier?: string
+          degree?: number | null
           id?: string
           name: string
           pattern?: string
@@ -209,6 +211,7 @@ export type Database = {
           color_primary?: string
           created_at?: string
           curriculum_tier?: string
+          degree?: number | null
           id?: string
           name?: string
           pattern?: string
@@ -1152,6 +1155,7 @@ export type Database = {
           last_name: string
           next_test_date: string | null
           parent_id: string
+          personal_test_date: string | null
           points: number
           start_date: string
           updated_at: string
@@ -1170,6 +1174,7 @@ export type Database = {
           last_name: string
           next_test_date?: string | null
           parent_id: string
+          personal_test_date?: string | null
           points?: number
           start_date?: string
           updated_at?: string
@@ -1188,6 +1193,7 @@ export type Database = {
           last_name?: string
           next_test_date?: string | null
           parent_id?: string
+          personal_test_date?: string | null
           points?: number
           start_date?: string
           updated_at?: string
