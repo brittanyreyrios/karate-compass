@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { usePointsPeriodStart, pointsPeriodLabels } from "@/lib/points-period";
 import { BeltProgressPanel } from "@/components/belt-progress-panel";
 import { LevelChip } from "@/components/level-chip";
-import { computeBeltProgress, isBlackBeltRank, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { computeBeltProgress, usesPersonalTestDate, rankNoun, useBeltRanks, useBeltSystems } from "@/lib/belts";
 import { useTournaments } from "@/lib/announcements";
 
 import { CHIP_BASE, EVENT_TYPE_META, cleanDisciplines, toDateKey, type DojoEvent } from "@/lib/calendar-data";
@@ -290,7 +290,8 @@ function Dashboard() {
   const ranksQ = useBeltRanks();
   const rank = (ranksQ.data ?? []).find((r) => r.id === student?.belt_rank_id);
   const system = (systemsQ.data ?? []).find((s) => s.id === rank?.system_id);
-  const blackPath = isBlackBeltRank(rank, system);
+  const personalPath = usesPersonalTestDate(rank, system, ranksQ.data);
+  const blackPath = personalPath !== null;
 
   // Delayed + minimum-duration so the skeleton never appears for one frame.
   const showSkeleton = useDelayedLoading(studentsQ.isLoading || profileQ.isLoading);
@@ -485,7 +486,7 @@ function Dashboard() {
               <Flame className="h-3 w-3" /> Next {usesBelts ? "Belt Test" : "Level Check"}
             </div>
             {blackPath && !nextTest ? (
-              <p className="mt-6 text-base font-medium">Your instructor will let you know when you're ready for your next degree test.</p>
+              <p className="mt-6 text-base font-medium">Your instructor will let you know when you're ready for your {personalPath === "brown" ? "black belt test" : "next degree test"}.</p>
             ) : <>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-display text-7xl font-black leading-none">{daysToTest ?? "—"}</span>
@@ -494,7 +495,7 @@ function Dashboard() {
               </span>
             </div>
             <div className="mt-2 text-sm font-medium text-white/80">
-              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : blackPath ? "Next degree test" : "No test scheduled"}
+              {classesToTest ? `≈ ${count(classesToTest, "class", "classes")} to go` : blackPath ? (personalPath === "brown" ? "Black belt test" : "Next degree test") : "No test scheduled"}
             </div>
 
             </>}

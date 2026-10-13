@@ -135,6 +135,27 @@ export function isBlackBeltRank(rank: BeltRank | undefined, system: BeltSystem |
   return system?.slug === "solid" && !!rank && (rank.name === "Black" || rank.degree != null);
 }
 
+/**
+ * Round 70: the ONE rule for who tests individually on a personal date instead
+ * of the class date. Solid Black and degrees, plus the Solid Brown rank — the
+ * active Solid rank directly below Black (identified by system slug and order,
+ * never by name alone, so Camo Brown / stripe browns keep the class date).
+ * Used by both the dashboard and Edit student so they cannot disagree.
+ */
+export function usesPersonalTestDate(
+  rank: BeltRank | undefined,
+  system: BeltSystem | undefined,
+  ranks: BeltRank[] | undefined,
+): "brown" | "black" | null {
+  if (!rank || system?.slug !== "solid" || rank.system_id !== system.id) return null;
+  if (isBlackBeltRank(rank, system)) return "black";
+  const ordered = ranksOfSystem(ranks, system.id);
+  const black = ordered.find((r) => r.name === "Black" && r.degree == null);
+  if (!black) return null;
+  const below = ordered.filter((r) => r.degree == null && r.sort_order < black.sort_order).pop();
+  return below && below.id === rank.id && rank.name === "Brown" ? "brown" : null;
+}
+
 const PROGRESS_LABELS: Record<string, string> = {
   solid: "Road to Black Belt",
   camo: "Camo Belt Progress",

@@ -122,7 +122,7 @@ import { ProgramsCard } from "@/components/admin-programs";
 import { BeltSwatch } from "@/components/belt-chip";
 import { LevelChip } from "@/components/level-chip";
 import { BeltPicker } from "@/components/belt-picker";
-import { useBeltRanks, useBeltSystems } from "@/lib/belts";
+import { useBeltRanks, useBeltSystems, usesPersonalTestDate } from "@/lib/belts";
 import { GalleryAdminTab, CurriculumAdminTab, InviteQrTab, BeltSystemsAdminTab } from "@/components/admin-content-tabs";
 import { TechniqueLibraryAdminTab } from "@/components/admin-technique-library";
 import { EventsAdminTab } from "@/components/admin-events-tab";
@@ -1849,7 +1849,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
   const systemsQ = useBeltSystems();
   const selectedRank = (ranksQ.data ?? []).find((r) => r.id === rankId);
   const selectedSystem = (systemsQ.data ?? []).find((s) => s.id === selectedRank?.system_id);
-  const personalDateVisible = selectedSystem?.slug === "solid" && (selectedRank?.name === "Black" || selectedRank?.degree != null);
+  const personalDateVisible = usesPersonalTestDate(selectedRank, selectedSystem, ranksQ.data) !== null;
   const [personalTestDate, setPersonalTestDate] = useState(student.personal_test_date ?? "");
   // No class field here: membership lives in student_classes and students.class_name
   // is a trigger-derived label. Writing it here would recreate the drift trap.
@@ -1980,7 +1980,7 @@ function StudentEditRow({ student, onDone }: { student: Student; onDone: () => v
         </div>
         {personalDateVisible && (
           <div>
-            <Label htmlFor={`personal-test-${student.id}`} className="text-xs">Personal test date (black belts only)</Label>
+            <Label htmlFor={`personal-test-${student.id}`} className="text-xs">Personal test date (brown &amp; black belts)</Label>
             <Input id={`personal-test-${student.id}`} type="date" value={personalTestDate} onChange={(e) => setPersonalTestDate(e.target.value)} className="mt-1" />
           </div>
         )}
