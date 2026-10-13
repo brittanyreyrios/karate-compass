@@ -11,6 +11,9 @@
 
 ## Manual restore steps
 
+- Never write database connection strings, service-role keys, or direct Postgres credentials to committed files, including .env, .env.example and drizzle.config.ts; tooling reads credentials from its supplied environment only.
+- Keep drizzle-kit, drizzle-orm and postgres in devDependencies; nothing under src/ imports drizzle-orm or postgres, because application queries use the existing client.
+
 ### `album-covers` Storage bucket
 
 This project's tooling rejects `INSERT` statements into `storage.buckets`, so the

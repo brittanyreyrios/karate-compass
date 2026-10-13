@@ -49,6 +49,6 @@
 
 ## Round 69 — black belt degrees
 - [x] Final longer-tail chip preview approved; preserve geometry and style C exactly.
-- [ ] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
-- [ ] Black Belt Journey bar; personal test date card + admin field
-- [ ] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
+- [x] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
+- [x] Black Belt Journey bar; personal test date card + admin field
+- [x] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
