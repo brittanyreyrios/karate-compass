@@ -9,7 +9,7 @@ Six rows in the Solid system, sort_order 9–14, names/short names exactly as th
 Chip proposal — no new pattern value, no constraint change:
 - `pattern = 'stripe'`, `color_primary = '#0a0a0a'`, `color_accent = '#d4af37'` (gold).
 - Add nullable `belt_ranks.degree smallint CHECK (degree BETWEEN 1 AND 6)`; six new rows have degree 1–6, existing Black stays NULL. Never parse short_name. Degree-aware features use degree IS NOT NULL plus the Solid-system Black row.
-- Option 3: BeltSwatch uses a gold number on the band at sm (and compact ladder), and N thin gold bars across a hanging belt end at md and larger, perpendicular to its length with small even gaps just inside the tip, matching the reference photo.
+- Final direction: no numbers on belts at any size; BeltSwatch draws N thin gold bars across a hanging belt end at every size, perpendicular to its length with small even gaps just inside the tip. Compact badges retain a readable adjacent rank label.
 - Plain Black keeps its solid chip (no bars), so Black and 1st Degree stay distinguishable.
 - Before the migration runs render all seven chips (Black, 1st–6th) at sm and md plus a small chip in a leaderboard-row preview on the dark background; rows are only inserted after visual approval.
 
@@ -25,7 +25,8 @@ Per-component check, to report with real output after the migration:
 
 ## B. Progress bar after Black (dashboard only, app code)
 
-- `computeBeltProgress` for the Solid system: if the student's rank sort_order >= Black's, return a "Black Belt Journey" ladder = Black + 1st..5th (6th excluded). Black = 0%, 5th = 100%. Colour-belt ladder unchanged and not shown alongside.
+- Identify Black-path by explicit degree IS NOT NULL plus Solid Black; Journey ladder = Black + 1st..5th (6th excluded). Black = 0%, 5th = 100%. Colour-belt ladder remains eight steps and is shown alongside on Black-path too.
+- Journey uses larger labelled belts, two rows of three at 390; colour strip labels show at all widths, two rows of four at 390 without shrinking or horizontal scrolling.
 - At 6th: label "6th Degree Black Belt", bar at 100% (5th as the last step) and the line "Master level — beyond the student journey". 6th never appears as a step.
 - "Black" is identified as the highest Solid rank whose name is exactly "Black" (the existing row); degrees are Solid ranks above it. Other systems untouched.
 
@@ -44,5 +45,4 @@ Check a Jiu Jitsu test child's dashboard and report what the next-test area show
 zz.test.negative with temporary children "ZZTEMP R69" (Green; Black in Intermediate / Advanced Children; 1st Degree with a personal date; 6th Degree). Screenshots at 390 and 1536, scrollWidth check on the progress card, proof 10 Nov is gone. Student-per-rank counts before and after; temp children deleted. Report includes git diff --stat with package.json/bun.lock.
 
 ## Questions
-1. Approve the "stripe + gold bars from short_name digit" approach, or prefer a nullable `belt_ranks.degree` number column instead of reading the digit (one extra column, beyond what the brief named)?
-2. Black Belt Journey ends at 5th: a 4th Degree holder shows 4 of 5 steps toward 5th — correct?
+All answered. Build browser-only previews: all seven chips at ladder/sm/md/lg; labelled sixth-degree leaderboard row; Black/2nd/5th/6th Journey at 390 and 1536; colour strip at Green and Black-path at 390. Include unlabelled-badge report, then STOP for approval before any database writes.
