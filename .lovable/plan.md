@@ -1,48 +1,214 @@
-# Round 69 — Black belt degrees, Black Belt Journey bar, personal test date
+# Unclaimed students — database and security only
 
-Starting commit: `4e4fcde6b32c818bab6ed866de799a99c19d8ae0`
+Starting commit: `fefa6e71a1f411928a1fb221eb290fc943acf6b1`.
+Live baseline: 138 students; no null parent links. No database changes have been applied.
 
-## A. Degree ranks (one migration in drizzle/migrations/)
+## Scope and resolved decisions
+- Staff can store real student records before a family signs up; attendance and points already reference student IDs, so no reference changes are needed.
+- Preserve second-guardian access, as requested after reviewing the existing policies. Parents cannot access unclaimed students.
+- Return a generic JSON failure instead of raising an exception, so failed attempts remain logged.
+- No UI, dependency, signup, class-date, leaderboard, or belt changes. Credentials remain environment-only; none will be written to committed files.
+- There is no belt-history table to change. Current belt is stored on students through belt_rank_id.
 
-Six rows in the Solid system, sort_order 9–14, names/short names exactly as the brief, curriculum_tier 'advanced', active true. Existing "Black" row (sort 8, solid, #0a0a0a) untouched. No student's belt_rank_id changes.
+## Access policy comparison
+The four existing admin student policies stay byte-identical.
 
-Chip proposal — no new pattern value, no constraint change:
-- `pattern = 'stripe'`, `color_primary = '#0a0a0a'`, `color_accent = '#d4af37'` (gold).
-- Add nullable `belt_ranks.degree smallint CHECK (degree BETWEEN 1 AND 6)`; six new rows have degree 1–6, existing Black stays NULL. Never parse short_name. Degree-aware features use degree IS NOT NULL plus the Solid-system Black row.
-- Revised preview direction (approval pending): keep accepted C bar thickness, colour and gaps. Lengthen both tails on larger Black/degree badges, viewer's-right slightly longer and exclusively marked, left plain. Increase md/lg height without shrinking knot/bars; six bars occupy under 40% of right tail. Compact unchanged. Render all ranks/sizes and 2nd/5th/6th Journey at 390 and 1536. No numbers; stop before database changes.
-- Plain Black keeps its solid chip (no bars), so Black and 1st Degree stay distinguishable.
-- Before the migration runs render all seven chips (Black, 1st–6th) at sm and md plus a small chip in a leaderboard-row preview on the dark background; rows are only inserted after visual approval.
+| Policy | Existing USING | Proposed USING |
+|---|---|---|
+| Parents view own students | `is_guardian_of(id)` | `parent_id IS NOT NULL AND public.is_guardian_of(id)` |
 
-Rank-label tint (beltLabelColor): accent differs from primary, so labels take a readable gold tint — reported with the read-back.
+The guardian helper also requires a claimed student, protecting existing SECURITY DEFINER curriculum/library reads if staff accidentally link a guardian to an unclaimed record. Existing helper grants and other policies remain unchanged.
 
-Per-component check, to report with real output after the migration:
-- ranksOfSystem / computeBeltProgress: new rows extend the Solid ladder to 14 — handled by Part B.
-- get_curriculum_for_student / _for_all_children: "sort_order <= my rank" — a degree holder (9–14) still includes all of 1–8; there is no curriculum on 9–14, so nothing new appears. Verified by query on a test child, functions unchanged.
-- get_leaderboard rank_name: returns the full name ("6th Degree Black Belt"); ranking/division logic untouched.
-- Admin belt dropdown (BeltPicker): lists the six new rows in order after Black.
-- Report the admin curriculum editor rank groups for all six new ranks: empty is fine, errors or broken ordering are not.
-- Belt chips everywhere: via BeltSwatch, so bars show on every screen.
+The existing guardian-sync function gains a null-parent insert guard. Claimed students cannot be detached into unclaimed records; moving between families retains the existing workflow and safeguards.
 
-## B. Progress bar after Black (dashboard only, app code)
+## Full proposed SQL — approval required before applying
+This is review text, not an applied migration. The platform migration tool will create the single authoritative file under drizzle/migrations after approval.
 
-- Identify Black-path by explicit degree IS NOT NULL plus Solid Black; Journey ladder = Black + 1st..5th (6th excluded). Black = 0%, 5th = 100%. Black-path dashboard shows ONLY Black Belt Journey, never the colour strip beneath it. Colour-strip comparison is preview-only.
-- Journey uses larger labelled belts, two rows of three at 390; colour strip labels show at all widths, two rows of four at 390 without shrinking or horizontal scrolling.
-- At 6th: label "6th Degree Black Belt", bar at 100% (5th as the last step) and the line "Master level — beyond the student journey". 6th never appears as a step.
-- "Black" is identified as the highest Solid rank whose name is exactly "Black" (the existing row); degrees are Solid ranks above it. Other systems untouched.
+```sql
+ALTER TABLE public.students ALTER COLUMN parent_id DROP NOT NULL;
+ALTER TABLE public.students
+  ADD COLUMN claim_code text,
+  ADD COLUMN claimed_at timestamptz,
+  ADD COLUMN created_by_staff boolean NOT NULL DEFAULT false;
+ALTER TABLE public.students
+  ADD CONSTRAINT students_claim_code_unique UNIQUE (claim_code),
+  ADD CONSTRAINT students_claim_code_format
+    CHECK (claim_code IS NULL OR claim_code ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$'),
+  ADD CONSTRAINT students_claim_code_unclaimed_only
+    CHECK (parent_id IS NULL OR claim_code IS NULL);
 
-## C. Personal test date
+CREATE TABLE public.claim_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  attempted_at timestamptz NOT NULL DEFAULT now(),
+  success boolean NOT NULL
+);
+GRANT SELECT ON public.claim_attempts TO authenticated;
+GRANT ALL ON public.claim_attempts TO service_role;
+ALTER TABLE public.claim_attempts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins read claim attempts"
+  ON public.claim_attempts FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+CREATE INDEX claim_attempts_failed_user_time_idx
+  ON public.claim_attempts (user_id, attempted_at DESC)
+  WHERE success = false;
 
-- Migration adds nullable `students.personal_test_date date`. `students.next_test_date` stays unread.
-- Dashboard: student at Black or any degree -> next-test card uses `personal_test_date` (same date-only.ts helpers). Empty -> "Your instructor will let you know when you're ready for your next degree test." with no date or countdown. Colour-belt path (Round 54) unchanged.
-- Edit student: "Personal test date (black belts only)" date field, shown only when the selected rank is Black or a degree; saved with the student. Existing policies already let staff update students; no RLS/grant change.
+CREATE OR REPLACE FUNCTION public.sync_primary_guardian()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF TG_OP = 'UPDATE' AND OLD.parent_id IS NOT DISTINCT FROM NEW.parent_id THEN
+    RETURN NULL;
+  END IF;
+  IF NEW.parent_id IS NULL THEN
+    IF TG_OP = 'UPDATE' AND OLD.parent_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Move this student to another family instead of removing the main family.';
+    END IF;
+    RETURN NULL;
+  END IF;
+  UPDATE public.student_guardians
+     SET is_primary = false
+   WHERE student_id = NEW.id AND is_primary;
+  INSERT INTO public.student_guardians (student_id, profile_id, is_primary)
+  VALUES (NEW.id, NEW.parent_id, true)
+  ON CONFLICT (student_id, profile_id)
+  DO UPDATE SET is_primary = true, updated_at = now();
+  IF TG_OP = 'UPDATE' THEN
+    DELETE FROM public.student_guardians
+     WHERE student_id = NEW.id AND profile_id = OLD.parent_id;
+  END IF;
+  RETURN NULL;
+END;
+$function$;
 
-## D. Kid's Jiu Jitsu — confirm only
+CREATE OR REPLACE FUNCTION public.is_guardian_of(_student_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.student_guardians g
+    JOIN public.students s ON s.id = g.student_id
+    WHERE g.student_id = _student_id
+      AND g.profile_id = auth.uid()
+      AND s.parent_id IS NOT NULL
+  );
+$function$;
 
-Check a Jiu Jitsu test child's dashboard and report what the next-test area shows; change only if a card/placeholder appears.
+ALTER POLICY "Parents view own students" ON public.students
+  USING (parent_id IS NOT NULL AND public.is_guardian_of(id));
 
-## Testing and cleanup
+CREATE FUNCTION public.prepare_student_claim_code()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_alphabet constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  v_code text;
+  v_byte integer;
+  v_limit integer := (256 / length(v_alphabet)) * length(v_alphabet);
+BEGIN
+  IF NEW.parent_id IS NOT NULL THEN
+    NEW.claim_code := NULL;
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'INSERT' OR NEW.claim_code IS NULL THEN
+    -- Serialise generation; the unique constraint is the final safeguard.
+    PERFORM pg_advisory_xact_lock(71370, 1);
+    LOOP
+      v_code := '';
+      WHILE length(v_code) < 8 LOOP
+        v_byte := get_byte(extensions.gen_random_bytes(1), 0);
+        -- Rejection sampling avoids modulo bias.
+        IF v_byte < v_limit THEN
+          v_code := v_code || substr(v_alphabet, (v_byte % length(v_alphabet)) + 1, 1);
+        END IF;
+      END LOOP;
+      EXIT WHEN NOT EXISTS (
+        SELECT 1 FROM public.students WHERE claim_code = v_code
+      );
+    END LOOP;
+    NEW.claim_code := v_code;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.prepare_student_claim_code() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prepare_student_claim_code() TO service_role;
+CREATE TRIGGER students_prepare_claim_code
+  BEFORE INSERT OR UPDATE OF parent_id, claim_code ON public.students
+  FOR EACH ROW EXECUTE FUNCTION public.prepare_student_claim_code();
 
-zz.test.negative with temporary children "ZZTEMP R69" (Green; Black in Intermediate / Advanced Children; 1st Degree with a personal date; 6th Degree). Screenshots at 390 and 1536, scrollWidth check on the progress card, proof 10 Nov is gone. Student-per-rank counts before and after; temp children deleted. Report includes git diff --stat with package.json/bun.lock.
+CREATE FUNCTION public.claim_student(code text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_now timestamptz;
+  v_student uuid;
+  v_failed integer;
+  v_failure constant jsonb := '{"success":false,"message":"Unable to claim this student. Check the code or try again later."}'::jsonb;
+BEGIN
+  IF v_user IS NULL THEN
+    RETURN v_failure;
+  END IF;
+  -- Serialise attempts from the same account, including parallel requests.
+  PERFORM pg_advisory_xact_lock(71371, hashtext(v_user::text));
+  v_now := clock_timestamp();
+  SELECT count(*) INTO v_failed
+    FROM public.claim_attempts
+   WHERE user_id = v_user AND success = false
+     AND attempted_at >= v_now - interval '1 hour';
+  IF v_failed >= 5 OR NOT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = v_user
+  ) THEN
+    INSERT INTO public.claim_attempts (user_id, attempted_at, success)
+    VALUES (v_user, v_now, false);
+    RETURN v_failure;
+  END IF;
 
-## Questions
-All answered. Build browser-only previews: all seven chips at ladder/sm/md/lg; labelled sixth-degree leaderboard row; Black/2nd/5th/6th Journey at 390 and 1536; colour strip at Green and Black-path at 390. Include unlabelled-badge report, then STOP for approval before any database writes.
+  SELECT s.id INTO v_student
+    FROM public.students s
+   WHERE s.claim_code = upper(btrim(code)) AND s.parent_id IS NULL
+   FOR UPDATE;
+  IF v_student IS NULL THEN
+    INSERT INTO public.claim_attempts (user_id, attempted_at, success)
+    VALUES (v_user, v_now, false);
+    RETURN v_failure;
+  END IF;
+
+  UPDATE public.students
+     SET parent_id = v_user, claimed_at = v_now, claim_code = NULL
+   WHERE id = v_student;
+  -- Existing guardian sync creates/promotes the claimant's primary link.
+  INSERT INTO public.claim_attempts (user_id, attempted_at, success)
+  VALUES (v_user, v_now, true);
+  RETURN jsonb_build_object('success', true, 'student_id', v_student);
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.claim_student(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claim_student(text) TO authenticated;
+
+COMMENT ON COLUMN public.students.claim_code IS
+  'Private one-time 8-character claim code for unclaimed students; cleared on claim.';
+COMMENT ON COLUMN public.students.claimed_at IS
+  'Time of successful self-service claim; existing family links are not backfilled.';
+COMMENT ON COLUMN public.students.created_by_staff IS
+  'Staff creation provenance; defaults false, explicitly set true for staff-created records.';
+COMMENT ON TABLE public.claim_attempts IS
+  'Claim RPC attempt log. Only the definer function writes; admins can read.';
+```
+
+## Verification after approval
+- Use only the dedicated parent/staff fixtures and clearly named temporary students; never claim or change a real child.
+- Keep focused database integration tests in the project: eight-character allowed alphabet/uniqueness; no parent reads before claim; second guardians retain access; admin writes; successful claim preserves student ID/attendance/points; used and invalid codes share a failure; five failures block a correct code; parallel claims cannot both succeed; unauthenticated execution and direct attempt-log writes are refused.
+- Verify existing students/guardian links and per-rank counts before/after; remove temporary children and only fixture attempts created by these tests.
+- Run the security scan and report warnings, including any existing ones. Report full applied SQL, read-back constraints/grants/policies, cleanup, and explicit package.json/bun.lock diff (expected: no dependency changes).
+
+## Deployment and permission notes
+Making parent_id nullable requires DROP NOT NULL. The tool may refuse under the current backward-incompatible-migration permission; if refused, no alternative column will be silently substituted. You would need Settings → Agent permissions → Execute backward incompatible database migrations set to Ask each time or Always allow.
+
+No UI is changed in this phase. Current staff screens assume every child has a parent; unclaimed records must not be entered through those screens until a later UI round addresses those assumptions. This phase provides database support, not a finished staff entry workflow.
+
+Approval of this plan approves the full SQL above; no migration or scan has run yet.

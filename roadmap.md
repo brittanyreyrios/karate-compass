@@ -52,3 +52,9 @@
 - [x] Migration: belt_ranks.degree + 6 rows; students.personal_test_date
 - [x] Black Belt Journey bar; personal test date card + admin field
 - [x] Reports: rank-code check, admin curriculum editor groups, Jiu Jitsu card, screenshots, cleanup
+
+## Unclaimed students — database and security only
+- [x] Inspect live columns, policies, student references, and guardian triggers.
+- [x] Resolve second-guardian compatibility and durable failure-result logging.
+- [ ] Full SQL approval, then migration; no UI or dependency changes.
+- [ ] Fixture-only claim/access/rate-limit tests, security scan, cleanup, and report.
