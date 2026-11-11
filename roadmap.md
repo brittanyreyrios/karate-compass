@@ -56,5 +56,6 @@
 ## Unclaimed students — database and security only
 - [x] Inspect live columns, policies, student references, and guardian triggers.
 - [x] Resolve second-guardian compatibility and durable failure-result logging.
-- [ ] Full SQL approval, then migration; no UI or dependency changes.
+- [x] Full SQL approved exactly as written; no UI or dependency changes.
+- [ ] Apply approved migration and read back constraints, grants, and policies.
 - [ ] Fixture-only claim/access/rate-limit tests, security scan, cleanup, and report.
