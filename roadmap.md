@@ -57,5 +57,6 @@
 - [x] Inspect live columns, policies, student references, and guardian triggers.
 - [x] Resolve second-guardian compatibility and durable failure-result logging.
 - [x] Full SQL approved exactly as written; no UI or dependency changes.
-- [ ] Apply approved migration and read back constraints, grants, and policies.
-- [ ] Fixture-only claim/access/rate-limit tests, security scan, cleanup, and report.
+- [x] Apply approved migration and read back constraints, grants, and policies.
+- [x] Fixture-only claim/access/rate-limit tests (11 passed), quick scan, cleanup, and report.
+- [ ] Deep security scan results: waiting for the background scan notification; do not poll.

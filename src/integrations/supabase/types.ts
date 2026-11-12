@@ -274,6 +274,27 @@ export type Database = {
           },
         ]
       }
+      claim_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          success: boolean
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       class_holidays: {
         Row: {
           class_name: string
@@ -1145,16 +1166,19 @@ export type Database = {
           active: boolean
           attendance_count: number
           belt_rank_id: string | null
+          claim_code: string | null
+          claimed_at: string | null
           class_name: string
           consecutive_absences: number
           created_at: string
+          created_by_staff: boolean
           current_belt: string
           deactivated_by_family_archive_at: string | null
           first_name: string
           id: string
           last_name: string
           next_test_date: string | null
-          parent_id: string
+          parent_id: string | null
           personal_test_date: string | null
           points: number
           start_date: string
@@ -1164,16 +1188,19 @@ export type Database = {
           active?: boolean
           attendance_count?: number
           belt_rank_id?: string | null
+          claim_code?: string | null
+          claimed_at?: string | null
           class_name?: string
           consecutive_absences?: number
           created_at?: string
+          created_by_staff?: boolean
           current_belt?: string
           deactivated_by_family_archive_at?: string | null
           first_name: string
           id?: string
           last_name: string
           next_test_date?: string | null
-          parent_id: string
+          parent_id?: string | null
           personal_test_date?: string | null
           points?: number
           start_date?: string
@@ -1183,16 +1210,19 @@ export type Database = {
           active?: boolean
           attendance_count?: number
           belt_rank_id?: string | null
+          claim_code?: string | null
+          claimed_at?: string | null
           class_name?: string
           consecutive_absences?: number
           created_at?: string
+          created_by_staff?: boolean
           current_belt?: string
           deactivated_by_family_archive_at?: string | null
           first_name?: string
           id?: string
           last_name?: string
           next_test_date?: string | null
-          parent_id?: string
+          parent_id?: string | null
           personal_test_date?: string | null
           points?: number
           start_date?: string
@@ -1411,6 +1441,7 @@ export type Database = {
       }
       check_in_student: { Args: { _student_id: string }; Returns: Json }
       check_invite_code: { Args: { _code: string }; Returns: boolean }
+      claim_student: { Args: { code: string }; Returns: Json }
       class_student_counts: {
         Args: never
         Returns: {

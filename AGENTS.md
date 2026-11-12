@@ -74,3 +74,8 @@ Created with the bucket tool (not a migration). On a fresh database create it ma
 Policies live in `drizzle/migrations/0007_r59_post_images.sql`: SELECT for any `authenticated` user; INSERT/UPDATE/DELETE for the `admin` role only. Any signed-in user can sign any object, so a scheduled announcement's image is hidden only by its unguessable UUID-prefixed name.
 
 Note: the `album-covers` entry above says file size and MIME types are enforced client-side only. The bucket itself now reads back `file_size_limit` 5242880 and `allowed_mime_types` jpeg/png/webp, so that note is out of date (left unchanged pending review).
+
+## Unclaimed student claims
+- Keep claim generation and assignment in database triggers/RPC, with durable JSON failures and per-user advisory locking, because raised errors roll back rate-limit logs.
+- Guardian reads require a non-null main parent; preserve secondary guardian links on claimed students so unclaimed records never become parent-visible.
+- Live claim integration tests are opt-in and use private session files under /tmp/browser with exact dedicated fixture identities; this prevents accidental tests against real families.

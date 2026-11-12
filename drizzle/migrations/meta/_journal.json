@@ -71,6 +71,13 @@
       "when": 1791917726283,
       "tag": "0009_r69_black_belt_degrees",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794441395803,
+      "tag": "0010_unclaimed_students_claim_security",
+      "breakpoints": true
     }
   ]
 }
