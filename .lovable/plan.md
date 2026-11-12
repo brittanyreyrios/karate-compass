@@ -1,59 +1,65 @@
-# Phase 3 — parent claims and claimed-only leaderboards
+# Convert audited imports to unclaimed students
 
-## Step 0 — diagnosis completed; no application changes
-- Staff-fixture sign-in succeeded on localhost and the published custom domain. The password-token request and user validation requests returned HTTP 200; both reached the dashboard without page errors.
-- The reproduced failed request was `HEAD /rest/v1/attendance_events`, the dashboard’s yearly attendance count, with `net::ERR_ABORTED`. This occurred on both sites, not only preview. The signed-in dashboard remained usable and displayed attendance.
-- Earlier automation also cancelled page downloads by submitting before hydration completed; waiting for the page eliminated those cancellations.
-- This does not demonstrate failed login for real families. The attendance cancellation can occur on the published site, but its exact cancellation source and frequency for real users remain unverified. Leave it unchanged unless it blocks Phase 3.
+## Scope and approval
+Add conversion actions to the existing **Unlinked Students Audit** only. Keep **Retry link**, **Remove**, email editing, signup gates, confirmation, claim-code behavior, attendance, points, and family privacy intact. No app or database changes until this plan is approved; approval does not run Convert all on real imports.
 
-## Scope
-Extend the existing signup page and parent dashboard; preserve staff screens, class dates, belt rules, confirmation, password policy, consent, media release, normal invite codes, second guardians, and all existing student data. No dependency changes expected.
+Read-only checks found **49 pending imports**, **138 students**, **138 guardian links**, and **ZZTEST54 inactive at 7/20**. Capture fresh full-row fingerprints before implementation tests; today's fingerprints are recorded below.
 
-## Signup with a claim code
-- `/auth?claim=CODE` opens signup and fills “Child’s claim code”. Accept a valid invite code OR a valid unclaimed-child code; reject signup with neither on the server, not just in the form.
-- Preserve the existing invite validation, locking, usage counters, and failure behavior for invite-only signup. A valid claim must not spend an invite use.
-- Check claim eligibility inside the existing signup trigger without exposing student names or permitting anonymous student reads. Do not claim the child in the account-creation trigger.
-- Store a pending claim against the newly created profile in protected application data, so confirmation on another browser/device still works. The trigger creates the account/profile and pending claim atomically.
-- After verified sign-in, process the pending claim through the existing `claim_student` function, then clear the pending value after the attempt. Handle confirmation returning directly to `/`, manual login, and already-signed-in signup outcomes. Prevent duplicate processing; do not call network operations inside the auth-state callback itself.
-- A failed claim never undoes signup. Show exactly: “We couldn't link your child automatically. Please see the front desk.” Never expose the underlying failure reason.
+## Staff actions and results
+- Each row gets **Convert to unclaimed student**.
+- Add **Convert all** with a confirmation showing the number of currently displayed pending rows. Submit those exact row IDs, not a moving list that could include newly imported rows.
+- Disable overlapping conversion/retry/remove actions while conversion or email saving is in progress, so the stored email is the one converted.
+- Show a result summary: **Converted**, **In no class**, **Skipped — likely duplicate**, and **Failed**. List affected children and reasons staff can act on. Duplicates and failed rows remain in the audit; successful rows disappear.
+- Refresh Manage Students, Master Attendance, enrollments, no-class listings, and the audit. Converted students immediately use the existing unclaimed badge, generated claim code, and no-photo handling.
 
-## Existing parent — Add my child
-- Add an “Add my child” option on the dashboard, including the no-children state, with a claim-code field and submitting state.
-- Call the existing claim function; on success read the newly guardian-visible student and show “Welcome! [First name] already has X classes logged.” Use their all-time attendance count.
-- Refresh the child switcher, curriculum/poll child lists, default division, leaderboard, and Winner’s Circle without resetting attendance or points.
-- Every claim failure or request error gets the same generic message. Keep the five-failures-per-hour rule enforced by the database; test six rapid attempts and a valid code blocked afterward.
+## Conversion rules
+Each row is one all-or-nothing database operation:
+1. Verify the caller is an admin and lock the pending row; serialize conversions so repeated clicks/bulk requests cannot create two students.
+2. Match trimmed, case-insensitive `class_name` against `class_schedules.class_name` (the application's classes table). Do not fuzzy-match or guess. If more than one class matches, treat it as unresolved and report it rather than pick one.
+3. Skip likely duplicates with the same trimmed, case-insensitive first and last names and class, across claimed/unclaimed and active/inactive students. Check actual enrollments, with existing `students.class_name` as a legacy fallback. For unresolved class names, also check retained source-class labels for previously converted children; do not treat every unrelated no-class child as a duplicate.
+4. Insert `students` with `parent_id = NULL`, `created_by_staff = true`, and the source first name, last name, `belt_rank_id`, `current_belt`, and `start_date`. Preserve null rank instead of guessing another belt system. If start date is missing, use the existing student date default. Existing belt synchronization and claim-code triggers remain authoritative.
+5. With a unique class match, create a primary `student_classes` enrollment. With no match, create no enrollment and store the existing `Unassigned` display value; the existing enrollment editor shows **In no class**. Include the original class text in the result.
+6. Save the private future-parent email reference described below.
+7. Delete the source pending import only after all required steps succeed. Any failure rolls back this row's student, enrollment, email reference, and deletion. Bulk conversion isolates each row, retaining successful conversions when a different row fails.
 
-## Parent-facing student-list inventory
-| Surface | Current access and planned handling |
-|---|---|
-| Leaderboard top 10, every division/current and all-time periods | Add `parent_id IS NOT NULL` inside `get_leaderboard`, before ranking/limit; preserve first name + last initial and points calculation. |
-| Default “my division” | Already uses the guardian helper that rejects null parents; add an explicit non-null predicate to `get_my_division`. |
-| Dashboard Winner’s Circle | School-wide student names from `get_winners_circle`; add the non-null predicate before ordering/limit. |
-| Dashboard child switcher, attendance, points, personal testing dates | Own-family reads protected by guardian policies; add an explicit non-null filter to the child query. |
-| Belt Curriculum child lists and curriculum functions | Own-family only, guardian helper already excludes unclaimed; add explicit filtering to the child list and verify function access. |
-| Poll child picker | Own-family students protected by guardian policies; add explicit non-null filtering. |
-| Poll results | Only aggregated counts, no other-child names. Exclude votes attached to unclaimed students for parent results if present; preserve staff reporting and per-family/per-child counting. |
-| Child Tournament Results | Only selected guardian-linked child; existing policy already blocks unclaimed. Verify access remains blocked. |
-| Calendar and School News/Tournaments | Event/audience descriptions, no student roster or named belt-test list; no student filter needed. |
-| Technique Library, Gallery, Settings | No other-student list. Gallery consent behavior is not changed. |
+Photo permission remains **OFF while unclaimed**, using the existing staff-created/null-parent rule; no family consent is changed. Once linked, the family's existing consent rules apply.
 
-No parent roster, TV leaderboard, or named school-wide belt-test list exists in the current portal. Staff rosters retain unclaimed students.
+## Proposed private email storage
+Create a separate `public.unclaimed_student_parent_links` table, not an email field on `students` or `profiles`:
+- `student_id`: primary key, references `public.students`, cascading on student deletion.
+- `parent_email`: trimmed/lowercase source email.
+- `source_class_name`: original class text for audit/duplicate handling when no class matches.
+- `created_at`: creation timestamp.
 
-## Technical details
-- Use an additive migration through the platform tool in authoritative `drizzle/migrations/`; frozen history stays untouched. Add only protected pending-claim storage and required function changes, with explicit grants/RLS and narrow authenticated processing.
-- Pending claim codes are private: no anonymous reads, no broad profile-field exposure, no logs containing codes or emails. Server handlers verify the caller; existing claim locking/rate-limit rules remain authoritative.
-- Keep signup-trigger parked-student and pending-secondary-guardian linking unchanged. Preserve existing function grants, including restrictions on direct division helpers.
-- Record claim orchestration/storage boundaries in `AGENTS.md`. Keep focused tests next to existing tests.
+Explicit grants and RLS allow **only admins** to read/manage these references; anonymous callers have no access and ordinary parents cannot read them. The signup trigger accesses them privately. No parent query, view, result, or log exposes the email. Add a normalized-email index. Remove the reference when the student is assigned to any family, including a claim-code claim or staff reassignment, so an old email can never move an already claimed child.
 
-## Fixture-only verification and cleanup
-- Baseline is currently 138 students and 138 guardian links. Capture IDs and deterministic row/link fingerprints before testing and compare after cleanup; do not modify real children or existing family accounts.
-- Use dedicated staff and existing parent fixtures. Staff fixture never receives a student; permanent zero-point fixture never receives points.
-- The supplied email already belongs to an account. For a NEW-parent test, use inbox alias `brittanyreyrios+zzclaimphase3@gmail.com`, not the original account. Approval of this plan approves creating this isolated temporary test account; Britt confirms it in Lovable Cloud when prompted. Never disable confirmation or write auth records directly.
-- Create temporary unclaimed children with check-ins and points. Verify claim signup, first-login deferred claim, carry-over, Add my child welcome count, invalid/used codes, six rapid failures, normal invite-only signup, and no-code server refusal.
-- Temporarily enable only ZZTEST54 for invite tests; report uses before/after, max 20, and turn it off immediately afterward. Never use real invite codes.
-- Verify all boards hide an unclaimed child with points and include the same child after claiming; default division follows the claimed child. Exercise parent flows in the browser, including mobile and desktop.
-- Remove temporary children and their dependent rows/fixture attempts; remove temporary accounts only through the existing approved account-deletion workflow. If confirmation or cleanup needs owner action, report the exact remaining item instead of claiming completion.
-- Run focused tests, quick and deep security scans after changes; distinguish existing findings from new ones. Report constraints/grants/policies changed, real-data fingerprints, cleanup, and explicit `package.json`/`bun.lock` diffs (“no dependency changes” when empty). Check tracked source and served output for private credentials without printing secrets.
+## How signup auto-linking works
+Extend `handle_new_user` narrowly; preserve its existing invite-or-claim gate, profile/parent-role creation, parked-import linking, pending claim intent, and secondary-guardian handling.
 
-## Approval boundary
-No application code, database changes, or signup tests have been performed for Phase 3. Approval starts implementation; email confirmation will require your action during testing.
+After the new profile exists:
+1. Match private references by `lower(btrim(NEW.email))` and lock the referenced students.
+2. Link **only students still having `parent_id IS NULL`** to `NEW.id`; never replace an existing parent or guardian.
+3. Set `claimed_at` for the assignment. Existing student triggers clear the claim code and create the primary guardian link.
+4. Remove the consumed private reference. Keep the same student ID, enrollment, start date, belt, attendance events/count, points/events, and staff provenance—do not create a second student.
+
+This runs at account creation, like parked imports today; email confirmation still prevents sign-in until confirmed. A matching stored email does **not** become a third signup credential: the parent still needs the existing invite or claim code.
+
+Use a shared normalized-email transaction lock in conversion and the new signup-link block, plus student locks, to avoid a signup/conversion race. If the matching account predates conversion, keep the student unclaimed and flag **Account already exists — link through the existing family action**; conversion must not silently assign them. Preserve signup on an unexpected linking error, retain the reference for staff follow-up, and log no email or claim code.
+
+## Technical implementation
+- Add the private reference table, grants/RLS/indexes, admin-only conversion RPC, reference cleanup trigger, and the targeted `handle_new_user` extension in one additive platform migration in authoritative `drizzle/migrations/`. Leave frozen migration history untouched.
+- Conversion RPC uses an explicit `has_role(auth.uid(), 'admin')` check, a fixed search path, authenticated execute grant, no anonymous execute, and per-row exception isolation. Database logic owns atomicity and duplicate checks; no client-side insert/delete chain.
+- Keep UI/result handling in a focused audit-conversion module using existing dialogs/buttons and query invalidation patterns. Do not rewrite other staff screens.
+- Record transaction/private-storage boundaries in `AGENTS.md` during implementation. Add focused rule tests and opt-in fixture-only integration coverage next to existing tests.
+- Expected `package.json` and `bun.lock` changes: **none**.
+
+## Fixture-only verification, cleanup, and scans
+- Fresh baseline: capture the exact IDs/full-row fingerprints for all 138 original students and 138 guardian links, their enrollments, and all existing pending imports. No real pending row is converted, retried, removed, or edited during testing.
+- Use the dedicated staff fixture for every admin check; it never gets a student. Do not modify the permanent zero-point child.
+- Proposed temporary signup alias: **brittanyreyrios+zzauditconvert@gmail.com**. Approval permits this isolated fixture; first verify it is unused. Use only ZZTEST54 for signup, temporarily enable it, report usage before/after, and disable it immediately. Britt confirms the new account in Cloud → Users; never weaken confirmation or write auth records directly.
+- Through the actual audit, convert a temporary Tiny Tigers pending row, verify source values/private reference/claim code/no-photo state, and check the resulting child in through **Master Attendance**.
+- Sign up the fixture parent with that matching email and a normal invite; after confirmation, sign in and verify the same child appears with the same attendance count/events, enrollment, and student ID. Verify the private reference is consumed and parents cannot read that storage.
+- Test one no-match conversion and **In no class** result, likely-duplicate skips (including repeated/bulk conversion), bulk count confirmation/mixed results, rollback on enrollment failure, and refusal of non-admin conversion. Check signup-by-claim and staff reassignment remove stale email references without changing those flows.
+- Remove all temporary pending rows, students and dependent records, references, and accounts using the existing approved deletion workflow. Report anything waiting on owner confirmation rather than claiming completion.
+- Compare the original 138 students/138 links and original pending imports/enrollments against the baseline after cleanup. Today's student fingerprint: `7eb1858d85b6e50fcdea68ec28faec1f`; guardian fingerprint: `50deda8c30f12d81364d0229aa70d488`.
+- Run focused tests, browser checks on phone/desktop, and quick/deep security scans; report new versus existing findings, explicit `package.json`/`bun.lock` diffs, cleanup, and invite status. Inspect tracked source and served output for private credentials without exposing them.
