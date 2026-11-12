@@ -70,6 +70,7 @@ import {
   type ClassRow,
 } from "@/lib/enrollment";
 import { EnrollmentEditor } from "@/components/admin-enrollment";
+import { UnclaimedBadge, UnclaimedTools, UNCLAIMED_LABEL } from "@/components/admin-unclaimed";
 import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
@@ -191,7 +192,8 @@ type Student = {
   last_name: string;
   current_belt: string;
   attendance_count: number;
-  parent_id: string;
+  parent_id: string | null;
+  claim_code: string | null;
   active: boolean;
   class_name: string;
   points: number;
@@ -475,7 +477,7 @@ function useStudentsData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, first_name, last_name, current_belt, belt_rank_id, personal_test_date, attendance_count, parent_id, active, class_name, points, consecutive_absences")
+        .select("id, first_name, last_name, current_belt, belt_rank_id, personal_test_date, attendance_count, parent_id, claim_code, active, class_name, points, consecutive_absences")
         .order("first_name");
       if (error) throw error;
       return (data ?? []) as Student[];
@@ -514,7 +516,7 @@ function ParentsChildConsent({ profiles }: { profiles: ParentProfile[] }) {
 }
 
 /** Round 61 A: the linked parent's email, selectable so the desk can copy it. */
-function ParentEmailLine({ parentId }: { parentId: string }) {
+function ParentEmailLine({ parentId }: { parentId: string | null }) {
   const { data } = useAdminProfiles();
   if (!data) return null;
   const p = data.find((x) => x.id === parentId);
@@ -545,7 +547,7 @@ function LinkStudentToAccount({ target }: { target: ParentProfile }) {
   const [term, setTerm] = useState("");
   const [chosen, setChosen] = useState<Student | null>(null);
 
-  const familyOf = (id: string) => profilesQ.data?.find((p) => p.id === id);
+  const familyOf = (id: string | null) => (id ? profilesQ.data?.find((p) => p.id === id) : undefined);
   const results = useMemo(() => {
     const q = term.trim().toLowerCase();
     if (q.length < 2) return [];
@@ -583,6 +585,7 @@ function LinkStudentToAccount({ target }: { target: ParentProfile }) {
   const targetName = target.family_name || target.email;
   const from = chosen ? familyOf(chosen.parent_id) : undefined;
   const fromName = from ? from.family_name || from.email : "no linked account";
+  const chosenUnclaimed = !!chosen && chosen.parent_id === null;
 
   return (
     <div className="mt-2">
@@ -622,7 +625,7 @@ function LinkStudentToAccount({ target }: { target: ParentProfile }) {
                       <Badge variant="outline" className="border-amber-400/60 text-amber-200">Inactive</Badge>
                     )}
                     <span className="w-full break-all text-xs text-muted-foreground">
-                      {fam ? `${fam.family_name || "—"} family · ${fam.email}` : "No linked account"} · {s.class_name}
+                      {fam ? `${fam.family_name || "—"} family · ${fam.email}` : s.parent_id === null ? UNCLAIMED_LABEL : "No linked account"} · {s.class_name}
                     </span>
                   </button>
                 </li>
@@ -643,10 +646,14 @@ function LinkStudentToAccount({ target }: { target: ParentProfile }) {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>
-                  {chosen?.first_name} is currently attached to the <strong>{fromName}</strong>
-                  {from ? ` family (${from.email})` : ""}. They will be removed from that family's portal.
-                </p>
+                {chosenUnclaimed ? (
+                  <p>{chosen?.first_name} is unclaimed — no family yet. The claim code stops working.</p>
+                ) : (
+                  <p>
+                    {chosen?.first_name} is currently attached to the <strong>{fromName}</strong>
+                    {from ? ` family (${from.email})` : ""}. They will be removed from that family's portal.
+                  </p>
+                )}
                 {chosen && !chosen.active && (
                   <p className="font-semibold text-amber-200">
                     This student is INACTIVE — they are no longer training. Moving them will not make them
@@ -1044,6 +1051,7 @@ function ManageStudentsTab() {
   const [noRankOnly, setNoRankOnly] = useState(false);
   const [noClassOnly, setNoClassOnly] = useState(false);
   const [mismatchOnly, setMismatchOnly] = useState(false);
+  const [claimFilter, setClaimFilter] = useState<"all" | "claimed" | "unclaimed">("all");
   const allStudents = studentsQ.data ?? [];
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
   /**
@@ -1100,8 +1108,10 @@ function ManageStudentsTab() {
     (s) =>
       (!noRankOnly || !s.belt_rank_id) &&
       (!noClassOnly || !byStudent.get(s.id)?.length) &&
-      (!mismatchOnly || mismatchIds.has(s.id)),
+      (!mismatchOnly || mismatchIds.has(s.id)) &&
+      (claimFilter === "all" || (claimFilter === "unclaimed") === (s.parent_id === null)),
   );
+  const unclaimedCount = activeStudents.filter((s) => s.parent_id === null).length;
 
 
   // Add form state
@@ -1116,10 +1126,35 @@ function ManageStudentsTab() {
    * pending_student_imports instead, where handle_new_user picks the child up the
    * moment their parent signs up with the same email.
    */
-  const [addMode, setAddMode] = useState<"linked" | "parked">("linked");
+  const [addMode, setAddMode] = useState<"linked" | "parked" | "unclaimed">("linked");
 
   const addStudent = useMutation({
     mutationFn: async () => {
+      if (addMode === "unclaimed") {
+        const initial = lastName.trim().replace(/\.$/, "");
+        if (!firstName.trim() || !initial) throw new Error("Enter a first name and last initial.");
+        if (initial.length !== 1) throw new Error("Last initial is one letter.");
+        if (!rankId) throw new Error("Choose a belt system and rank for this student.");
+        if (!classId) throw new Error("Choose the class this student trains in.");
+        // No family: the claim code comes from the database trigger.
+        const { data: created, error } = await supabase
+          .from("students")
+          .insert({
+            parent_id: null,
+            created_by_staff: true,
+            first_name: firstName.trim(),
+            last_name: initial.toUpperCase(),
+            belt_rank_id: rankId,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        const { error: enrErr } = await supabase
+          .from("student_classes")
+          .insert({ student_id: created.id, class_id: classId, is_primary: true });
+        if (enrErr) throw enrErr;
+        return { parked: false as const, unclaimed: true as const, email: "" };
+      }
       if (!firstName.trim() || !lastName.trim() || !parentEmail.trim()) {
         throw new Error("Please fill in all fields.");
       }
@@ -1197,7 +1232,9 @@ function ManageStudentsTab() {
     },
     onSuccess: (res) => {
       toast.success(
-        res.parked
+        "unclaimed" in res
+          ? "Unclaimed student added — print their invite card from the list"
+          : res.parked
           ? `Held for ${res.email} — they'll be linked automatically at signup`
           : "Student added and enrolled",
       );
@@ -1226,11 +1263,12 @@ function ManageStudentsTab() {
             Add a student to a parent's account, or hold them until that parent signs up.
           </p>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {(
               [
                 { key: "linked", label: "Parent already has an account" },
                 { key: "parked", label: "Parent hasn't signed up yet" },
+                { key: "unclaimed", label: "No family yet (unclaimed)" },
               ] as const
             ).map((opt) => (
               <button
@@ -1256,14 +1294,16 @@ function ManageStudentsTab() {
                 <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="mt-1" />
               </div>
               <div>
-                <Label>Last name</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required className="mt-1" />
+                <Label>{addMode === "unclaimed" ? "Last initial" : "Last name"}</Label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required className="mt-1" maxLength={addMode === "unclaimed" ? 2 : undefined} />
               </div>
             </div>
-            <div>
-              <Label>Parent's email</Label>
-              <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
-            </div>
+            {addMode !== "unclaimed" && (
+              <div>
+                <Label>Parent's email</Label>
+                <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required className="mt-1" placeholder="parent@example.com" />
+              </div>
+            )}
             <div>
               <Label>First class</Label>
               <Select value={classId} onValueChange={setClassId}>
@@ -1322,6 +1362,16 @@ function ManageStudentsTab() {
 
           {/* A missing belt rank hides a child from every leaderboard and from
               their own curriculum, so it has to be countable, not just visible. */}
+          <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Family status">
+            {(["all", "claimed", "unclaimed"] as const).map((k) => (
+              <Button key={k} size="sm" variant={claimFilter === k ? "default" : "outline"}
+                className={claimFilter === k ? "bg-gradient-red" : ""} aria-pressed={claimFilter === k}
+                onClick={() => setClaimFilter(k)}>
+                {k === "all" ? "All" : k === "claimed" ? "Claimed" : `Unclaimed (${unclaimedCount})`}
+              </Button>
+            ))}
+          </div>
+
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button
               size="sm"
@@ -1537,12 +1587,17 @@ function StudentRow({ student, onEdit }: { student: Student; onEdit: () => void 
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 break-words font-semibold">{student.first_name} {student.last_name}</div>
           <FollowUpBadge n={student.consecutive_absences} />
+          {student.parent_id === null && <UnclaimedBadge />}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <AdminBeltBadge rankId={student.belt_rank_id} fallback={student.current_belt} dense />
           <span>{student.attendance_count} classes</span>
         </div>
-        <GuardiansEditor student={student} profiles={profilesForGuardians} />
+        {student.parent_id === null ? (
+          <UnclaimedTools student={student} profiles={profilesForGuardians} />
+        ) : (
+          <GuardiansEditor student={{ ...student, parent_id: student.parent_id }} profiles={profilesForGuardians} />
+        )}
         <EnrollmentEditor studentId={student.id} />
         <AbsenceHistory student={student} />
       </div>
@@ -2043,7 +2098,7 @@ function ReassignParentPanel({ student, onDone }: { student: Student; onDone: ()
     <div className="mt-4 border-t border-border pt-4">
       {!open ? (
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-          <Users className="mr-1 h-3.5 w-3.5" /> Move to another parent
+          <Users className="mr-1 h-3.5 w-3.5" /> {student.parent_id === null ? "Link to a family" : "Move to another parent"}
         </Button>
       ) : (
         <div>
@@ -3859,7 +3914,8 @@ function ParentsTab({
       if (error) throw error;
       const counts = new Map<string, number>();
       for (const row of data ?? []) {
-        const id = row.parent_id as string;
+        const id = row.parent_id as string | null;
+        if (!id) continue; // unclaimed — belongs to no family
         counts.set(id, (counts.get(id) ?? 0) + 1);
       }
       return counts;
