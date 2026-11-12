@@ -30,4 +30,4 @@
 - Latest preview build: OK.
 
 ## Security
-Quick and deep scan results are reported separately when available; no findings dismissed or access intentionally widened.
+Quick scan: same 10 known findings (2 storage-read errors, 2 shared-reference warnings, 6 reference-data notices); no new finding. Deep scan running against saved implementation; awaiting completion notification. No findings dismissed or access intentionally widened.

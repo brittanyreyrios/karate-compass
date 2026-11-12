@@ -79,4 +79,5 @@
 - [x] Link private email references only on confirmed first sign-in using deferred claim processing; unconfirmed accounts leave students/references untouched.
 - [x] Fixture browser test: convert, Master Attendance check-in, unconfirmed signup stays unclaimed, confirmed sign-in links same child with 1 attendance event intact; fixture confirmed during testing.
 - [x] Verify privacy/duplicates/bulk isolation, cleanup, ZZTEST54 off at 8/20; original 138 identities, 138 guardian links, enrollments and 49 imports unchanged. Full student fingerprints differ due to concurrent non-fixture staff attendance/absence/points activity; no live counters restored. Enrollment-write fault injection not performed on shared live database.
-- [ ] Security quick/deep scans and final report.
+- [x] Quick scan: same 10 known findings (2 errors, 2 warnings, 6 notices); verification report saved, no dependency changes.
+- [ ] Deep scan results — background scan running; awaiting completion notification.
