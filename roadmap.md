@@ -59,4 +59,4 @@
 - [x] Full SQL approved exactly as written; no UI or dependency changes.
 - [x] Apply approved migration and read back constraints, grants, and policies.
 - [x] Fixture-only claim/access/rate-limit tests (11 passed), quick scan, cleanup, and report.
-- [ ] Deep security scan results: waiting for the background scan notification; do not poll.
+- [x] Deep security scan results reviewed and reported; no findings dismissed or changed.
