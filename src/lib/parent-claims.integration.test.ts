@@ -31,13 +31,13 @@ describe.skipIf(process.env.RUN_PARENT_CLAIM_DB_TESTS !== "1")("parent claims â€
   afterAll(async () => { if (id) expect((await staff.from("students").delete().eq("id", id)).error).toBeNull(); });
   it("excludes an unclaimed child with points, then keeps all 3 checkins and 5 points after claiming", async () => {
     const before = await parent.rpc("get_leaderboard", { _division: "tiny_tiger", _period: "month" });
-    expect(before.error).toBeNull(); expect(before.data?.some((s) => s.id === id)).toBe(false);
+    expect(before.error).toBeNull(); expect(before.data?.some((s: { id: string }) => s.id === id)).toBe(false);
     const claimed = await parent.rpc("claim_student", { code }); expect(claimed.error).toBeNull();
     expect(claimed.data).toMatchObject({ success: true, student_id: id });
     const child = await parent.from("students").select("attendance_count,points").eq("id", id).single();
     expect(child.data).toEqual({ attendance_count: 3, points: 5 });
     expect((await parent.rpc("get_my_division")).data).toBe("tiny_tiger");
     const after = await parent.rpc("get_leaderboard", { _division: "tiny_tiger", _period: "month" });
-    expect(after.data?.find((s) => s.id === id)?.period_points).toBe(5);
+    expect(after.data?.find((s: { id: string; period_points: number }) => s.id === id)?.period_points).toBe(5);
   });
 });
