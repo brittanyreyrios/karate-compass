@@ -65,7 +65,10 @@
 ## Phase 3 — parent claims
 - [x] Diagnose sign-in request failures without changing application code.
 - [x] Approve Phase 3 plan and isolated inbox alias for signup testing.
-- [ ] Verify hosted signup rate limits and uniform generic refused-signup errors (bad/used claim codes included).
-- [ ] Add claim-gated signup, deferred claim, and Add my child.
-- [ ] Exclude unclaimed students from family-visible lists.
-- [ ] Fixture-only verification, owner-confirmed signup, cleanup, scans, dependency/security report.
+- [x] Uniform generic refused-signup errors verified for bad/used/no-code requests.
+- [ ] Hosted signup rate-limit values — unavailable through supported read-only tools; owner can check Auth settings → Email → Advanced.
+- [x] Add claim-gated signup, deferred claim, and Add my child.
+- [x] Exclude unclaimed students from family-visible lists.
+- [x] Existing-parent browser flow, signup gate/refusal tests, invite-only signup, rapid failure block, and live regression test.
+- [ ] New-parent first-login verification and final cleanup — waiting for owner confirmation of the temporary claim-test account.
+- [ ] Deep scan result — waiting for the requested background scan.
