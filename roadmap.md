@@ -60,3 +60,11 @@
 - [x] Apply approved migration and read back constraints, grants, and policies.
 - [x] Fixture-only claim/access/rate-limit tests (11 passed), quick scan, cleanup, and report.
 - [x] Deep security scan results reviewed and reported; no findings dismissed or changed.
+
+
+## Phase 3 — parent claims
+- [x] Diagnose sign-in request failures without changing application code.
+- [ ] Approve Phase 3 plan and isolated inbox alias for signup testing.
+- [ ] Add claim-gated signup, deferred claim, and Add my child.
+- [ ] Exclude unclaimed students from family-visible lists.
+- [ ] Fixture-only verification, owner-confirmed signup, cleanup, scans, dependency/security report.
