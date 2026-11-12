@@ -14,11 +14,18 @@ export function PendingStudentClaim() {
   const qc = useQueryClient();
   const { user } = useSession();
   const q = useQuery({
-    queryKey: ["finish-signup-claim", user?.id], enabled: !!user, staleTime: Infinity, retry: false,
+    queryKey: ["finish-signup-claim", user?.id, user?.last_sign_in_at], enabled: !!user, staleTime: Infinity, retry: false,
     queryFn: async () => {
+      // Both processors derive identity server-side. Email links additionally
+      // verify confirmation against the trusted auth record, not profile data.
+      // Process explicit claim intent first; stale email references cannot move it.
       const { data, error } = await supabase.rpc("finish_pending_student_claim");
       if (error) throw new Error(CLAIM_FAILURE);
-      return data as { attempted: boolean; success?: boolean };
+      const claim = data as { attempted: boolean; success?: boolean };
+      const email = await supabase.rpc("finish_confirmed_student_email_links");
+      if (email.error) throw new Error(CLAIM_FAILURE);
+      const linked = email.data as { attempted: boolean; success?: boolean };
+      return { attempted: claim.attempted || linked.attempted, success: (!claim.attempted || claim.success === true) && (!linked.attempted || linked.success === true) };
     },
   });
   useEffect(() => {

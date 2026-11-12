@@ -73,3 +73,9 @@
 - [x] New-parent first-login verification and final cleanup — owner confirmed; actual sign-in automatically linked the child with 3 classes and 5 points; reload retained the child and pending intent was consumed once. Temporary child/account and dependent rows removed.
 - [x] Deep scan result — completed with no app-code findings and the same 10 known database findings.
 - [x] Final follow-up: ZZTEST54 explicitly disabled, still 7/20; all 138 student rows and 138 guardian links match baseline fingerprints; bad/used signup UI refusals and bad/used/no-code server refusals match. No dependency changes.
+
+## Audit conversion — approved
+- [ ] Convert one/all pending imports atomically with private email references, class matching, duplicate skips, and results.
+- [ ] Link private email references only on confirmed first sign-in using deferred claim processing; unconfirmed accounts leave students/references untouched.
+- [ ] Fixture browser test: convert, Master Attendance check-in, unconfirmed signup stays unclaimed, confirmed sign-in links with attendance intact.
+- [ ] Verify privacy/atomicity/duplicates/bulk behavior, original 138 students/links and pending imports; cleanup, ZZTEST54 off, scans, dependency report.

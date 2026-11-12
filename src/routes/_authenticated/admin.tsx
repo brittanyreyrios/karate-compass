@@ -72,6 +72,8 @@ import {
 import { EnrollmentEditor } from "@/components/admin-enrollment";
 import { UnclaimedBadge, UnclaimedTools, UNCLAIMED_LABEL } from "@/components/admin-unclaimed";
 import { isUnclaimedNoPhotos } from "@/lib/unclaimed";
+import { ConvertImportButton, ConvertAllDialog, ConversionResults } from "@/components/audit-conversion";
+import { conversionResultsSchema, type ConversionResult } from "@/lib/audit-conversion";
 import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
@@ -3688,6 +3690,21 @@ type PendingImport = {
 
 function UnlinkedAudit() {
   const qc = useQueryClient();
+  const [convertIds, setConvertIds] = useState<string[]>([]);
+  const [conversionResults, setConversionResults] = useState<ConversionResult[]>([]);
+  const convert = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase.rpc("convert_pending_student_imports", { _ids: ids });
+      if (error) throw error;
+      return conversionResultsSchema.parse(data);
+    },
+    onSuccess: (results) => {
+      setConversionResults(results);
+      setConvertIds([]);
+      for (const key of ["unlinked-imports", "admin-students", "student-enrollments", "class-student-counts", "unassigned-class-students", "admin-student-photo-consent"]) void qc.invalidateQueries({ queryKey: [key] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const pendingQ = useQuery({
     queryKey: ["unlinked-imports"],
     queryFn: async () => {
@@ -3756,9 +3773,10 @@ function UnlinkedAudit() {
 
   return (
     <div className="rounded-2xl border border-yellow-400/40 bg-card p-6">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-yellow-300" />
         <h2 className="font-display text-lg font-bold uppercase">Unlinked Students Audit</h2>
+        <Button variant="outline" className="sm:ml-auto" disabled={list.length === 0 || convert.isPending || relink.isPending || remove.isPending || update.isPending} onClick={() => setConvertIds(list.map((r) => r.id))}>Convert all</Button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Imported students whose parent email doesn't match any account yet. Fix the email or click "Retry link" once the parent signs up.
@@ -3776,10 +3794,13 @@ function UnlinkedAudit() {
             onRetry={() => relink.mutate(row)}
             onRemove={() => remove.mutate(row.id)}
             onEmailChange={(email) => update.mutate({ id: row.id, parent_email: email })}
-            busy={relink.isPending || remove.isPending}
+            onConvert={() => convert.mutate([row.id])}
+            busy={relink.isPending || remove.isPending || update.isPending || convert.isPending}
           />
         ))}
       </div>
+      <ConvertAllDialog count={convertIds.length} open={convertIds.length > 0} onOpenChange={(open) => { if (!open && !convert.isPending) setConvertIds([]); }} onConfirm={() => convert.mutate(convertIds)} busy={convert.isPending} />
+      <ConversionResults results={conversionResults} />
     </div>
   );
 }
@@ -3788,12 +3809,14 @@ function UnlinkedRow({
   row,
   onRetry,
   onRemove,
+  onConvert,
   onEmailChange,
   busy,
 }: {
   row: PendingImport;
   onRetry: () => void;
   onRemove: () => void;
+  onConvert: () => void;
   onEmailChange: (email: string) => void;
   busy: boolean;
 }) {
@@ -3817,6 +3840,7 @@ function UnlinkedRow({
         <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           id={`unlinked-email-${row.id}`}
+          disabled={busy}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onBlur={() => { if (dirty) onEmailChange(email); }}
@@ -3827,10 +3851,11 @@ function UnlinkedRow({
         Added {new Date(row.created_at).toLocaleDateString()}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <div className="mt-3 flex flex-col flex-wrap gap-2 sm:flex-row">
         <Button onClick={onRetry} disabled={busy} variant="outline" className="h-11 w-full border-primary/50 text-primary sm:w-auto">
           <Link2 className="mr-1 h-4 w-4" /> Retry link
         </Button>
+        <ConvertImportButton onClick={onConvert} busy={busy || dirty} />
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" disabled={busy} className="h-11 w-full sm:w-auto">

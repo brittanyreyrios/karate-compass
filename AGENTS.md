@@ -82,3 +82,5 @@ Note: the `album-covers` entry above says file size and MIME types are enforced 
 
 - Signup claim intent is stored in private pending_student_claims and consumed once through an authenticated RPC after profile creation; this survives cross-device email confirmation without exposing codes.
 - Parent claim UI shares claim_student and invalidates family/leaderboard queries; assignment and rate limits remain database-owned.
+- Audit conversion uses an admin-checked database RPC with per-row rollback and serialized duplicate checks; successful rows alone leave the audit.
+- Converted-import email references live in an admin-only table and link through deferred confirmed-sign-in processing, never signup; assignment triggers delete stale references so later email matches cannot move claimed students.

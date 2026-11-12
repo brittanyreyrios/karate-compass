@@ -1,0 +1,2 @@
+REVOKE ALL ON public.unclaimed_student_parent_links FROM PUBLIC, anon;
+COMMENT ON TABLE public.unclaimed_student_parent_links IS 'Admin-only converted import email references. Anonymous privileges explicitly revoked; parent reads denied by RLS; linking requires confirmed authenticated identity.';

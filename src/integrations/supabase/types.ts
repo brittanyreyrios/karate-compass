@@ -1409,6 +1409,35 @@ export type Database = {
           },
         ]
       }
+      unclaimed_student_parent_links: {
+        Row: {
+          created_at: string
+          parent_email: string
+          source_class_name: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          parent_email: string
+          source_class_name: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          parent_email?: string
+          source_class_name?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unclaimed_student_parent_links_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1475,8 +1504,13 @@ export type Database = {
           student_count: number
         }[]
       }
+      convert_pending_student_imports: {
+        Args: { _ids: string[] }
+        Returns: Json
+      }
       division_of: { Args: { _student_id: string }; Returns: string }
       divisions_of: { Args: { _student_id: string }; Returns: string[] }
+      finish_confirmed_student_email_links: { Args: never; Returns: Json }
       finish_pending_student_claim: { Args: never; Returns: Json }
       get_curriculum_for_all_children: {
         Args: never

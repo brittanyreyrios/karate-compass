@@ -33,21 +33,22 @@ Create a separate `public.unclaimed_student_parent_links` table, not an email fi
 
 Explicit grants and RLS allow **only admins** to read/manage these references; anonymous callers have no access and ordinary parents cannot read them. The signup trigger accesses them privately. No parent query, view, result, or log exposes the email. Add a normalized-email index. Remove the reference when the student is assigned to any family, including a claim-code claim or staff reassignment, so an old email can never move an already claimed child.
 
-## How signup auto-linking works
-Extend `handle_new_user` narrowly; preserve its existing invite-or-claim gate, profile/parent-role creation, parked-import linking, pending claim intent, and secondary-guardian handling.
+## How confirmed-sign-in auto-linking works
+Leave `handle_new_user` unchanged: its existing invite-or-claim gate, profile/parent-role creation, parked-import linking, pending claim intent, and secondary-guardian handling remain intact. Converted rows are no longer parked imports, so signup must not assign these children.
 
-After the new profile exists:
-1. Match private references by `lower(btrim(NEW.email))` and lock the referenced students.
-2. Link **only students still having `parent_id IS NULL`** to `NEW.id`; never replace an existing parent or guardian.
-3. Set `claimed_at` for the assignment. Existing student triggers clear the claim code and create the primary guardian link.
-4. Remove the consumed private reference. Keep the same student ID, enrollment, start date, belt, attendance events/count, points/events, and staff provenance—do not create a second student.
+Extend the existing deferred first-sign-in processing with a private email-link RPC:
+1. Require an authenticated caller and derive the email and confirmation state from the trusted auth account, never from client input or editable profile metadata. Reject unconfirmed callers.
+2. Match private references by the confirmed account's trimmed/lowercase email and lock the referenced students.
+3. Link **only students still having `parent_id IS NULL`** to the confirmed caller; never replace an existing parent or guardian.
+4. Set `claimed_at`. Existing student triggers clear the claim code and create the primary guardian link.
+5. Remove consumed references. Keep the same student ID, enrollment, start date, belt, attendance events/count, points/events, and staff provenance—do not create a second student.
 
-This runs at account creation, like parked imports today; email confirmation still prevents sign-in until confirmed. A matching stored email does **not** become a third signup credential: the parent still needs the existing invite or claim code.
+An unconfirmed signup with a matching email leaves the child unclaimed and the private reference in place. The link happens only after confirmation and successful sign-in, through the same deferred orchestration used for pending claims. A matching email does **not** become a third signup credential; the parent still needs the existing invite or claim code.
 
-Use a shared normalized-email transaction lock in conversion and the new signup-link block, plus student locks, to avoid a signup/conversion race. If the matching account predates conversion, keep the student unclaimed and flag **Account already exists — link through the existing family action**; conversion must not silently assign them. Preserve signup on an unexpected linking error, retain the reference for staff follow-up, and log no email or claim code.
+Use a shared normalized-email transaction lock in conversion and deferred linking, plus student locks, to avoid races. If the account predates conversion, keep the child unclaimed; a confirmed account can link on its next sign-in, while an unconfirmed account cannot. On linking errors preserve the reference for retry, return a generic family-facing failure, and log no email or claim code.
 
 ## Technical implementation
-- Add the private reference table, grants/RLS/indexes, admin-only conversion RPC, reference cleanup trigger, and the targeted `handle_new_user` extension in one additive platform migration in authoritative `drizzle/migrations/`. Leave frozen migration history untouched.
+- Add the private reference table, grants/RLS/indexes, admin-only conversion RPC, reference cleanup trigger, and confirmed-email deferred-link RPC in one additive platform migration in authoritative `drizzle/migrations/`. Leave frozen migration history and `handle_new_user` untouched.
 - Conversion RPC uses an explicit `has_role(auth.uid(), 'admin')` check, a fixed search path, authenticated execute grant, no anonymous execute, and per-row exception isolation. Database logic owns atomicity and duplicate checks; no client-side insert/delete chain.
 - Keep UI/result handling in a focused audit-conversion module using existing dialogs/buttons and query invalidation patterns. Do not rewrite other staff screens.
 - Record transaction/private-storage boundaries in `AGENTS.md` during implementation. Add focused rule tests and opt-in fixture-only integration coverage next to existing tests.
@@ -58,7 +59,7 @@ Use a shared normalized-email transaction lock in conversion and the new signup-
 - Use the dedicated staff fixture for every admin check; it never gets a student. Do not modify the permanent zero-point child.
 - Proposed temporary signup alias: **brittanyreyrios+zzauditconvert@gmail.com**. Approval permits this isolated fixture; first verify it is unused. Use only ZZTEST54 for signup, temporarily enable it, report usage before/after, and disable it immediately. Britt confirms the new account in Cloud → Users; never weaken confirmation or write auth records directly.
 - Through the actual audit, convert a temporary Tiny Tigers pending row, verify source values/private reference/claim code/no-photo state, and check the resulting child in through **Master Attendance**.
-- Sign up the fixture parent with that matching email and a normal invite; after confirmation, sign in and verify the same child appears with the same attendance count/events, enrollment, and student ID. Verify the private reference is consumed and parents cannot read that storage.
+- Sign up the fixture parent with that matching email and a normal invite; before confirmation, verify the child remains unclaimed and the private reference remains. After Britt confirms the email, sign in and verify the same child appears with the same attendance count/events, enrollment, and student ID. Verify the private reference is consumed and parents cannot read that storage.
 - Test one no-match conversion and **In no class** result, likely-duplicate skips (including repeated/bulk conversion), bulk count confirmation/mixed results, rollback on enrollment failure, and refusal of non-admin conversion. Check signup-by-claim and staff reassignment remove stale email references without changing those flows.
 - Remove all temporary pending rows, students and dependent records, references, and accounts using the existing approved deletion workflow. Report anything waiting on owner confirmation rather than claiming completion.
 - Compare the original 138 students/138 links and original pending imports/enrollments against the baseline after cleanup. Today's student fingerprint: `7eb1858d85b6e50fcdea68ec28faec1f`; guardian fingerprint: `50deda8c30f12d81364d0229aa70d488`.
