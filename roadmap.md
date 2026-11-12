@@ -70,5 +70,6 @@
 - [x] Add claim-gated signup, deferred claim, and Add my child.
 - [x] Exclude unclaimed students from family-visible lists.
 - [x] Existing-parent browser flow, signup gate/refusal tests, invite-only signup, rapid failure block, and live regression test.
-- [ ] New-parent first-login verification and final cleanup — waiting for owner confirmation of the temporary claim-test account.
-- [ ] Deep scan result — waiting for the requested background scan.
+- [x] New-parent first-login verification and final cleanup — owner confirmed; actual sign-in automatically linked the child with 3 classes and 5 points; reload retained the child and pending intent was consumed once. Temporary child/account and dependent rows removed.
+- [x] Deep scan result — completed with no app-code findings and the same 10 known database findings.
+- [x] Final follow-up: ZZTEST54 explicitly disabled, still 7/20; all 138 student rows and 138 guardian links match baseline fingerprints; bad/used signup UI refusals and bad/used/no-code server refusals match. No dependency changes.
