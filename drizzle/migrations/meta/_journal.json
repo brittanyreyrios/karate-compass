@@ -78,6 +78,13 @@
       "when": 1794441395803,
       "tag": "0010_unclaimed_students_claim_security",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794442975623,
+      "tag": "0011_claim_attempts_revoke_writes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { PostImagePicker, useDraftImageCleanup } from "@/components/post-image";
+import { csvCell } from "@/lib/csv-safe";
 import { deletePostImageObject } from "@/lib/post-images";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -347,7 +348,7 @@ function AdminPollCard({ poll }: { poll: Poll }) {
       "family,email,student,answer,voted_at",
       ...rows.map((r) =>
         [r.family_name ?? "", r.email, r.student_name ?? "", r.option_label, r.voted_at]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .map(csvCell)
           .join(","),
       ),
     ].join("\n");

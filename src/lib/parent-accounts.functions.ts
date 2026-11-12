@@ -362,10 +362,7 @@ export const changeParentEmail = createServerFn({ method: "POST" })
         email: newEmail,
         email_confirm: true,
       });
-      console.log("[r60] updateUserById", JSON.stringify({
-        error: authErr ? { message: authErr.message, status: authErr.status, code: (authErr as { code?: string }).code } : null,
-        user: upd?.user ? { id: upd.user.id, email: upd.user.email, email_confirmed_at: upd.user.email_confirmed_at, new_email: (upd.user as { new_email?: string }).new_email ?? null } : null,
-      }));
+      console.log("[r60] login update", JSON.stringify({ userId: data.profileId, ok: !authErr, code: authErr ? (authErr as { code?: string }).code ?? authErr.status ?? null : null }));
       if (authErr) {
         const dupAuth = /already|registered|exists/i.test(authErr.message);
         throw new Error(
@@ -386,7 +383,7 @@ export const changeParentEmail = createServerFn({ method: "POST" })
       outOfStep =
         `OUT OF STEP: the login is now ${newEmail}, but the admin panel still shows ${profile.email} (${profErr.message}). ` +
         `Run the same change again to finish it.`;
-      console.error("[r60]", outOfStep);
+      console.error("[r60] profile update", JSON.stringify({ userId: data.profileId, ok: false }));
     }
 
     // Step 3 — audit (change stands even if this fails; reported).
@@ -436,11 +433,11 @@ export const changeParentEmail = createServerFn({ method: "POST" })
         },
         { apiKey, sendUrl: process.env["LOVABLE_SEND_URL"] },
       );
-      console.log("[r60] notification", JSON.stringify(res));
+      console.log("[r60] notification", JSON.stringify({ userId: data.profileId, ok: !!res?.success }));
       notification = { sent: !!res?.success, detail: res?.message_id ?? res?.status ?? "" };
     } catch (e) {
       notification = { sent: false, detail: e instanceof Error ? e.message : String(e) };
-      console.error("[r60] notification failed", notification.detail);
+      console.error("[r60] notification", JSON.stringify({ userId: data.profileId, ok: false }));
     }
 
     return {
