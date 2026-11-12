@@ -75,7 +75,8 @@
 - [x] Final follow-up: ZZTEST54 explicitly disabled, still 7/20; all 138 student rows and 138 guardian links match baseline fingerprints; bad/used signup UI refusals and bad/used/no-code server refusals match. No dependency changes.
 
 ## Audit conversion — approved
-- [ ] Convert one/all pending imports atomically with private email references, class matching, duplicate skips, and results.
-- [ ] Link private email references only on confirmed first sign-in using deferred claim processing; unconfirmed accounts leave students/references untouched.
-- [ ] Fixture browser test: convert, Master Attendance check-in, unconfirmed signup stays unclaimed, confirmed sign-in links with attendance intact.
-- [ ] Verify privacy/atomicity/duplicates/bulk behavior, original 138 students/links and pending imports; cleanup, ZZTEST54 off, scans, dependency report.
+- [x] Convert one/all pending imports atomically with private email references, class matching, duplicate skips, and results.
+- [x] Link private email references only on confirmed first sign-in using deferred claim processing; unconfirmed accounts leave students/references untouched.
+- [x] Fixture browser test: convert, Master Attendance check-in, unconfirmed signup stays unclaimed, confirmed sign-in links same child with 1 attendance event intact; fixture confirmed during testing.
+- [x] Verify privacy/duplicates/bulk isolation, cleanup, ZZTEST54 off at 8/20; original 138 identities, 138 guardian links, enrollments and 49 imports unchanged. Full student fingerprints differ due to concurrent non-fixture staff attendance/absence/points activity; no live counters restored. Enrollment-write fault injection not performed on shared live database.
+- [ ] Security quick/deep scans and final report.
