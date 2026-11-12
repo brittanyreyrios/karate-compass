@@ -85,6 +85,13 @@
       "when": 1794442975623,
       "tag": "0011_claim_attempts_revoke_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794443342748,
+      "tag": "0012_restrict_division_functions",
+      "breakpoints": true
     }
   ]
 }
