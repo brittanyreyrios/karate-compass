@@ -79,3 +79,6 @@ Note: the `album-covers` entry above says file size and MIME types are enforced 
 - Keep claim generation and assignment in database triggers/RPC, with durable JSON failures and per-user advisory locking, because raised errors roll back rate-limit logs.
 - Guardian reads require a non-null main parent; preserve secondary guardian links on claimed students so unclaimed records never become parent-visible.
 - Live claim integration tests are opt-in and use private session files under /tmp/browser with exact dedicated fixture identities; this prevents accidental tests against real families.
+
+- Signup claim intent is stored in private pending_student_claims and consumed once through an authenticated RPC after profile creation; this survives cross-device email confirmation without exposing codes.
+- Parent claim UI shares claim_student and invalidates family/leaderboard queries; assignment and rate limits remain database-owned.

@@ -137,6 +137,7 @@ function PollCard({ poll }: { poll: Poll }) {
       const { data, error } = await supabase
         .from("students")
         .select("id, first_name, last_name")
+        .not("parent_id", "is", null)
         .eq("active", true)
         .order("first_name");
       if (error) throw error;

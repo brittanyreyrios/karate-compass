@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MEDIA_RELEASE_VERSION } from "@/routes/media-release";
+import { SIGNUP_FAILURE } from "@/lib/student-claims";
 import { EMAIL_TLD_MESSAGE, isEmailWithTld } from "@/lib/email-check";
 import { authErrorMessage, isEmailNotConfirmed } from "@/lib/auth-errors";
 import {
@@ -24,6 +25,7 @@ const searchSchema = z.object({
   // raw z.string() would throw and land the family on the error boundary. Coerce,
   // and degrade malformed values to undefined so the parent can still type by hand.
   invite: z.coerce.string().trim().max(64).optional().catch(undefined),
+  claim: z.coerce.string().trim().max(64).optional().catch(undefined),
   // Set by the app-wide session-loss handler so the bounce reads as an explanation
   // rather than as one more thing that broke.
   /*
@@ -62,8 +64,7 @@ type InviteState = "idle" | "checking" | "valid" | "invalid";
 // src/lib/auth-errors.ts so the new-password page shares exactly this wording.
 
 
-const GENERIC_SIGNUP =
-  "We couldn't create your account just now. Please try again, or contact the front desk if it keeps happening.";
+const GENERIC_SIGNUP = SIGNUP_FAILURE;
 const GENERIC_SIGNIN =
   "We couldn't sign you in just now. Please try again, or contact the front desk if it keeps happening.";
 const GENERIC_RESET =
@@ -75,14 +76,15 @@ const RESEND_COOLDOWN_MS = 60_000;
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { invite: invitedCode, expired: expiredParam } = Route.useSearch();
+  const { invite: invitedCode, claim: claimedCode, expired: expiredParam } = Route.useSearch();
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  const [tab, setTab] = useState<"signin" | "signup">(invitedCode ? "signup" : "signin");
+  const [tab, setTab] = useState<"signin" | "signup">(invitedCode || claimedCode ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [inviteCode, setInviteCode] = useState(invitedCode?.toUpperCase() ?? "");
+  const [claimCode, setClaimCode] = useState(claimedCode?.toUpperCase() ?? "");
   const [inviteState, setInviteState] = useState<InviteState>("idle");
   const [consent, setConsent] = useState(false);
   // Pre-selected ON, shown to the parent on the form (Section F2). Optional.
@@ -182,10 +184,8 @@ function AuthPage() {
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = inviteCode.trim();
-    if (!clean) return toast.error("An invite code is required to create an account.");
-    if (inviteState === "invalid") {
-      return toast.error("That invite code isn't valid. Ask a Tiger's Den staff member for a new one.");
-    }
+    if (!clean && !claimCode.trim()) return toast.error(GENERIC_SIGNUP);
+    if (!claimCode.trim() && inviteState === "invalid") return toast.error(GENERIC_SIGNUP);
     if (!consent) {
       return toast.error(
         "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
@@ -208,6 +208,7 @@ function AuthPage() {
         data: {
           family_name: familyName.trim(),
           invite_code: clean,
+          claim_code: claimCode.trim().toUpperCase(),
           photo_consent: photoConsent,
           // The Media Release is now accepted by every new account (required checkbox),
           // independently of the display preference above.
@@ -217,27 +218,7 @@ function AuthPage() {
     });
     setLoading(false);
 
-    if (error) {
-      const recognised = /invite code/i.test(error.message) || /already registered/i.test(error.message);
-      // Round 64 — a code used up between the pre-check and submit makes the
-      // signup trigger refuse with a generic 500. Re-check the code to name it.
-      if (!recognised) {
-        const { data: stillValid, error: checkErr } = await supabase.rpc("check_invite_code", { _code: clean });
-        if (!checkErr && stillValid === false) {
-          setInviteState("invalid");
-          return toast.error(
-            "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one.",
-          );
-        }
-      }
-      return toast.error(
-        /invite code/i.test(error.message)
-          ? "That invite code is invalid, expired, or already used. Ask a Tiger's Den staff member for a new one."
-          : /already registered/i.test(error.message)
-          ? "An account already exists for that email. Try signing in, or reset your password."
-          : authErrorMessage(error, GENERIC_SIGNUP),
-      );
-    }
+    if (error) return toast.error(GENERIC_SIGNUP);
 
     if (data.session) {
       toast.success("Welcome to the Tiger's Den Parent Portal!");
@@ -439,7 +420,7 @@ function AuthPage() {
                       <Input
                         id="invite"
                         name="invite-code"
-                        required
+                        required={!claimCode.trim()}
                         value={inviteCode}
                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                         placeholder="e.g. TIGER123"
@@ -474,8 +455,13 @@ function AuthPage() {
                         ? "That code is invalid, expired or fully used. Ask the front desk for a new one."
                         : invitedCode
                         ? "Code filled in from your invite link."
-                        : "Required. Tiger's Den staff issue an invite code to each enrolled family."}
+                        : "Enter an invite code or your child's claim code."}
                     </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="signup-claim">Child's claim code</Label>
+                    <Input id="signup-claim" name="claim-code" value={claimCode} maxLength={64}
+                      onChange={(e) => setClaimCode(e.target.value.toUpperCase())} autoComplete="off" />
                   </div>
                   <div>
                     <Label htmlFor="family">Family name</Label>
@@ -575,7 +561,7 @@ function AuthPage() {
 
                   <Button
                     type="submit"
-                    disabled={loading || !consent || inviteState === "invalid" || !pwCheck.allPassed}
+                    disabled={loading || !consent || (!claimCode.trim() && inviteState === "invalid") || !pwCheck.allPassed}
                     className="w-full bg-gradient-red"
                   >
                     {loading ? "Creating…" : "Create account"}

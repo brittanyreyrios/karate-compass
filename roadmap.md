@@ -64,7 +64,8 @@
 
 ## Phase 3 — parent claims
 - [x] Diagnose sign-in request failures without changing application code.
-- [ ] Approve Phase 3 plan and isolated inbox alias for signup testing.
+- [x] Approve Phase 3 plan and isolated inbox alias for signup testing.
+- [ ] Verify hosted signup rate limits and uniform generic refused-signup errors (bad/used claim codes included).
 - [ ] Add claim-gated signup, deferred claim, and Add my child.
 - [ ] Exclude unclaimed students from family-visible lists.
 - [ ] Fixture-only verification, owner-confirmed signup, cleanup, scans, dependency/security report.

@@ -689,6 +689,32 @@ export type Database = {
           },
         ]
       }
+      pending_student_claims: {
+        Row: {
+          code: string
+          created_at: string
+          profile_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          profile_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_student_claims_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_student_imports: {
         Row: {
           belt_rank_id: string | null
@@ -1451,6 +1477,7 @@ export type Database = {
       }
       division_of: { Args: { _student_id: string }; Returns: string }
       divisions_of: { Args: { _student_id: string }; Returns: string[] }
+      finish_pending_student_claim: { Args: never; Returns: Json }
       get_curriculum_for_all_children: {
         Args: never
         Returns: {

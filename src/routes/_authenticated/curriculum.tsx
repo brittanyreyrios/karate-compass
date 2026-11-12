@@ -103,6 +103,7 @@ function Curriculum() {
       const { data, error } = await supabase
         .from("students")
         .select("id, first_name, belt_rank_id, created_at")
+        .not("parent_id", "is", null)
         .eq("active", true)
         .order("created_at");
 

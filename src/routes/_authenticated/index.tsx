@@ -1,3 +1,4 @@
+import { AddMyChild } from "@/components/parent-claims";
 import { postImageSrc, usePostImageUrls } from "@/lib/post-images";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -137,6 +138,7 @@ function Dashboard() {
       const { data, error } = await supabase
         .from("students")
         .select("*")
+        .not("parent_id", "is", null)
         .eq("active", true)
         .order("created_at");
 
@@ -383,6 +385,7 @@ function Dashboard() {
           admin to link or reactivate them — their belt, points and attendance history are kept
           safe and their progress reappears here straight away.
         </p>
+        <div className="mt-6"><AddMyChild /></div>
       </div>
     );
   }
@@ -410,6 +413,7 @@ function Dashboard() {
           </h1>
         </div>
 
+        <AddMyChild />
         {students.length > 1 && (
           <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
             <span className="hidden text-xs uppercase tracking-[0.2em] text-muted-foreground sm:inline">Viewing</span>

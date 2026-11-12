@@ -18,6 +18,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { handleSignedOutEvent } from "@/lib/session-loss";
+import { PendingStudentClaim } from "@/components/parent-claims";
 
 function NotFoundComponent() {
   return (
@@ -154,6 +155,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+        <PendingStudentClaim />
       <SidebarProvider>
         <div className="flex min-h-dvh w-full bg-background">
           <AppSidebar />
