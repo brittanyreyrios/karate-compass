@@ -1,3 +1,4 @@
+import { isUnclaimedNoPhotos } from "@/lib/unclaimed";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CameraOff, AlertTriangle, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -55,11 +56,12 @@ export function ChildConsentList({
   profiles,
   links,
 }: {
-  students: { id: string; first_name: string; last_name: string; active: boolean }[];
+  students: { id: string; first_name: string; last_name: string; active: boolean; parent_id?: string | null; created_by_staff?: boolean }[];
   profiles: { id: string; email: string; photo_consent: boolean }[];
   links: { student_id: string; profile_id: string; is_primary: boolean }[];
 }) {
   const q = useStudentPhotoConsent();
+  const unclaimed = students.filter((s) => s.active && isUnclaimedNoPhotos(s));
   const rows = (q.data ?? [])
     .filter((c) => c.no_photos)
     .map((c) => ({ c, s: students.find((s) => s.id === c.student_id) }))
@@ -69,14 +71,23 @@ export function ChildConsentList({
   return (
     <section className="mt-4 rounded-xl border border-yellow-400/40 bg-yellow-400/5 p-4" aria-label="Children who must not be photographed">
       <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
-        <CameraOff className="h-4 w-4" aria-hidden="true" /> No photos — by child ({rows.length})
+        <CameraOff className="h-4 w-4" aria-hidden="true" /> No photos — by child ({rows.length + unclaimed.length})
       </h3>
       {q.isLoading ? (
         <p className="mt-2 text-xs text-muted-foreground">Loading…</p>
-      ) : rows.length === 0 ? (
+      ) : rows.length + unclaimed.length === 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">Every active child may be photographed.</p>
       ) : (
         <ul className="mt-3 space-y-2">
+          {unclaimed.map((s) => (
+            <li key={s.id} className="rounded-lg border border-border bg-background p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{s.first_name} {s.last_name}</span>
+                <NoPhotosMarker />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Unclaimed — no family has given photo permission yet.</p>
+            </li>
+          ))}
           {rows.map(({ c, s }) => (
             <li key={c.student_id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex flex-wrap items-center gap-2">

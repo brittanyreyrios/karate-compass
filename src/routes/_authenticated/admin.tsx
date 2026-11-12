@@ -71,6 +71,7 @@ import {
 } from "@/lib/enrollment";
 import { EnrollmentEditor } from "@/components/admin-enrollment";
 import { UnclaimedBadge, UnclaimedTools, UNCLAIMED_LABEL } from "@/components/admin-unclaimed";
+import { isUnclaimedNoPhotos } from "@/lib/unclaimed";
 import { isRankProgrammeMismatch } from "@/lib/rank-programme";
 import { jiuJitsuAssignmentSummary } from "@/lib/jiu-jitsu-assign";
 import { useServerFn } from "@tanstack/react-start";
@@ -194,6 +195,7 @@ type Student = {
   attendance_count: number;
   parent_id: string | null;
   claim_code: string | null;
+  created_by_staff: boolean;
   active: boolean;
   class_name: string;
   points: number;
@@ -477,7 +479,7 @@ function useStudentsData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("id, first_name, last_name, current_belt, belt_rank_id, personal_test_date, attendance_count, parent_id, claim_code, active, class_name, points, consecutive_absences")
+        .select("id, first_name, last_name, current_belt, belt_rank_id, personal_test_date, attendance_count, parent_id, claim_code, created_by_staff, active, class_name, points, consecutive_absences")
         .order("first_name");
       if (error) throw error;
       return (data ?? []) as Student[];
@@ -692,12 +694,17 @@ function AttendanceTab() {
   const [sessionPoints, setSessionPoints] = useState(0);
   // Round 58: per child, most restrictive guardian wins (same view as Photo Consent).
   const { data: childConsent } = useStudentPhotoConsent();
+  const studentsQ = useStudents();
+  // Staff-created unclaimed children: no family has given permission, so NO photos.
   const noPhotoStudentIds = useMemo(
-    () => new Set((childConsent ?? []).filter((c) => c.no_photos).map((c) => c.student_id)),
-    [childConsent],
+    () =>
+      new Set([
+        ...(childConsent ?? []).filter((c) => c.no_photos).map((c) => c.student_id),
+        ...(studentsQ.data ?? []).filter(isUnclaimedNoPhotos).map((s) => s.id),
+      ]),
+    [childConsent, studentsQ.data],
   );
 
-  const studentsQ = useStudents();
   const classesQ = useClasses();
   const enrollQ = useEnrollments();
   const classes = classesQ.data ?? [];
