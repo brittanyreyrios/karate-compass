@@ -71,7 +71,7 @@ Created with the bucket tool (not a migration). On a fresh database create it ma
 - **File size limit:** 5 MB at bucket level, and 5 MB client-side
 - **Allowed MIME types:** NOT set on the bucket (the agent tooling cannot set it); enforced client-side (`image/jpeg`, `image/png`, `image/webp`), and every upload is re-encoded to JPEG
 
-Policies live in `drizzle/migrations/0007_r59_post_images.sql`: SELECT for any `authenticated` user; INSERT/UPDATE/DELETE for the `admin` role only. Any signed-in user can sign any object, so a scheduled announcement's image is hidden only by its unguessable UUID-prefixed name.
+Post-image SELECT access is publication-aware through the fixed-search-path SECURITY DEFINER helpers in `drizzle/migrations/0017_post_image_publication_access.sql`: admins read all objects; active members read only exact keys referenced by published announcements or polls, because table RLS must not determine the storage lookup. Keep the original admin INSERT/UPDATE/DELETE policies from `0007_r59_post_images.sql` unchanged.
 
 Note: the `album-covers` entry above says file size and MIME types are enforced client-side only. The bucket itself now reads back `file_size_limit` 5242880 and `allowed_mime_types` jpeg/png/webp, so that note is out of date (left unchanged pending review).
 

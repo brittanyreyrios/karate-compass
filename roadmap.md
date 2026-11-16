@@ -1,10 +1,11 @@
 # Roadmap
 
-## Post-image storage security — approval pending
-- [ ] Approve full SQL for active-member helper and publication-aware post-images SELECT policy; no database/app changes before approval.
-- [ ] Apply approved SQL and correct only the explanatory comment in post-images.ts; leave UI, dependencies, admin writes, and unrelated policies untouched.
+## Post-image storage security — approved exactly as written
+- [x] Approve full SQL for active-member helper and publication-aware post-images SELECT policy; approval received 2026-11-16.
+- [x] Apply approved SQL exactly and correct only the explanatory comment in post-images.ts; UI, dependencies, admin writes, and unrelated policies untouched.
 - [ ] Bucket MIME restriction — blocked: supported bucket tools cannot set allowed_mime_types; SQL writes to storage.buckets are prohibited.
-- [ ] Fixture-only published/scheduled/poll signing and listing checks, anonymous denial, cleanup, policy/bucket readback, and security scan.
+- [x] Six fixture-only storage tests passed; four rows/five objects removed; final policy/helpers/bucket read back. Quick scan: nine existing findings, post-images exposure absent.
+- [ ] Deep security scan — start on saved changes; results await background completion.
 
 - [x] Round 45: admin-only "Scheduled" marker on dashboard + Announcements page, badge extracted to one shared component (presentational only, no migration, no filtering).
 - [x] Round 45 follow-up: decide + implement freshness handling so the badge cannot go stale after a post's publish time passes.

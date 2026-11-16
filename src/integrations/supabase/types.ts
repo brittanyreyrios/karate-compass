@@ -1490,6 +1490,7 @@ export type Database = {
         Args: { _delta: number; _reason?: string; _student_id: string }
         Returns: Json
       }
+      can_read_post_image: { Args: { _object_name: string }; Returns: boolean }
       change_attendance: {
         Args: { _delta: number; _student_id: string }
         Returns: Json
@@ -1651,6 +1652,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_member: { Args: never; Returns: boolean }
       is_guardian_of: { Args: { _student_id: string }; Returns: boolean }
       mark_absent: { Args: { _student_id: string }; Returns: Json }
       next_curriculum_sort_order: {

@@ -120,6 +120,13 @@
       "when": 1794526286601,
       "tag": "0016_audit_reference_revoke_anonymous",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794801932712,
+      "tag": "0017_post_image_publication_access",
+      "breakpoints": true
     }
   ]
 }

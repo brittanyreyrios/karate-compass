@@ -12,10 +12,10 @@ import { downscaleImage, isExternalCover, validateCoverFile } from "@/lib/album-
  * gallery_albums.cover_image_url convention exactly:
  *   - a bare storage object key ("<row-uuid>-<timestamp>.jpg") — uploaded image
  *   - an absolute http(s) URL — "already hosted elsewhere" fallback
- * Keys keep the row UUID prefix so they stay unguessable. That matters: the
- * bucket read policy lets ANY signed-in user sign any object in it, so for a
- * scheduled announcement the unguessable name is the only thing hiding its image
- * (RLS hides the row, not the file).
+ * Keys keep the row UUID prefix. The bucket read policy allows staff to read
+ * every object; active members can read/sign only keys attached to an already
+ * published announcement or a published poll. Scheduled announcements,
+ * unpublished polls, and unattached uploads are not readable by non-admins.
  *
  * The bucket has a 5 MB limit. Allowed MIME types are enforced here
  * (validatePostImageFile → jpeg/png/webp) and every upload is re-encoded to JPEG.
