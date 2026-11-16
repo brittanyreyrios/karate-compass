@@ -1,5 +1,11 @@
 # Roadmap
 
+## Post-image storage security — approval pending
+- [ ] Approve full SQL for active-member helper and publication-aware post-images SELECT policy; no database/app changes before approval.
+- [ ] Apply approved SQL and correct only the explanatory comment in post-images.ts; leave UI, dependencies, admin writes, and unrelated policies untouched.
+- [ ] Bucket MIME restriction — blocked: supported bucket tools cannot set allowed_mime_types; SQL writes to storage.buckets are prohibited.
+- [ ] Fixture-only published/scheduled/poll signing and listing checks, anonymous denial, cleanup, policy/bucket readback, and security scan.
+
 - [x] Round 45: admin-only "Scheduled" marker on dashboard + Announcements page, badge extracted to one shared component (presentational only, no migration, no filtering).
 - [x] Round 45 follow-up: decide + implement freshness handling so the badge cannot go stale after a post's publish time passes.
 - [x] Round 50: Winner's Circle — phone row as one aligned unit; collapsed view = exactly one full row via `repeat(auto-fill, minmax(min(<measured>, 100%), 1fr))` with the count read from resolved CSS (sync, pre-paint); comment-only fix at tournament-results-section.tsx:48.
