@@ -1,5 +1,10 @@
 # Roadmap
 
+## Weekly parent dashboard usage — approval pending
+- [x] Review requested minimal scope and prepare full SQL/code diff for approval; no app or database changes.
+- [ ] Approval required before applying one table/two functions, dashboard mount call, staff text line, and privacy sentence.
+- [ ] After approval: fixture tests a–e, cleanup, grants/policies/function readback, quick scan with new/existing findings, and explicit no-dependency-change report.
+
 ## Album-cover storage security — approved exactly as written
 - [x] Approve full SQL reusing is_active_member and restricting album-cover SELECT to admins or active members with exact active-album references.
 - [x] Explain the separate open role-lookup security finding in one or two sentences; left unchanged.
