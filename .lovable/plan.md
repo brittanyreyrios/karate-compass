@@ -1,34 +1,15 @@
-# Post-image storage access security
+# Album-cover storage access security
 
 ## Scope — approval required
-Restrict new reads and signed-link creation in the private **post-images** bucket to staff or active members viewing published posts. No database or application changes until approval. Leave UI, dependencies, album covers, and all existing admin INSERT/UPDATE/DELETE policies unchanged. The only application edit will be the requested explanatory comment in `src/lib/post-images.ts`.
+Restrict reads and new signed-link creation in the private **album-covers** bucket. No database or application changes before approval. Reuse `public.is_active_member()` unchanged. Leave UI, dependencies, all admin INSERT/UPDATE/DELETE policies, and every unrelated policy unchanged.
 
-Read-only inspection confirms the current SELECT policy permits every authenticated user to read every object in this bucket. The bucket is private, its size limit is 5 MB, and `allowed_mime_types` is null. Neither proposed helper already exists.
+Read-only inspection confirms the current SELECT policy permits every authenticated user to read every bucket object. `can_read_album_cover` does not exist. The bucket is private, its limit is **5 MB (5242880 bytes)**, and its MIME list already contains `image/jpeg`, `image/png`, and `image/webp`. No bucket-setting change or workaround is needed or proposed.
 
 ## Full SQL for approval
-Apply exactly this through the platform migration tool into authoritative `drizzle/migrations/`; do not add to frozen `supabase/migrations/`. No table or data changes.
+Apply exactly this SQL through the platform migration tool into authoritative `drizzle/migrations/`, never frozen `supabase/migrations/`.
 
 ```sql
-CREATE OR REPLACE FUNCTION public.is_active_member()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $function$
-  SELECT COALESCE(public.has_role(auth.uid(), 'admin'::public.app_role), false)
-    OR EXISTS (
-      SELECT 1
-      FROM public.profiles AS p
-      WHERE p.id = auth.uid()
-        AND p.archived_at IS NULL
-    );
-$function$;
-
-REVOKE ALL ON FUNCTION public.is_active_member() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.is_active_member() TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.can_read_post_image(_object_name text)
+CREATE OR REPLACE FUNCTION public.can_read_album_cover(_object_name text)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -38,64 +19,64 @@ AS $function$
   SELECT COALESCE(public.has_role(auth.uid(), 'admin'::public.app_role), false)
     OR (
       public.is_active_member()
-      AND (
-        EXISTS (
-          SELECT 1
-          FROM public.announcements AS a
-          WHERE a.image_url = _object_name
-            AND (a.publish_at IS NULL OR a.publish_at <= now())
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM public.polls AS p
-          WHERE p.image_url = _object_name
-            AND p.published = true
-        )
+      AND EXISTS (
+        SELECT 1
+        FROM public.gallery_albums AS a
+        WHERE a.cover_image_url = _object_name
+          AND a.active = true
       )
     );
 $function$;
 
-REVOKE ALL ON FUNCTION public.can_read_post_image(text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.can_read_post_image(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.can_read_album_cover(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.can_read_album_cover(text) TO authenticated;
 
-DROP POLICY "Signed-in users can read post images" ON storage.objects;
+DROP POLICY "Signed-in users can read album covers" ON storage.objects;
 
-CREATE POLICY "Signed-in users can read post images"
+CREATE POLICY "Signed-in users can read album covers"
 ON storage.objects
 FOR SELECT
 TO authenticated
 USING (
-  bucket_id = 'post-images'
-  AND public.can_read_post_image(name)
+  bucket_id = 'album-covers'
+  AND public.can_read_album_cover(name)
 );
 ```
 
-Both helpers derive identity from `auth.uid()`, not caller-provided user IDs. The SECURITY DEFINER lookup deliberately bypasses announcement/poll table RLS without returning their contents. Exact bare-key matching is required. Staff can read all bucket objects, including drafts and unattached uploads; non-admin members cannot read unattached images, scheduled announcement images, or unpublished poll images. If a key is also attached to any published post, it is readable as requested. No anonymous helper execution or anonymous SELECT access is introduced.
+The helper derives the caller from `auth.uid()`. Its fixed-search-path SECURITY DEFINER lookup checks album state independently of gallery table read policies and returns only a boolean. Matching is exact equality to the bare storage key: no URL conversion, prefix matching, or fuzzy matching. A key attached to any active album is readable to active members; inactive-only and unattached keys are not. Admins retain access to all objects. PUBLIC and anonymous execution are revoked; authenticated execution is granted. Existing `is_active_member` and `has_role` definitions/privileges stay unchanged.
 
-## Bucket MIME restriction — supported-tool blocker
-Requested values: `image/jpeg`, `image/png`, `image/webp`.
+## Comment-only application edit
+In `src/lib/album-covers.ts`, correct the introductory description to state that staff can read every cover and active members can read only covers attached to active albums. Preserve all executable code, signing lifetime, caching, filename format, uploads, and deletes. No other application-code edit.
 
-The available bucket-update tool cannot set `allowed_mime_types`; it supports only public/private and size limits. Platform rules prohibit SQL updates to `storage.buckets`, so no such statement is included or will be attempted. This part remains blocked pending a supported bucket MIME-setting capability. Existing client validation and JPEG re-encoding remain unchanged. Approval of this plan permits the access-policy fix, not an unsupported workaround.
+## Fixture tests after approval
+Use only the permanent `zz.test.negative` parent and approved `zzstaff` account. No signup, invite use, real-family account testing, or permanent-child changes.
 
-## Comment-only application correction
-Replace the old claim that unguessable names are the only protection with an explanation of staff access and active-member publication checks. Preserve the existing filename format, signing lifetime, caching, upload, and delete code. Do not claim bucket MIME enforcement until it reads back successfully.
+Through staff-authorized APIs create uniquely marked temporary active and inactive albums plus their JPEG objects, and one unattached JPEG to verify orphan protection. Record exact album IDs and object keys in a private temporary manifest before testing. Capture the original object inventory and policy/helper definitions for comparisons.
 
-## Fixture-only tests and cleanup after approval
-Use only the permanent `zz.test.negative` parent and approved `zzstaff` account. No signup, invite use, real family tests, or permanent child changes.
+Report each result separately:
 
-Create uniquely marked temporary published/scheduled announcements, published/unpublished polls, and JPEG objects through staff-authorized APIs; keep scheduled announcement dates in 2099. Use distinctive keys and record exact fixture IDs for cleanup.
+**a. Parent, active cover:** `createSignedUrls` returns a usable link; fetching it returns the JPEG successfully.
 
-Report each requested result separately:
-1. Parent `createSignedUrls` for a published announcement image succeeds, and the returned link retrieves the image.
-2. Parent `createSignedUrls` for the known 2099 announcement image key fails to return a usable link; inspect per-object errors, not only HTTP status.
-3. Parent `list()` exposes only published-post objects; page through results and verify each returned key against publication state without displaying real content.
-4. Staff signs both keys successfully and lists all objects, including the hidden fixture images.
-5. Signed-out signing, listing, and private-object download fail to expose any object.
-6. Additional fixture assertions verify published-poll access succeeds and unpublished-poll access fails.
+**b. Parent, inactive cover:** inspect the per-object result/error and verify there is no usable link, regardless of overall HTTP status. Also verify the unattached JPEG is denied.
 
-Keep small opt-in integration tests next to existing tests. Remove every newly created fixture row/object, leaving permanent accounts and child untouched. Read back the exact final storage policies, helper privileges, private bucket setting, 5 MB limit, and MIME values; compare admin writes and unrelated policies byte-for-byte with the baseline. Run the security scan and report new versus existing findings, without dismissals.
+**c. Parent, listing:** page through `list()` results, descending into folders if present; check each returned object key against the active-album reference set obtained through staff-authorized reads. Inactive and unattached fixture keys must be absent. Do not reproduce real album content in the report.
 
-Existing signed URLs are not revoked by this policy change and may remain usable until their current one-hour expiry; changing that lifetime is out of scope.
+**d. Staff:** sign and retrieve both active/inactive covers; page through all objects and compare with the original inventory plus every fixture object, including inactive and unattached JPEGs.
 
-## Dependency and credential report
-No dependency changes will be made for this request. `package.json` currently has no working-tree diff; `bun.lock` already has an unrelated pre-existing config-package change from 2.26.5 to 2.27.1. Leave it untouched and outside the request's commits. No credentials will be committed.
+**e. Signed out:** signing yields no usable links, listing exposes no objects (an empty response is an acceptable denial), and direct private-object downloads fail for known keys. This does not mean revoking possession of a signed link already issued to an authorized user.
+
+Keep a small opt-in integration test next to the existing storage tests and run it against only these fixtures. No dependency additions. Use temporary private session files; never commit tokens or credentials.
+
+## Cleanup, readback, and quick scan
+Delete every temporary album and JPEG through staff-authorized APIs, even after a failed test. Verify recorded IDs/keys are absent and the original object inventory is preserved; permanent fixtures stay untouched.
+
+Read back and report:
+- All final `storage.objects` policies; compare admin album-cover INSERT/UPDATE/DELETE and every unrelated policy byte-for-byte with the baseline.
+- New helper definition, STABLE/security-definer/fixed-search-path settings, authenticated EXECUTE allowed, anonymous/PUBLIC EXECUTE absent.
+- Existing `is_active_member` definition and privileges unchanged.
+- Bucket remains private with the 5 MB limit; report existing MIME list without modifying it.
+
+Run the quick security scan and report new versus existing findings without dismissing or marking any finding. Document `package.json` and `bun.lock` diffs explicitly: **no dependency changes**. Verify no credentials committed. Drizzle is used because it is the project's authoritative, platform-managed migration history; the frozen earlier folder remains untouched.
+
+## Known limitation — unchanged
+Already-issued signed links can remain usable until their existing one-hour expiry, including after an album becomes inactive. This database policy restricts subsequent reads and link creation; changing signed-link lifetime is outside this request. Other open security items, including post-image MIME configuration and role lookup, are untouched.

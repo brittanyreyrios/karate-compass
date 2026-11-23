@@ -1,5 +1,11 @@
 # Roadmap
 
+## Album-cover storage security — awaiting SQL approval
+- [ ] Approve full SQL reusing is_active_member and restricting album-cover SELECT to admins or active members with exact active-album references.
+- [ ] Apply approved SQL through platform migration tool to drizzle/migrations; comment-only album-covers.ts correction, no UI/dependency/unrelated policy changes.
+- [ ] Run five separately reported fixture-only access tests, clean up all temporary albums/objects, and read back policies/helper privileges/private 5 MB bucket.
+- [ ] Quick security scan: report new versus existing findings without dismissals; package.json/bun.lock diff and credential check.
+
 ## Post-image storage security — approved exactly as written
 - [x] Approve full SQL for active-member helper and publication-aware post-images SELECT policy; approval received 2026-11-16.
 - [x] Apply approved SQL exactly and correct only the explanatory comment in post-images.ts; UI, dependencies, admin writes, and unrelated policies untouched.
