@@ -1,17 +1,18 @@
 # Roadmap
 
-## Album-cover storage security — awaiting SQL approval
-- [ ] Approve full SQL reusing is_active_member and restricting album-cover SELECT to admins or active members with exact active-album references.
-- [ ] Apply approved SQL through platform migration tool to drizzle/migrations; comment-only album-covers.ts correction, no UI/dependency/unrelated policy changes.
-- [ ] Run five separately reported fixture-only access tests, clean up all temporary albums/objects, and read back policies/helper privileges/private 5 MB bucket.
-- [ ] Quick security scan: report new versus existing findings without dismissals; package.json/bun.lock diff and credential check.
+## Album-cover storage security — approved exactly as written
+- [x] Approve full SQL reusing is_active_member and restricting album-cover SELECT to admins or active members with exact active-album references.
+- [x] Explain the separate open role-lookup security finding in one or two sentences; left unchanged.
+- [x] Apply approved SQL exactly through platform migration tool to drizzle/migrations/0018_album_cover_active_album_access.sql; comment-only album-covers.ts correction, no UI/dependency/unrelated policy changes.
+- [x] Five fixture-only access tests passed separately; two temporary albums/three JPEGs removed; original albums/object inventory/permanent child unchanged; policies/helper privileges/private 5 MB bucket read back.
+- [x] Quick security scan: album-cover exposure absent, no new findings; eight existing reference findings (one warning/seven notices), no dismissals; package.json/bun.lock unchanged, no private credentials committed.
 
 ## Post-image storage security — approved exactly as written
 - [x] Approve full SQL for active-member helper and publication-aware post-images SELECT policy; approval received 2026-11-16.
 - [x] Apply approved SQL exactly and correct only the explanatory comment in post-images.ts; UI, dependencies, admin writes, and unrelated policies untouched.
 - [ ] Bucket MIME restriction — blocked: supported bucket tools cannot set allowed_mime_types; SQL writes to storage.buckets are prohibited.
 - [x] Six fixture-only storage tests passed; four rows/five objects removed; final policy/helpers/bucket read back. Quick scan: nine existing findings, post-images exposure absent.
-- [ ] Deep security scan — start on saved changes; results await background completion.
+- [x] Deep security scan completed and results reviewed; prior image-link expiry and role-lookup warnings remain outside the album-cover policy fix.
 
 - [x] Round 45: admin-only "Scheduled" marker on dashboard + Announcements page, badge extracted to one shared component (presentational only, no migration, no filtering).
 - [x] Round 45 follow-up: decide + implement freshness handling so the badge cannot go stale after a post's publish time passes.
@@ -93,4 +94,4 @@
 - [x] Fixture browser test: convert, Master Attendance check-in, unconfirmed signup stays unclaimed, confirmed sign-in links same child with 1 attendance event intact; fixture confirmed during testing.
 - [x] Verify privacy/duplicates/bulk isolation, cleanup, ZZTEST54 off at 8/20; original 138 identities, 138 guardian links, enrollments and 49 imports unchanged. Full student fingerprints differ due to concurrent non-fixture staff attendance/absence/points activity; no live counters restored. Enrollment-write fault injection not performed on shared live database.
 - [x] Quick scan: same 10 known findings (2 errors, 2 warnings, 6 notices); verification report saved, no dependency changes.
-- [ ] Deep scan results — background scan running; awaiting completion notification.
+- [x] Deep scan results reviewed and reported; no audit-conversion finding, previous storage/reference findings retained without dismissals.

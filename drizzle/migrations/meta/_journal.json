@@ -127,6 +127,13 @@
       "when": 1794801932712,
       "tag": "0017_post_image_publication_access",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795397905322,
+      "tag": "0018_album_cover_active_album_access",
+      "breakpoints": true
     }
   ]
 }

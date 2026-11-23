@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
  * Album cover photos live in the private `album-covers` bucket.
  *
  * The bucket is PRIVATE because this workspace blocks public buckets, so covers
- * are read through short-lived signed URLs by signed-in families only. Admins are
- * the only role that can upload, replace or delete an object.
+ * are read through short-lived signed URLs. Staff can read every cover; active
+ * members can read only covers attached to active albums. Admins are the only
+ * role that can upload, replace or delete an object.
  *
  * `gallery_albums.cover_image_url` therefore holds one of two things:
  *   - a bare storage object key ("<album-uuid>-<timestamp>.jpg") — uploaded cover

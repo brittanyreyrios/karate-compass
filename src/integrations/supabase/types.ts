@@ -1490,6 +1490,7 @@ export type Database = {
         Args: { _delta: number; _reason?: string; _student_id: string }
         Returns: Json
       }
+      can_read_album_cover: { Args: { _object_name: string }; Returns: boolean }
       can_read_post_image: { Args: { _object_name: string }; Returns: boolean }
       change_attendance: {
         Args: { _delta: number; _student_id: string }
