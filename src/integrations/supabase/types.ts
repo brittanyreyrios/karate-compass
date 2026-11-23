@@ -657,6 +657,29 @@ export type Database = {
         }
         Relationships: []
       }
+      parent_activity_days: {
+        Row: {
+          activity_date: string
+          profile_id: string
+        }
+        Insert: {
+          activity_date: string
+          profile_id: string
+        }
+        Update: {
+          activity_date?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_activity_days_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_guardian_links: {
         Row: {
           created_at: string
@@ -1633,6 +1656,15 @@ export type Database = {
           video_youtube_id: string
         }[]
       }
+      get_weekly_active_parents: {
+        Args: { _weeks?: number }
+        Returns: {
+          active_parents: number
+          eligible_parents: number
+          pct: number
+          week_start: string
+        }[]
+      }
       get_winners_circle: {
         Args: { _limit?: number }
         Returns: {
@@ -1655,6 +1687,7 @@ export type Database = {
       }
       is_active_member: { Args: never; Returns: boolean }
       is_guardian_of: { Args: { _student_id: string }; Returns: boolean }
+      log_dashboard_open: { Args: never; Returns: undefined }
       mark_absent: { Args: { _student_id: string }; Returns: Json }
       next_curriculum_sort_order: {
         Args: { _belt_rank_id: string; _curriculum_tier: string }

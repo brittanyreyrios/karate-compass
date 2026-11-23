@@ -329,6 +329,24 @@ const ADMIN_TABS: { value: string; label: string }[] = [
 ];
 
 function AdminPage() {
+  const activityQ = useQuery({
+    queryKey: ["weekly-active-parents"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_weekly_active_parents", { _weeks: 8 });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const activityWeeks = activityQ.data ?? [];
+  const lastWeek = activityWeeks[0];
+  const fourWeeks = activityWeeks.slice(0, 4);
+  const fourWeekAverage = fourWeeks.length === 4 && fourWeeks.every((week) => week.pct !== null)
+    ? (fourWeeks.reduce((sum, week) => sum + Number(week.pct), 0) / 4).toFixed(1) + "%"
+    : "—";
+  const activityText = activityQ.isPending ? "Loading parent activity…"
+    : activityQ.isError ? "Parent activity unavailable"
+    : !lastWeek ? "Not enough data yet"
+    : `Parents active last week: ${lastWeek.active_parents} of ${lastWeek.eligible_parents} (${lastWeek.pct === null ? "—" : Number(lastWeek.pct).toFixed(1) + "%"}) · 4-week average: ${fourWeekAverage}`;
 
   const [tab, setTab] = useState("attendance");
   const [consentOnly, setConsentOnly] = useState(false);
@@ -348,6 +366,7 @@ function AdminPage() {
           <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-wide sm:text-4xl">
             Staff <span className="text-gradient-red">Dashboard</span>
           </h1>
+          <p className="mt-2 text-sm text-muted-foreground">{activityText}</p>
         </div>
       </header>
 

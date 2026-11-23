@@ -1,9 +1,11 @@
 # Roadmap
 
-## Weekly parent dashboard usage — approval pending
+## Weekly parent dashboard usage — approved exactly as written
 - [x] Review requested minimal scope and prepare full SQL/code diff for approval; no app or database changes.
-- [ ] Approval required before applying one table/two functions, dashboard mount call, staff text line, and privacy sentence.
-- [ ] After approval: fixture tests a–e, cleanup, grants/policies/function readback, quick scan with new/existing findings, and explicit no-dependency-change report.
+- [x] Approval received for SQL/code diff, fixture tests, temporary metadata backdate and exact restore.
+- [x] Applied approved SQL exactly as 0019 and exact three-file code diff; no existing policy changes.
+- [x] Fixture tests a–e passed in initial/historical/restored states; restored exact comment via 0021 and removed all fixture rows. Existing policies identical; quick scan zero new/eight existing findings; no dependency changes. See parent-activity-verification.md.
+- [x] Saved measurement_started_on = 2026-11-22 (Chicago); dashboard changes require publishing, not published automatically.
 
 ## Album-cover storage security — approved exactly as written
 - [x] Approve full SQL reusing is_active_member and restricting album-cover SELECT to admins or active members with exact active-album references.

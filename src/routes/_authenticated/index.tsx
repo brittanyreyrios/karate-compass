@@ -113,6 +113,10 @@ type Announcement = {
 function Dashboard() {
   const qc = useQueryClient();
 
+  useEffect(() => {
+    void supabase.rpc("log_dashboard_open").then(() => {}, () => {});
+  }, []);
+
   const profileQ = useQuery({
     queryKey: ["profile-me"],
     queryFn: async () => {

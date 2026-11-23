@@ -88,6 +88,7 @@ function PrivacyPolicyPage() {
         </div>
 
         <Section n={1} title="Information We Collect">
+          <p>The Portal records the date a parent account opens the dashboard to measure usage, but this measurement does not record location, device, or pages viewed.</p>
           <p className="font-semibold text-foreground">Account holder (parent/guardian):</p>
           <Bullets
             items={[

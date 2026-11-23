@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.parent_activity_days IS '{"measurement_started_on": "2026-11-22"}';

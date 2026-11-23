@@ -134,6 +134,27 @@
       "when": 1795397905322,
       "tag": "0018_album_cover_active_album_access",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795399769570,
+      "tag": "0019_weekly_parent_dashboard_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795399907736,
+      "tag": "0020_parent_activity_fixture_comment_backdate",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795399947953,
+      "tag": "0021_parent_activity_restore_measurement_comment",
+      "breakpoints": true
     }
   ]
 }
