@@ -52,14 +52,30 @@ export const setParentAccountArchived = createServerFn({ method: "POST" })
     // this archive deactivated always has a marker at or after this date.
     const familyArchivedAt = profile.archived_at as string | null;
 
-    // Archiving is state only: it never touches auth settings, so the parent can
-    // still sign in. It just hides the family from the admin's default view and
-    // takes their students out of circulation the same way student archiving does.
+    // Archiving bans sign-in; restoring lifts the ban. The auth change runs
+    // FIRST, so a failed ban/unban leaves the account exactly as it was.
+    const BAN_FOREVER = "876000h"; // ~100 years
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(data.profileId, {
+      ban_duration: data.archived ? BAN_FOREVER : "none",
+    });
+    if (banErr) {
+      throw new Error(
+        data.archived
+          ? `Could not block sign-in, so the account was not archived: ${banErr.message}`
+          : `Could not restore sign-in, so the account was not restored: ${banErr.message}`,
+      );
+    }
     const { error: profileErr } = await supabaseAdmin
       .from("profiles")
       .update({ archived_at: data.archived ? new Date().toISOString() : null })
       .eq("id", data.profileId);
-    if (profileErr) throw new Error(profileErr.message);
+    if (profileErr) {
+      // Undo the auth change so we never leave a half-archived account.
+      await supabaseAdmin.auth.admin.updateUserById(data.profileId, {
+        ban_duration: data.archived ? "none" : BAN_FOREVER,
+      });
+      throw new Error(profileErr.message);
+    }
 
     // Round 63: only children this family archive actually deactivated are ever
     // reactivated by a family restore (deactivated_by_family_archive_at marks them).
@@ -455,4 +471,21 @@ export const changeParentEmail = createServerFn({ method: "POST" })
         return { student_name: s ? `${s.first_name} ${s.last_name}` : "a student" };
       }),
     };
+  });
+
+// ONE-OFF (to be removed after a single run): ban sign-in for profiles already archived.
+export const banArchivedParentAccounts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("profiles").select("id").not("archived_at", "is", null);
+    if (error) throw new Error(error.message);
+    const failed: string[] = [];
+    for (const r of rows ?? []) {
+      const { error: e } = await supabaseAdmin.auth.admin.updateUserById(r.id, { ban_duration: "876000h" });
+      if (e) failed.push(r.id);
+    }
+    return { banned: (rows ?? []).length - failed.length, failed };
   });
