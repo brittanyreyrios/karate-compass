@@ -85,3 +85,4 @@ Note: the `album-covers` entry above says file size and MIME types are enforced 
 - Audit conversion uses an admin-checked database RPC with per-row rollback and serialized duplicate checks; successful rows alone leave the audit.
 - Converted-import email references live in an admin-only table and link through deferred confirmed-sign-in processing, never signup; assignment triggers delete stale references so later email matches cannot move claimed students.
 - Album-cover reads use a fixed-search-path definer helper matching exact active-album keys; this keeps storage access independent of gallery row policies.
+- Archived parents lose access in the database: non-admin read policies and parent read functions check `public.is_active_member()`, and staff archive/restore bans/unbans the auth user before writing `profiles.archived_at`, rolling the ban back on failure so an account is never half-archived.

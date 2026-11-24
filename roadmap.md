@@ -104,6 +104,6 @@
 - [x] Deep scan results reviewed and reported; no audit-conversion finding, previous storage/reference findings retained without dismissals.
 
 ## Archived accounts lose access
-- [ ] Migration 0022 (guardian archived check, policies, read-function guards incl. both curriculum functions)
-- [ ] Ban/unban in archive server function; run banArchivedParentAccounts once then remove it
-- [ ] Fixture tests a–e, cleanup, read-back, quick scan, dependency check
+- [x] Migration 0022 (guardian archived check, policies, read-function guards incl. both curriculum functions)
+- [x] Ban/unban in archive server function; run banArchivedParentAccounts once then remove it
+- [x] Fixture tests a–e, cleanup, read-back, quick scan, dependency check

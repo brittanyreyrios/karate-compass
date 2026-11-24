@@ -472,20 +472,3 @@ export const changeParentEmail = createServerFn({ method: "POST" })
       }),
     };
   });
-
-// ONE-OFF (to be removed after a single run): ban sign-in for profiles already archived.
-export const banArchivedParentAccounts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("profiles").select("id").not("archived_at", "is", null);
-    if (error) throw new Error(error.message);
-    const failed: string[] = [];
-    for (const r of rows ?? []) {
-      const { error: e } = await supabaseAdmin.auth.admin.updateUserById(r.id, { ban_duration: "876000h" });
-      if (e) failed.push(r.id);
-    }
-    return { banned: (rows ?? []).length - failed.length, failed };
-  });
