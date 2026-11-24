@@ -1,5 +1,10 @@
 # Roadmap
 
+## Invite-code enumeration security
+- [x] Approved removal of signup pre-check and revocation from anon, authenticated and PUBLIC after caller inventory.
+- [x] Applied 0023 through platform migration tool; signup layout preserved, pre-check states removed.
+- [x] Four fixture access/signup cases verified; cleanup ran even after a test-selector failure. ZZTEST54 inactive at 9/20, temporary auth/profile removed. Final grants deny anon/authenticated/PUBLIC; quick scan zero new/one existing warning; no dependency changes. See invite-security-verification.md.
+
 ## Weekly parent dashboard usage — approved exactly as written
 - [x] Review requested minimal scope and prepare full SQL/code diff for approval; no app or database changes.
 - [x] Approval received for SQL/code diff, fixture tests, temporary metadata backdate and exact restore.

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { MailCheck, Check, X, Loader2 } from "lucide-react";
+import { MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { clearSessionExpiredNotice, hasSessionExpiredNotice } from "@/lib/session-loss";
@@ -58,8 +58,6 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-type InviteState = "idle" | "checking" | "valid" | "invalid";
-
 // authErrorMessage (and its Round 53 password-policy branch) lives in
 // src/lib/auth-errors.ts so the new-password page shares exactly this wording.
 
@@ -85,7 +83,6 @@ function AuthPage() {
   const [familyName, setFamilyName] = useState("");
   const [inviteCode, setInviteCode] = useState(invitedCode?.toUpperCase() ?? "");
   const [claimCode, setClaimCode] = useState(claimedCode?.toUpperCase() ?? "");
-  const [inviteState, setInviteState] = useState<InviteState>("idle");
   const [consent, setConsent] = useState(false);
   // Pre-selected ON, shown to the parent on the form (Section F2). Optional.
   const [photoConsent, setPhotoConsent] = useState(true);
@@ -129,23 +126,6 @@ function AuthPage() {
     };
   }, [navigate]);
 
-  // Debounced invite-code pre-check so families learn the code is wrong before
-  // filling in the whole form.
-  useEffect(() => {
-    const clean = inviteCode.trim();
-    if (clean.length < 4) {
-      setInviteState("idle");
-      return;
-    }
-    setInviteState("checking");
-    const t = setTimeout(async () => {
-      const { data, error } = await supabase.rpc("check_invite_code", { _code: clean });
-      if (error) return setInviteState("idle");
-      setInviteState(data ? "valid" : "invalid");
-    }, 450);
-    return () => clearTimeout(t);
-  }, [inviteCode]);
-
   const pwCheck = checkPassword(password);
 
   const signIn = async (e: React.FormEvent) => {
@@ -185,7 +165,6 @@ function AuthPage() {
     e.preventDefault();
     const clean = inviteCode.trim();
     if (!clean && !claimCode.trim()) return toast.error(GENERIC_SIGNUP);
-    if (!claimCode.trim() && inviteState === "invalid") return toast.error(GENERIC_SIGNUP);
     if (!consent) {
       return toast.error(
         "Please accept the Terms of Service, Privacy Policy and Media Release to continue.",
@@ -425,35 +404,15 @@ function AuthPage() {
                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                         placeholder="e.g. TIGER123"
                         aria-describedby="invite-help"
-                        aria-invalid={inviteState === "invalid"}
                         className="pr-10 uppercase tracking-widest"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {inviteState === "checking" && (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-                        )}
-                        {inviteState === "valid" && (
-                          <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
-                        )}
-                        {inviteState === "invalid" && <X className="h-4 w-4 text-red-400" aria-hidden="true" />}
-                      </span>
                     </div>
                     <p
                       id="invite-help"
                       aria-live="polite"
-                      className={`mt-1 text-xs ${
-                        inviteState === "invalid"
-                          ? "text-red-300"
-                          : inviteState === "valid"
-                          ? "text-emerald-300"
-                          : "text-muted-foreground"
-                      }`}
+                      className="mt-1 text-xs text-muted-foreground"
                     >
-                      {inviteState === "valid"
-                        ? "Code accepted — finish signing up below."
-                        : inviteState === "invalid"
-                        ? "That code is invalid, expired or fully used. Ask the front desk for a new one."
-                        : invitedCode
+                      {invitedCode
                         ? "Code filled in from your invite link."
                         : "Enter an invite code or your child's claim code."}
                     </p>
@@ -561,7 +520,7 @@ function AuthPage() {
 
                   <Button
                     type="submit"
-                    disabled={loading || !consent || (!claimCode.trim() && inviteState === "invalid") || !pwCheck.allPassed}
+                    disabled={loading || !consent || !pwCheck.allPassed}
                     className="w-full bg-gradient-red"
                   >
                     {loading ? "Creating…" : "Create account"}
