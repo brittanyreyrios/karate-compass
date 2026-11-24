@@ -102,3 +102,8 @@
 - [x] Verify privacy/duplicates/bulk isolation, cleanup, ZZTEST54 off at 8/20; original 138 identities, 138 guardian links, enrollments and 49 imports unchanged. Full student fingerprints differ due to concurrent non-fixture staff attendance/absence/points activity; no live counters restored. Enrollment-write fault injection not performed on shared live database.
 - [x] Quick scan: same 10 known findings (2 errors, 2 warnings, 6 notices); verification report saved, no dependency changes.
 - [x] Deep scan results reviewed and reported; no audit-conversion finding, previous storage/reference findings retained without dismissals.
+
+## Archived accounts lose access
+- [ ] Migration 0022 (guardian archived check, policies, read-function guards incl. both curriculum functions)
+- [ ] Ban/unban in archive server function; run banArchivedParentAccounts once then remove it
+- [ ] Fixture tests a–e, cleanup, read-back, quick scan, dependency check

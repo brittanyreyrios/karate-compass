@@ -161,7 +161,11 @@ $function$;
 `IF NOT public.is_active_member() THEN RETURN; END IF;  -- guard`
 so an archived caller gets no rows instead of the current "Not authorized" error.
 
-`get_curriculum_for_all_children`: unchanged. Every row it returns comes from `WHERE public.is_guardian_of(s.id)`, which now returns false for an archived caller, so it already returns no rows. (Say if you want an explicit guard added anyway.)
+`get_curriculum_for_all_children`: body unchanged except the `kids` filter becomes `WHERE public.is_active_member() AND public.is_guardian_of(s.id)`.
+
+`is_guardian_of`: the current version already requires `s.parent_id IS NOT NULL`, so that line stays; the only change is the archived check.
+
+`banArchivedParentAccounts`: run once, result reported, then removed in the same change set.
 
 `CREATE OR REPLACE` keeps existing execute grants; read-back will confirm.
 
