@@ -1,5 +1,10 @@
 # Roadmap
 
+## Technique Library spacing and shared published access
+- [x] Read request, current SQL, all callers, exact dashboard/announcements padding and fixture state; prepare full SQL/code diff only.
+- [ ] Await approval before app/database changes; proposal includes existing-session guard for ungated sidebar query.
+- [ ] After approval: platform migration, approved diff, fixture tests a–e, restore/unban and draft cleanup, full read-back/unrelated-policy-function comparison, quick scan and dependency check.
+
 ## Invite-code enumeration security
 - [x] Approved removal of signup pre-check and revocation from anon, authenticated and PUBLIC after caller inventory.
 - [x] Applied 0023 through platform migration tool; signup layout preserved, pre-check states removed.
