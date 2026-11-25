@@ -1,20 +1,20 @@
 /**
- * Round 13 AU — the jiu jitsu / wrestling technique library.
+ * The shared technique library.
  *
  * Deliberately NOT part of `curriculum_items`: that table feeds the karate belt
  * entitlement boundary. Everything here lives in `technique_library` and reaches
- * the browser only through `get_technique_library()`, which resolves the parent
- * from auth.uid() and decides entitlement in SQL — a family never receives an
- * item it is not entitled to, and drafts only ever reach admins.
+ * the browser only through `get_technique_library()`. Active members receive
+ * all published techniques regardless of enrollment; drafts only reach admins.
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-auth";
 
 export type TechniqueItem = {
   id: string;
   program_id: string;
   program_name: string;
-  /** "Jiu Jitsu" or "Wrestling" — display and filtering only. */
+  /** Technique label — display and filtering only. */
   label: string;
   title: string;
   category: string;
@@ -55,8 +55,10 @@ export const DIFFICULTY_LABELS: Record<string, string> = {
 };
 
 export function useTechniqueLibrary() {
+  const { user, loading } = useSession();
   return useQuery({
-    queryKey: ["technique-library"],
+    queryKey: ["technique-library", user?.id],
+    enabled: !loading && Boolean(user),
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_technique_library");
       if (error) throw error;

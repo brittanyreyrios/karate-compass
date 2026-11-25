@@ -169,6 +169,13 @@
       "when": 1795489846663,
       "tag": "0023_revoke_check_invite_code",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795577080371,
+      "tag": "0024_technique_library_all_active_members",
+      "breakpoints": true
     }
   ]
 }

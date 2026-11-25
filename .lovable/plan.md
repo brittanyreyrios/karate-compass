@@ -1,7 +1,7 @@
 # Technique Library: spacing and published access
 
 ## Approval boundary
-Proposal only; no app, database, fixture or dependency changes applied. After approval, use the platform migration tool into `drizzle/migrations/`. Frozen `supabase/migrations/` stays untouched; do not manually edit the migration journal.
+Approved with account-specific query caching and a same-browser staff-to-parent draft check. Use the platform migration tool into `drizzle/migrations/`. Frozen `supabase/migrations/` stays untouched; do not manually edit the migration journal.
 
 ## Confirmed baseline
 - Dashboard (`index.tsx:411`) and announcements (`announcements.tsx:141`) both use exactly `px-4 sm:px-6 lg:px-8`. Add only these horizontal classes to the library normal/error wrappers. Keep max-width, vertical spacing, grids, cards and every other style unchanged. Video cards are inside the wrapper.
@@ -107,7 +107,8 @@ Subtitle, empty-state wording and this page's description metadata no longer imp
  export function useTechniqueLibrary() {
 +  const { user, loading } = useSession();
    return useQuery({
-     queryKey: ["technique-library"],
+-    queryKey: ["technique-library"],
++    queryKey: ["technique-library", user?.id],
 +    enabled: !loading && Boolean(user),
      queryFn: async () => {
 --- a/src/components/app-sidebar.tsx
@@ -129,7 +130,7 @@ Use only `zz.test.negative@example.com` and `leaguecity.tigersden+zzstaff@gmail.
 
 **b. Unpublished hidden:** staff creates one temporary draft. Parent RPC/UI omit its exact ID/title; all returned rows published.
 
-**c. Staff unchanged:** existing IDs/fields/order match staff baseline; temporary draft included and shown as staff-only.
+**c. Staff unchanged:** existing IDs/fields/order match staff baseline; temporary draft included and shown as staff-only. Sign staff out and the parent in on the same browser: no staff draft appears, including during loading; query keys are scoped to each signed-in user ID.
 
 **d. Signed out:** deliberately call the function; permission denied, not just an empty list. Also verify signed-out navigation triggers no automatic library RPC.
 

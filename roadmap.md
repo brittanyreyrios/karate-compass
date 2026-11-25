@@ -2,8 +2,10 @@
 
 ## Technique Library spacing and shared published access
 - [x] Read request, current SQL, all callers, exact dashboard/announcements padding and fixture state; prepare full SQL/code diff only.
-- [ ] Await approval before app/database changes; proposal includes existing-session guard for ungated sidebar query.
-- [ ] After approval: platform migration, approved diff, fixture tests a–e, restore/unban and draft cleanup, full read-back/unrelated-policy-function comparison, quick scan and dependency check.
+- [x] Approval received; include signed-in user ID in the query key and verify same-browser staff sign-out followed by parent sign-in never shows drafts.
+- [x] Applied 0024 through platform tool and approved page/session/cache diff; all a–e browser fixture tests passed, same-browser parent never showed staff drafts, cleanup restored/unbanned parent and removed drafts.
+- [x] Read-back: other public-function and all-policy hashes unchanged; only automatic fixture archive timestamps changed, child business fields/enrollments/guardians intact. Quick scan zero new/one existing app_settings warning, none dismissed.
+- [x] Retained fixture-only browser suite and three passing live regression tests; package.json/bun.lock unchanged, no dependency changes. Report: technique-library-verification.md. Page/account-cache changes require publishing.
 
 ## Invite-code enumeration security
 - [x] Approved removal of signup pre-check and revocation from anon, authenticated and PUBLIC after caller inventory.

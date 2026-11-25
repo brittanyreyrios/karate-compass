@@ -22,12 +22,12 @@ export const Route = createFileRoute("/_authenticated/techniques")({
       {
         name: "description",
         content:
-          "Jiu jitsu and wrestling technique videos for Tiger's Den families training in the grappling programme.",
+          "Published technique videos grouped by position for all active Tiger's Den families.",
       },
       { property: "og:title", content: "Technique Library — Tiger's Den Martial Arts & Fitness" },
       {
         property: "og:description",
-        content: "Jiu jitsu and wrestling technique videos for Tiger's Den grappling families.",
+        content: "Published technique videos grouped by position for all active Tiger's Den families.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -61,7 +61,7 @@ function Techniques() {
 
   if (libraryQ.isError) {
     return (
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
         <QueryErrorState
           what="the technique library"
           onRetry={() => void libraryQ.refetch()}
@@ -71,14 +71,13 @@ function Techniques() {
   }
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-5xl">
+    <div className="mx-auto w-full min-w-0 max-w-5xl px-4 sm:px-6 lg:px-8">
       <header>
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
           <Swords className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" /> Technique Library
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Jiu jitsu and wrestling techniques, grouped by position. Nothing loads from YouTube until
-          you press play.
+          Techniques grouped by position. Nothing loads from YouTube until you press play.
         </p>
       </header>
 
@@ -86,7 +85,7 @@ function Techniques() {
         <p className="mt-8 text-sm text-muted-foreground">Loading techniques…</p>
       ) : items.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">
-          There are no techniques in your family's programme yet.
+          There are no published techniques yet.
         </p>
       ) : (
         <>

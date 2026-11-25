@@ -56,9 +56,8 @@ export function AppSidebar() {
   const { data: isAdmin } = useIsAdmin(user?.id);
 
   /**
-   * AU2 — the Technique Library tab only exists for families the server says are
-   * entitled to something. A karate-only family never sees an empty shell; the
-   * entitlement decision is made in SQL, not here.
+   * Show the Technique Library tab when the server returns techniques. Active
+   * members can see all published techniques; staff can also see drafts.
    */
   const libraryQ = useTechniqueLibrary();
   const hasLibrary = (libraryQ.data ?? []).length > 0;
