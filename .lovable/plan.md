@@ -1,142 +1,139 @@
-# Technique Library: spacing and published access
+# Manage Students search box — proposed diff (awaiting approval)
 
-## Approval boundary
-Approved with account-specific query caching and a same-browser staff-to-parent draft check. Use the platform migration tool into `drizzle/migrations/`. Frozen `supabase/migrations/` stays untouched; do not manually edit the migration journal.
+UI-only. No database, policy or dependency changes. Only the Manage Students
+section of `src/routes/_authenticated/admin.tsx` changes, plus one export
+keyword in `src/components/admin-tournament-bulk.tsx` so the exact same search
+normaliser is reused instead of copied.
 
-## Confirmed baseline
-- Dashboard (`index.tsx:411`) and announcements (`announcements.tsx:141`) both use exactly `px-4 sm:px-6 lg:px-8`. Add only these horizontal classes to the library normal/error wrappers. Keep max-width, vertical spacing, grids, cards and every other style unchanged. Video cards are inside the wrapper.
-- Negative fixture: active, unarchived; permanent child enrolled in Tai Chi (Tai Chi & Karate), points zero. Staff fixture: no students.
-- Eight published techniques: three Jiu Jitsu labels, five Wrestling labels, all in the program Jiu Jitsu & Wrestling. No existing drafts; b/c require one temporary staff-created draft, removed afterward.
-- EXECUTE: anon denied; authenticated/service_role allowed; no PUBLIC grant. Preserve all grants. `is_active_member()` already requires an unarchived profile for non-admins.
+## How it works
 
-## All callers and signed-out caveat
-- Sole direct RPC: `src/lib/technique-library.ts:61`, inside `useTechniqueLibrary()`.
-- Consumer: `src/routes/_authenticated/techniques.tsx:40`, protected by the authenticated layout's `getUser()` beforeLoad and `ssr: false`.
-- Consumer: `src/components/app-sidebar.tsx:63`, mounted from `src/routes/__root.tsx:162` outside that guard. Auth/legal/reset pages omit the sidebar, but the shared shell can mount before the protected guard completes.
+- `useAdminProfiles()` is already used by the roster rows (shared React Query
+  cache key `admin-profiles`), so calling it in `ManageStudentsTab` adds **no
+  new database query** — it reads the same cached profiles.
+- Primary guardian name = the profile whose `id` matches `student.parent_id`.
+- The search term filters the already-loaded `visibleStudents` list in the
+  browser, combined with (not instead of) the existing toggle filters.
+- Matching reuses the tournament bulk-entry normaliser (`trim`, lowercase,
+  collapse whitespace) and checks first name, last name, full name and
+  guardian name with `includes` (partial match).
+- Search state lives in `ManageStudentsTab`, so leaving the tab unmounts it
+  and the text resets automatically.
+- Input: `h-11` (44px), `text-base` (16px — no iPhone zoom), full width,
+  clear (×) button, result count, "No students match" empty state.
 
-**I cannot confirm that every current caller waits for sign-in:** the hook has no enabled guard. The diff adds a small existing-session check so neither consumer automatically calls the RPC while signed out or resolving its initial session. Existing database EXECUTE denial remains the security boundary. Generated types/comments are not callers; no other runtime callers exist in `src/`.
-
-## Technical details: full SQL
-Only remove the enrollment EXISTS predicate. Preserve signature, return columns, ordering, STABLE, SECURITY DEFINER, search_path, admin path and privileges. No policy or other function changes.
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_technique_library()
- RETURNS TABLE(id uuid, program_id uuid, program_name text, label text, title text, category text, difficulty text, notes text, sort_order integer, published boolean, video_youtube_id text, video_title text, video_seconds integer, video_orientation text)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT tl.id, tl.program_id, pr.name, tl.label, tl.title,
-         tl.category, tl.difficulty, tl.notes, tl.sort_order,
-         tl.published, tl.video_youtube_id, tl.video_title, tl.video_seconds,
-         tl.video_orientation
-  FROM public.technique_library tl
-  JOIN public.programs pr ON pr.id = tl.program_id
-  WHERE
-    public.has_role(auth.uid(), 'admin')
-    OR (
-      public.is_active_member()  -- guard
-      AND tl.published = true
-    )
-  ORDER BY tl.category, tl.sort_order, tl.title;
-$function$;
-```
-
-## Technical details: full application diff
-Subtitle, empty-state wording and this page's description metadata no longer imply enrollment restrictions. Existing filter chips already derive from all returned technique labels: parents will see every published label/program, including both existing Jiu Jitsu/Wrestling labels. Do not rename those labels or replace the existing filter design. Staff draft behavior stays unchanged. Sidebar edit is comment-only; navigation becomes available automatically when SQL returns techniques.
+## Diff 1 — src/components/admin-tournament-bulk.tsx (export only)
 
 ```diff
---- a/src/routes/_authenticated/techniques.tsx
-+++ b/src/routes/_authenticated/techniques.tsx
-@@ -24,3 +24,3 @@
-         content:
--          "Jiu jitsu and wrestling technique videos for Tiger's Den families training in the grappling programme.",
-+          "Published technique videos grouped by position for all active Tiger's Den families.",
-       },
-@@ -29,3 +29,3 @@
-         property: "og:description",
--        content: "Jiu jitsu and wrestling technique videos for Tiger's Den grappling families.",
-+        content: "Published technique videos grouped by position for all active Tiger's Den families.",
-       },
-@@ -63,3 +63,3 @@
-     return (
--      <div className="mx-auto w-full max-w-5xl">
-+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
-         <QueryErrorState
-@@ -73,3 +73,3 @@
-   return (
--    <div className="mx-auto w-full min-w-0 max-w-5xl">
-+    <div className="mx-auto w-full min-w-0 max-w-5xl px-4 sm:px-6 lg:px-8">
-       <header>
-@@ -79,4 +79,3 @@
-         <p className="mt-1 text-sm text-muted-foreground">
--          Jiu jitsu and wrestling techniques, grouped by position. Nothing loads from YouTube until
--          you press play.
-+          Techniques grouped by position. Nothing loads from YouTube until you press play.
-         </p>
-@@ -88,3 +87,3 @@
-         <p className="mt-8 text-sm text-muted-foreground">
--          There are no techniques in your family's programme yet.
-+          There are no published techniques yet.
-         </p>
---- a/src/lib/technique-library.ts
-+++ b/src/lib/technique-library.ts
-@@ -1,3 +1,3 @@
- /**
-- * Round 13 AU — the jiu jitsu / wrestling technique library.
-+ * The shared technique library.
-  *
-@@ -5,5 +5,4 @@
-  * entitlement boundary. Everything here lives in `technique_library` and reaches
-- * the browser only through `get_technique_library()`, which resolves the parent
-- * from auth.uid() and decides entitlement in SQL — a family never receives an
-- * item it is not entitled to, and drafts only ever reach admins.
-+ * the browser only through `get_technique_library()`. Active members receive
-+ * all published techniques regardless of enrollment; drafts only reach admins.
-  */
-@@ -11,2 +10,3 @@
- import { supabase } from "@/integrations/supabase/client";
-+import { useSession } from "@/hooks/use-auth";
- 
-@@ -16,3 +16,3 @@
-   program_name: string;
--  /** "Jiu Jitsu" or "Wrestling" — display and filtering only. */
-+  /** Technique label — display and filtering only. */
-   label: string;
-@@ -57,4 +57,6 @@
- export function useTechniqueLibrary() {
-+  const { user, loading } = useSession();
-   return useQuery({
--    queryKey: ["technique-library"],
-+    queryKey: ["technique-library", user?.id],
-+    enabled: !loading && Boolean(user),
-     queryFn: async () => {
---- a/src/components/app-sidebar.tsx
-+++ b/src/components/app-sidebar.tsx
-@@ -58,5 +58,4 @@
-   /**
--   * AU2 — the Technique Library tab only exists for families the server says are
--   * entitled to something. A karate-only family never sees an empty shell; the
--   * entitlement decision is made in SQL, not here.
-+   * Show the Technique Library tab when the server returns techniques. Active
-+   * members can see all published techniques; staff can also see drafts.
-    */
+-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
++export const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 ```
 
-## Tests after approval — report a–e separately
-Use only `zz.test.negative@example.com` and `leaguecity.tigersden+zzstaff@gmail.com`. No signup, invite use, real families, permanent child edits or existing technique edits. First capture all public function definitions/settings/ACLs, all policies including storage, technique inventory, fixture profile/ban states, permanent child/guardian/enrollment rows and a quick-scan baseline.
+## Diff 2 — src/routes/_authenticated/admin.tsx (Manage Students only)
 
-**a. Active Tai Chi parent:** actual sign-in and library visit; RPC/UI contain every published ID (currently eight), all published filter labels (currently Jiu Jitsu and Wrestling), independent of enrollment. Check mobile insets including video cards against dashboard/announcements; desktop styling unchanged.
+Import the shared normaliser (added to the existing admin-tournament-bulk
+import line, or a new line if none exists):
 
-**b. Unpublished hidden:** staff creates one temporary draft. Parent RPC/UI omit its exact ID/title; all returned rows published.
+```diff
++import { norm } from "@/components/admin-tournament-bulk";
+```
 
-**c. Staff unchanged:** existing IDs/fields/order match staff baseline; temporary draft included and shown as staff-only. Sign staff out and the parent in on the same browser: no staff draft appears, including during loading; query keys are scoped to each signed-in user ID.
+State and guardian-name lookup, next to the existing filter state:
 
-**d. Signed out:** deliberately call the function; permission denied, not just an empty list. Also verify signed-out navigation triggers no automatic library RPC.
+```diff
+   const [claimFilter, setClaimFilter] = useState<"all" | "claimed" | "unclaimed">("all");
++  const [search, setSearch] = useState("");
+   const allStudents = studentsQ.data ?? [];
++  // Same cache key as the roster rows — no new query, just the shared profiles.
++  const { data: profiles } = useAdminProfiles();
++  const guardianNameById = useMemo(() => {
++    const m = new Map<string, string>();
++    for (const p of profiles ?? []) m.set(p.id, p.family_name || p.email);
++    return m;
++  }, [profiles]);
+```
 
-**e. Archive/restore:** retain a pre-archive fixture token privately; archive negative parent through the staff page; a fresh direct RPC with that token returns zero rows. Restore through staff page, confirm unbanned and sign in again, repeat (a). Existing archive behavior temporarily deactivates the child; restore it through the same existing flow. Compare child business fields, guardians, enrollments, attendance and zero points with baseline. Report any automatic updated_at change separately; never manually restore timestamps or edit child data.
+Extend the existing filter (search ANDs with the toggles):
 
-Cleanup in `finally`, even on failure: restore/unban negative fixture through supported staff action; delete only the temporary draft. Confirm no temporary records and fixture remains restored/unbanned.
+```diff
+-  const visibleStudents = activeStudents.filter(
+-    (s) =>
+-      (!noRankOnly || !s.belt_rank_id) &&
+-      (!noClassOnly || !byStudent.get(s.id)?.length) &&
+-      (!mismatchOnly || mismatchIds.has(s.id)) &&
+-      (claimFilter === "all" || (claimFilter === "unclaimed") === (s.parent_id === null)),
+-  );
++  const term = norm(search);
++  const visibleStudents = activeStudents.filter(
++    (s) =>
++      (!noRankOnly || !s.belt_rank_id) &&
++      (!noClassOnly || !byStudent.get(s.id)?.length) &&
++      (!mismatchOnly || mismatchIds.has(s.id)) &&
++      (claimFilter === "all" || (claimFilter === "unclaimed") === (s.parent_id === null)) &&
++      (!term ||
++        norm(s.first_name).includes(term) ||
++        norm(s.last_name).includes(term) ||
++        norm(`${s.first_name} ${s.last_name}`).includes(term) ||
++        (s.parent_id !== null &&
++          norm(guardianNameById.get(s.parent_id) ?? "").includes(term))),
++  );
+```
 
-## Read-back, scan and dependency report
-Read back the complete function and existing privileges. Compare every other public function and all policies with baseline: no differences. Run quick security scan; report new versus existing findings without dismissing anything. Show `git diff -- package.json bun.lock`: **no dependency changes**. Check staged files for private credentials. Report each test and cleanup honestly, including any limitation. Page change needs publishing; do not publish automatically.
+Search box + count, placed directly above the existing filter buttons
+(`<div className="mt-4 flex flex-wrap items-center gap-3">`):
+
+```diff
++          <div className="mt-4">
++            <div className="relative">
++              <Input
++                className="h-11 w-full pr-10 text-base"
++                placeholder="Search student or guardian name"
++                value={search}
++                onChange={(e) => setSearch(e.target.value)}
++                aria-label="Search students"
++              />
++              {search !== "" && (
++                <button
++                  type="button"
++                  aria-label="Clear search"
++                  onClick={() => setSearch("")}
++                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
++                >
++                  <X className="h-4 w-4" aria-hidden="true" />
++                </button>
++              )}
++            </div>
++            <p className="mt-1.5 text-xs text-muted-foreground">
++              {visibleStudents.length} of {activeStudents.length} students
++            </p>
++          </div>
++
+           <div className="mt-4 flex flex-wrap items-center gap-3">
+```
+
+Empty-state wording when a search/filter hides everything:
+
+```diff
+             {!studentsQ.isLoading && activeStudents.length > 0 && visibleStudents.length === 0 && (
+               <p className="text-sm text-muted-foreground">
+-                No active students match this filter. Nothing to fix here.
++                {term ? "No students match" : "No active students match this filter. Nothing to fix here."}
+               </p>
+             )}
+```
+
+`X` is already imported from lucide-react in this file (used elsewhere);
+if not, it is added to the existing lucide import line.
+
+## Tests (zzstaff fixture only, no real student edits)
+
+a. Search permanent zz.test.negative child by first name → row shown, count updates.
+b. Partial last name (e.g. "mat") → same child found.
+c. Guardian name → child found.
+d. Search + "No belt rank set" style toggle together → both apply.
+e. Clear (×) → full list and count restored; mobile-width check (full width, 44px, 16px font).
+
+## Report will include
+
+- Each test result separately.
+- package.json / bun.lock diff: expected "no dependency changes".
+- No tracked credentials.
