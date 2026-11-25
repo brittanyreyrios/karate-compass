@@ -122,4 +122,4 @@
 
 ## Manage Students search box
 - [x] Diff proposed and approved (null-safe search, shared norm in src/lib/text.ts, null last_name check)
-- [ ] Apply code changes, run zzstaff tests a–e, dependency check, report
+- [x] Apply code changes, run zzstaff tests a–e, dependency check, report
