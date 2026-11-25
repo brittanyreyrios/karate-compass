@@ -158,6 +158,7 @@ import { changeAttendance } from "@/lib/attendance";
 import { markAbsent as markAbsentRpc, removeAbsence, checkInStudent } from "@/lib/absences";
 import { AbsenceHistory } from "@/components/admin-absences";
 import { daysUntilDateOnly, formatDateOnly, normalizeDateOnly } from "@/lib/date-only";
+import { norm, studentMatchesSearch } from "@/lib/text";
 import {
   chicagoEndOfDay,
   chicagoStartOfDay,
@@ -1080,7 +1081,15 @@ function ManageStudentsTab() {
   const [noClassOnly, setNoClassOnly] = useState(false);
   const [mismatchOnly, setMismatchOnly] = useState(false);
   const [claimFilter, setClaimFilter] = useState<"all" | "claimed" | "unclaimed">("all");
+  const [search, setSearch] = useState("");
   const allStudents = studentsQ.data ?? [];
+  // Same cache key as the roster rows — no new query, just the shared profiles.
+  const { data: profiles } = useAdminProfiles();
+  const guardianNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of profiles ?? []) m.set(p.id, p.family_name || p.email || "");
+    return m;
+  }, [profiles]);
   const noRankCount = allStudents.filter((s) => !s.belt_rank_id).length;
   /**
    * A student enrolled in nothing is allowed, but they are invisible to
@@ -1132,12 +1141,14 @@ function ManageStudentsTab() {
   const activeStudents = allStudents.filter((s) => s.active);
   const archivedStudents = allStudents.filter((s) => !s.active);
 
+  const term = norm(search);
   const visibleStudents = activeStudents.filter(
     (s) =>
       (!noRankOnly || !s.belt_rank_id) &&
       (!noClassOnly || !byStudent.get(s.id)?.length) &&
       (!mismatchOnly || mismatchIds.has(s.id)) &&
-      (claimFilter === "all" || (claimFilter === "unclaimed") === (s.parent_id === null)),
+      (claimFilter === "all" || (claimFilter === "unclaimed") === (s.parent_id === null)) &&
+      (!term || studentMatchesSearch(s, term, guardianNameById)),
   );
   const unclaimedCount = activeStudents.filter((s) => s.parent_id === null).length;
 
@@ -1400,6 +1411,31 @@ function ManageStudentsTab() {
             ))}
           </div>
 
+          <div className="mt-4">
+            <div className="relative">
+              <Input
+                className="h-11 w-full pr-10 text-base"
+                placeholder="Search student or guardian name"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search students"
+              />
+              {search !== "" && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {visibleStudents.length} of {activeStudents.length} students
+            </p>
+          </div>
+
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button
               size="sm"
@@ -1476,7 +1512,7 @@ function ManageStudentsTab() {
             )}
             {!studentsQ.isLoading && activeStudents.length > 0 && visibleStudents.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No active students match this filter. Nothing to fix here.
+                {term ? "No students match" : "No active students match this filter. Nothing to fix here."}
               </p>
             )}
 

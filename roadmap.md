@@ -119,3 +119,7 @@
 - [x] Migration 0022 (guardian archived check, policies, read-function guards incl. both curriculum functions)
 - [x] Ban/unban in archive server function; run banArchivedParentAccounts once then remove it
 - [x] Fixture tests a–e, cleanup, read-back, quick scan, dependency check
+
+## Manage Students search box
+- [x] Diff proposed and approved (null-safe search, shared norm in src/lib/text.ts, null last_name check)
+- [ ] Apply code changes, run zzstaff tests a–e, dependency check, report

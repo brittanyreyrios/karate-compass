@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cleanDisciplines } from "@/lib/calendar-data";
 import { DisciplinePicker } from "@/components/discipline-tags";
 import { useClasses, useEnrollments, usePrograms, indexEnrollments } from "@/lib/enrollment";
+import { norm } from "@/lib/text";
 
 const MANUAL = "manual";
 const ALL = "all";
@@ -29,9 +30,9 @@ const ALL = "all";
  * "Jiu Jitsu" and the match silently never fired. Here the same class of bug
  * would mean staff get double rows, so tournament name and event name are
  * compared through this one normaliser on BOTH sides — trimmed, lowercased, and
- * internal whitespace collapsed. Dates are compared as plain date strings.
+ * internal whitespace collapsed (shared `norm` from @/lib/text). Dates are
+ * compared as plain date strings.
  */
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
 type StudentRow = {
   id: string;
