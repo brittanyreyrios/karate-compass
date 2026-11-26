@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { TrendsTab } from "@/components/admin/TrendsTab";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -310,6 +311,7 @@ function FollowUpBadge({ n }: { n: number }) {
 /** Single source of truth for the tab strip and its mobile <Select> twin. */
 const ADMIN_TABS: { value: string; label: string }[] = [
   { value: "attendance", label: "Master Attendance" },
+  { value: "trends", label: "Trends" },
   { value: "students", label: "Manage Students" },
   { value: "schedules", label: "Class Schedules & Testing" },
   { value: "events", label: "Events Calendar" },
@@ -349,7 +351,13 @@ function AdminPage() {
     : !lastWeek ? "Not enough data yet"
     : `Parents active last week: ${lastWeek.active_parents} of ${lastWeek.eligible_parents} (${lastWeek.pct === null ? "—" : Number(lastWeek.pct).toFixed(1) + "%"}) · 4-week average: ${fourWeekAverage}`;
 
-  const [tab, setTab] = useState("attendance");
+  const [tab, setTabRaw] = useState("attendance");
+  // Seed for the Manage Students search when Trends → "Open student" is used.
+  const [studentSeed, setStudentSeed] = useState("");
+  const setTab = (v: string) => {
+    setStudentSeed("");
+    setTabRaw(v);
+  };
   const [consentOnly, setConsentOnly] = useState(false);
 
   const openConsentReview = () => {
@@ -420,8 +428,11 @@ function AdminPage() {
         <TabsContent value="attendance" className="mt-6">
           <AttendanceTab />
         </TabsContent>
+        <TabsContent value="trends" className="mt-6">
+          <TrendsTab onOpenStudent={(name) => { setTabRaw("students"); setStudentSeed(name); }} />
+        </TabsContent>
         <TabsContent value="students" className="mt-6">
-          <ManageStudentsTab />
+          <ManageStudentsTab key={studentSeed} initialSearch={studentSeed} />
         </TabsContent>
         <TabsContent value="schedules" className="mt-6">
           <ClassSchedulesTab />
@@ -1067,7 +1078,7 @@ function AttendanceTab() {
 
 /* ---------- MANAGE STUDENTS ---------- */
 
-function ManageStudentsTab() {
+function ManageStudentsTab({ initialSearch = "" }: { initialSearch?: string }) {
   const qc = useQueryClient();
   const studentsQ = useStudents();
   const classesQ = useClasses();
@@ -1081,7 +1092,7 @@ function ManageStudentsTab() {
   const [noClassOnly, setNoClassOnly] = useState(false);
   const [mismatchOnly, setMismatchOnly] = useState(false);
   const [claimFilter, setClaimFilter] = useState<"all" | "claimed" | "unclaimed">("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const allStudents = studentsQ.data ?? [];
   // Same cache key as the roster rows — no new query, just the shared profiles.
   const { data: profiles } = useAdminProfiles();
